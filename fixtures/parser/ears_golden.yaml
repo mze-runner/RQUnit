@@ -1,0 +1,162 @@
+# TASK-011 golden suite — THE executable contract for statement parsing.
+# Extend this suite before extending the grammar. `expected` keys are compared
+# selectively (only the keys listed are asserted), so each case pins exactly
+# what it is about. `syntax` defaults to ears.
+#
+# Contract decisions this suite pins (flag at G1 if wrong):
+# - The shall-clause subject is "the system" or a HYPHENATED service name
+#   (service-auth). A bare noun subject ("Operations manager shall...") is an
+#   L1 error — actors live in triggers/conditions or as response objects.
+# - `subject` is the leading article-stripped ident of the clause; the parser
+#   does not judge whether it is an actor (that is L12's registry heuristic).
+# - Bounds are integer number+unit or a {value:...} ref (optionally + unit);
+#   anything else in bound position parses as kind `word` for L2 to judge.
+parsed:
+  # ---------- §13 worked examples, verbatim
+  - statement: >
+      When a customer-support-agent calls {endpoint:cancel_order}, the system
+      shall halt fulfilment activity for that order_id within 5 seconds.
+    expected:
+      template: event
+      system: the system
+      subject: customer-support-agent
+      clause: "a customer-support-agent calls {endpoint:cancel_order}"
+      bound: {text: 5 seconds, kind: literal}
+      negated: false
+      shall_clauses: 1
+  - statement: >
+      While an order is cancelling, the system shall not dispatch any new
+      shipments for that order.
+    expected:
+      template: state
+      subject: order
+      negated: true
+      response: not dispatch any new shipments for that order
+  - statement: >
+      The system shall record every screening decision as
+      {audit:orders.screening.decided}, retrievable for
+      {value:retention.decision_log_days} days.
+    expected:
+      template: ubiquitous
+      system: The system
+      shall_clauses: 1
+  - statement: The system shall record an audit event for every state-changing action.
+    expected: {template: ubiquitous}
+  - statement: >
+      The system shall deny any action that is not explicitly granted to the
+      requesting actor's role.
+    expected: {template: ubiquitous, negated: false}
+
+  # ---------- event template variants
+  - statement: When a user calls {endpoint:delete_account}, the system shall mark the account pending-deletion.
+    expected: {template: event, subject: user}
+  - statement: When an operations-manager enables screening for a channel, the system shall apply the rule set to subsequent orders.
+    expected: {template: event, subject: operations-manager}
+  - statement: When the system receives {message:session_invalidated}, the system shall close every affected connection within 3 seconds.
+    expected: {template: event, subject: system, bound: {text: 3 seconds, kind: literal}}
+  - statement: When a user calls {endpoint:service-auth/token_refresh}, service-core shall accept the rotated token.
+    expected: {template: event, system: service-core, subject: user}
+  - statement: When an order is placed via {endpoint:place_order} with screening enabled, the system shall evaluate the rules within 30 seconds.
+    expected: {template: event, subject: order, bound: {text: 30 seconds, kind: literal}}
+  - statement: When a user completes a password change, the system shall send the revert link within {value:revert.dispatch_seconds} seconds.
+    expected: {template: event, bound: {text: "{value:revert.dispatch_seconds} seconds", kind: ref}}
+  - statement: When a customer-support-agent flags an order, the system shall notify the assigned reviewer with the reason codes.
+    expected: {template: event, subject: customer-support-agent}
+
+  # ---------- state template variants
+  - statement: While an account is pending-deletion, the system shall reject profile mutations with {problem:conflict}.
+    expected: {template: state, subject: account}
+  - statement: While a lobby connection is open, the system shall respond to {frame:lobby.ping} within 2 seconds.
+    expected: {template: state, bound: {text: 2 seconds, kind: literal}}
+  - statement: While the screening engine is unavailable, the system shall not auto-approve any order.
+    expected: {template: state, negated: true}
+  - statement: While a username is quarantined, the system shall reject registration attempts for that username.
+    expected: {template: state, subject: username}
+
+  # ---------- unwanted-behaviour template
+  - statement: If the screening engine is unavailable at order placement, then the system shall hold the order pending-review.
+    expected: {template: unwanted, subject: screening}
+  - statement: If a refresh token is replayed, then the system shall revoke the session family within 1 seconds.
+    expected: {template: unwanted, bound: {text: 1 seconds, kind: literal}}
+  - statement: If the payload exceeds {value:limits.body_bytes} bytes, then the system shall respond with {problem:validation}.
+    expected: {template: unwanted}
+  - statement: If an anonymous principal calls a protected endpoint, then the system shall respond with {problem:unauthorized}.
+    expected: {template: unwanted, subject: anonymous}
+
+  # ---------- optional template
+  - statement: Where finding severity is critical, the system shall route the notification to the operations-manager channel.
+    expected: {template: optional, subject: finding}
+  - statement: Where the discord feature is enabled, the system shall expose {endpoint:discord_login}.
+    expected: {template: optional}
+
+  # ---------- bounds, negation, refs
+  - statement: The system shall retain revert links for 48 hours.
+    expected: {template: ubiquitous}
+  - statement: The system shall complete the export within 900 seconds.
+    expected: {template: ubiquitous, bound: {text: 900 seconds, kind: literal}}
+  - statement: The system shall respond within {value:sla.read_millis} milliseconds.
+    expected: {template: ubiquitous, bound: {text: "{value:sla.read_millis} milliseconds", kind: ref}}
+  - statement: The system shall respond within a reasonable time.
+    expected: {template: ubiquitous, bound: {text: a reasonable time, kind: word}}
+  - statement: When a user cancels the deletion, the system shall restore the account quickly.
+    expected: {template: event, bound: null}
+  - statement: The system shall not expose internal error detail in any response body.
+    expected: {template: ubiquitous, negated: true}
+  - statement: service-auth shall publish {message:account_deleted} after the grace period elapses.
+    expected: {template: ubiquitous, system: service-auth}
+  - statement: The system shall log the actor and reason code for every screening decision.
+    expected: {template: ubiquitous, shall_clauses: 1}
+  - statement: When a user calls {endpoint:cancel_order}, the system shall halt fulfilment and shall release the reservation.
+    expected: {template: event, shall_clauses: 2}
+
+  # ---------- qualified refs in clauses (v0.10)
+  - statement: When service-core consumes {message:service-auth/account_deleted}, the system shall purge cached profile rows.
+    expected: {template: event, subject: service-core}
+  - statement: The system shall reject revoked sessions with {problem:service-auth/unauthorized}.
+    expected: {template: ubiquitous}
+
+  # ---------- gherkin mode
+  - statement: Given a pending deletion, when the user confirms cancellation, then the system shall reactivate the account.
+    syntax: gherkin
+    expected: {template: gherkin, given: a pending deletion, subject: user}
+  - statement: Given screening is enabled, when an order arrives, then the system shall evaluate the rules within 30 seconds.
+    syntax: gherkin
+    expected: {template: gherkin, bound: {text: 30 seconds, kind: literal}}
+
+  # ---------- misc shapes that must stay parseable
+  - statement: The system shall serialize audit events as {audit:profile.username_changed} entries.
+    expected: {template: ubiquitous}
+  - statement: When the grace period elapses, the system shall execute the deletion.
+    expected: {template: event, subject: grace}
+  - statement: While a deletion is pending, service-auth shall include the scheduled execution time in {endpoint:get_me} responses.
+    expected: {template: state, system: service-auth}
+  - statement: When a user submits a display name, the system shall normalize it per {vocab:display_name_rules}.
+    expected: {template: event}
+  - statement: If a connection exceeds {value:ws.max_frames_per_second} frames, then the system shall close it with close code 4429.
+    expected: {template: unwanted}
+  - statement: When an anonymous principal opens {channel:lobby}, the system shall reject the upgrade before socket establishment.
+    expected: {template: event, subject: anonymous}
+
+diagnosed:
+  - statement: The system shall respond quickly
+    expected: {nearest_template: ubiquitous, failed_slot: terminator}
+  - statement: Operations manager shall enable screening per channel.
+    expected: {nearest_template: ubiquitous, failed_slot: system}
+  - statement: When an order arrives the system shall screen it.
+    expected: {nearest_template: event, failed_slot: separator}
+  - statement: If the engine is down, the system shall hold orders.
+    expected: {nearest_template: unwanted, failed_slot: separator}
+  - statement: While cancelling, the order is held.
+    expected: {nearest_template: state, failed_slot: shall-clause}
+  - statement: The system should log all decisions.
+    expected: {nearest_template: ubiquitous, failed_slot: shall-clause}
+  - statement: Screen incoming orders automatically.
+    expected: {nearest_template: ubiquitous, failed_slot: shall-clause}
+  - statement: When a user calls the endpoint, halt fulfilment immediately.
+    expected: {nearest_template: event, failed_slot: shall-clause}
+  - statement: Given a pending deletion, when the user confirms, then the system shall reactivate.
+    expected: {nearest_template: gherkin, failed_slot: syntax}
+  - statement: Where severity is critical the system shall page the on-call.
+    expected: {nearest_template: optional, failed_slot: separator}
+  - statement: The System shall record decisions.
+    expected: {nearest_template: ubiquitous, failed_slot: system}

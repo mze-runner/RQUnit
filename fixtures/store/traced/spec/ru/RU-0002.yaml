@@ -1,0 +1,16 @@
+id: RU-0002
+statement: The system shall record an audit event for every state-changing action.
+syntax: ears
+status: active
+tier: constitutional
+source_ref: INT-0057#L1-2
+verification:
+- type: contract
+  ref: CT-audit-on-mutation
+tags:
+- doctrine
+- audit
+gate1_stamp:
+  hash: sha256:0579e74eb2fe8e747b8ea9db491c90755e6d14bb01e89760dd7330035fa48577
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

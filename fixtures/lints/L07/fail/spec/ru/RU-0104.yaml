@@ -1,0 +1,12 @@
+id: RU-0104
+statement: >
+  The system shall purge decision logs after the audit window closes.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+rationale_ref: ADR-ghost
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

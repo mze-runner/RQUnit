@@ -1,0 +1,26 @@
+{
+  "id": "other-lifecycle",
+  "kind": "statechart",
+  "initial": "pending",
+  "undeclared_event_policy": "ignore",
+  "vocabulary": {
+    "CANCEL": "{endpoint:cancel_order}",
+    "CANCEL_COMPLETE": "internal"
+  },
+  "states": {
+    "pending": {
+      "on": {
+        "CANCEL": "cancelling"
+      }
+    },
+    "cancelling": {
+      "invariant": "no_new_shipments_dispatched",
+      "on": {
+        "CANCEL_COMPLETE": "cancelled"
+      }
+    },
+    "cancelled": {
+      "type": "final"
+    }
+  }
+}

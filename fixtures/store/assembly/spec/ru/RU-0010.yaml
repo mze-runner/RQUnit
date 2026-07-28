@@ -1,0 +1,22 @@
+id: RU-0010
+statement: When a user calls {endpoint:cancel_order}, the system shall retain the
+  decision for {value:retention.decision_log_days} days.
+syntax: ears
+status: active
+feature: FEAT-hot
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: CT-base
+scope:
+  owns:
+  - service-orders/fulfilment
+  must_not_touch:
+  - service-billing
+tags:
+- orders
+- cancellation
+gate1_stamp:
+  hash: sha256:c2faeea94ae3f277cbc45ae49859565a507417cdcf376cad2142b05c3a94c88f
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

@@ -1,0 +1,14 @@
+id: RU-0001
+statement: >
+  When a user cancels an order, the system shall halt fulfilment activity within 5 seconds.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - type: model
+    ref: MDL-order-lifecycle
+    model_hash: "sha256:04fffc6878e46663245e248e104eaeff3ab6367594e499b624d0443a1d3ddb67"
+    conformance: generated
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

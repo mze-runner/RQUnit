@@ -1,0 +1,8 @@
+service: service-orders
+version: "1.0"
+endpoints:
+  - { id: refund_order, method: POST, path: "/api/v1/orders/{id}/refund", access: protected,
+      ru: RU-0001, planned: true }
+messages:
+  - { id: refund_requested, subject: orders.refund, direction: outbound,
+      payload: "wire::RefundRequested", ru: FEAT-refunds, planned: true }

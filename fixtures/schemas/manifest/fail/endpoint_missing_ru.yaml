@@ -1,0 +1,11 @@
+service: service-orders
+version: "1.0"
+problem_types:
+  conflict: { uri: "urn:problem:conflict", status: 409, title: "Conflict" }
+values:
+  retention: { decision_log_days: 90 }
+audit_events:
+  - { code: orders.cancelled, fields: [order_id, reason], ru: FEAT-order-cancellation }
+endpoints:
+  - { id: cancel_order, method: DELETE, path: "/api/v1/orders/{id}", access: protected,
+      emits: [conflict, orders.cancelled] }

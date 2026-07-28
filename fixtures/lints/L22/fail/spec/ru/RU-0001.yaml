@@ -1,0 +1,17 @@
+id: RU-0001
+statement: When a user requests a refund, the system shall queue the refund for settlement.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: human
+  criterion: Is the refund queue behaviour observable end to end?
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:e0c30d746bff0b445ce05a5fc622a05e683802158a96b30efc74d5307cf59141
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

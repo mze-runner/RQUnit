@@ -1,0 +1,220 @@
+# Manifest schema (JSON Schema 2020-12 in YAML).
+# Normative source: spec v0.10 §5.2, §5.8 (v0.10 adds success_status, planned, external). Harmonized from the donor contract-manifest
+# schema with these deliberate changes:
+#   * story:  → ru:  (traceability link to governing RU/FEAT, §6.6)
+#   * rate_limit_keys → generalized `vocabularies` (named controlled sets, C5)
+#   * service pattern generalized (no forced "service-" prefix)
+#   * inline `# CONFLICT:` comments FORBIDDEN — conflicts are GAP artifacts
+#     (unknown keys are already rejected; the ban on conflict comments is a
+#     documented convention checked by a grep-class lint on manifest sources)
+#   * payload fields remain TYPE NAMES ONLY — the compiler owns shapes.
+# Applies to spec/manifests/<service>.manifest.yaml and shared.manifest.yaml
+# (shared: interface surfaces FORBIDDEN — values/vocabularies/problem_types only;
+#  enforced by the conditional at the bottom).
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "spec/framework/manifest.schema.yaml"
+title: ServiceManifest
+type: object
+additionalProperties: false
+required: [service, version]
+
+$defs:
+  ru_link:
+    type: string
+    description: Governing RU or FEAT (bidirectional traceability, §6.6).
+    pattern: "^(RU-[0-9]{4}|FEAT-[a-z0-9-]+)$"
+  ident:
+    type: string
+    pattern: "^[a-z][a-z0-9_]*$"
+
+properties:
+
+  service:
+    type: string
+    description: Service slug; "shared" reserved for the shared manifest.
+    pattern: "^[a-z][a-z0-9-]*$"
+
+  version:
+    type: string
+    pattern: "^[0-9]+\\.[0-9]+$"
+
+  problem_types:
+    type: object
+    description: RFC 7807-style error registry; referenced as {problem:<id>}.
+    propertyNames: { pattern: "^[a-z][a-z0-9-]*$" }
+    additionalProperties:
+      type: object
+      additionalProperties: false
+      required: [uri, status, title]
+      properties:
+        uri:    { type: string, pattern: "^urn:problem:[a-z-]+$" }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        title:  { type: string }
+
+  values:
+    type: object
+    description: >
+      Cross-cutting scalar facts, nested map, referenced as {value:<dotted.key>}.
+      Registration rule (§5.4): a value belongs here iff ≥2 RUs reference it —
+      that is Gate 1 judgment, not schema. Leaf-scalar constraint (no arrays/
+      objects at leaves) is a loader check, not expressible in JSON Schema for
+      arbitrary depth.
+
+  audit_events:
+    type: array
+    description: Referenced as {audit:<code>}. Common fields declared once in `audit_common`.
+    items:
+      type: object
+      additionalProperties: false
+      required: [code, fields, ru]
+      properties:
+        code:   { type: string, pattern: "^[a-z]+(\\.[a-z_]+)+$" }
+        level:  { enum: [trace, debug, info, warn, error], default: info }
+        fields: { type: array, items: { type: string }, uniqueItems: true }
+        ru:     { $ref: "#/$defs/ru_link" }
+
+  audit_common:
+    type: array
+    description: Fields present on EVERY audit event (declared once — P8).
+    items: { type: string }
+    uniqueItems: true
+
+  vocabularies:
+    type: object
+    description: Named controlled value sets, referenced as {vocab:<name>}; membership enforced by C5.
+    propertyNames: { pattern: "^[a-z][a-z0-9_]*$" }
+    additionalProperties:
+      type: array
+      minItems: 1
+      uniqueItems: true
+      items: { type: string }
+
+  endpoints:
+    type: array
+    description: HTTP surface; authoritative for method+path+access (C4 uniqueness).
+    items:
+      type: object
+      additionalProperties: false
+      required: [id, method, path, access, ru]
+      properties:
+        id:     { $ref: "#/$defs/ident" }
+        method: { enum: [GET, POST, PUT, PATCH, DELETE] }
+        path:   { type: string, pattern: "^/" }
+        success_status:
+          type: integer
+          minimum: 200
+          maximum: 399
+          description: Pinned success response code (v0.10) — a checkable surface fact.
+        planned:
+          type: boolean
+          description: >
+            Designed-but-unbuilt (§5.8). Conformance is asymmetric: absence from
+            the runtime surface is expected, presence is the "implemented but
+            planned — flip at Gate 1" divergence. ru link must be not-done (L22).
+        access:
+          type: string
+          description: >
+            Access tier. The tier set is project-defined: it MUST be a
+            vocabulary named `access_tiers` in the shared manifest (C5 checks
+            membership) — the schema deliberately does not hardcode an enum.
+        scope:
+          type: string
+          pattern: "^[a-z][a-z0-9-]*$"
+          description: >
+            Required credential scope for this endpoint (v0.11): a value from
+            the `token_scopes` vocabulary, shared or the owning service's (C5
+            checks membership). Meaningful on scoped-credential access tiers;
+            the contract bound to the tier (contract.schema access_tier)
+            defines the artifact that carries the scope claim.
+        ru:     { $ref: "#/$defs/ru_link" }
+        emits:
+          type: array
+          description: problem_type ids and audit codes this endpoint can produce (C6).
+          items: { type: string }
+          uniqueItems: true
+
+  messages:
+    type: array
+    description: Async surface (subjects/topics); referenced as {message:<id>}.
+    items:
+      type: object
+      additionalProperties: false
+      required: [id, subject, direction, payload, ru]
+      properties:
+        id:        { $ref: "#/$defs/ident" }
+        subject:   { type: string, pattern: "^[a-z][a-z0-9_.]*$" }
+        direction: { enum: [inbound, outbound] }
+        payload:
+          type: string
+          description: "Wire-contract TYPE NAME only, e.g. wire-contracts::OrderCancelled."
+          pattern: "^[A-Za-z0-9_:.-]+$"
+        ru:        { $ref: "#/$defs/ru_link" }
+        external:
+          type: boolean
+          description: Producer outside the spec store (§5.8); exempt from C9. Inbound only.
+        planned:
+          type: boolean
+      allOf:
+        - if:
+            required: [external]
+            properties: { external: { const: true } }
+          then:
+            properties: { direction: { const: inbound } }
+
+  channels:
+    type: array
+    description: WebSocket surface; upgrade_path shares C4 uniqueness with endpoints.
+    items:
+      type: object
+      additionalProperties: false
+      required: [id, upgrade_path, access, ru, frames]
+      properties:
+        id:           { $ref: "#/$defs/ident" }
+        upgrade_path: { type: string, pattern: "^/" }
+        planned:      { type: boolean }
+        access:       { type: string }
+        ru:           { $ref: "#/$defs/ru_link" }
+        connection_close_codes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [code, reason]
+            properties:
+              code:   { type: integer, minimum: 1000, maximum: 4999 }
+              reason: { type: string }
+        frames:
+          type: array
+          minItems: 1
+          description: Referenced as {frame:<channel_id>.<frame_id>}.
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, direction, payload]
+            properties:
+              id:        { $ref: "#/$defs/ident" }
+              direction: { enum: [inbound, outbound] }
+              payload:   { type: string, pattern: "^[A-Za-z0-9_:.-]+$" }
+
+allOf:
+  # Shared manifest: facts only, no interface surfaces (§5.5).
+  - if:
+      properties: { service: { const: shared } }
+    then:
+      properties:
+        endpoints: false
+        messages:  false
+        channels:  false
+  # Non-shared boundary manifests: at least one surface. Pure-internal
+  # services with no surface set service kind via absence — the anyOf below
+  # is enforced only when any surface key is expected; operator may relax by
+  # removing this block for library-only "services".
+  - if:
+      not:
+        properties: { service: { const: shared } }
+    then:
+      anyOf:
+        - required: [endpoints]
+        - required: [messages]
+        - required: [channels]

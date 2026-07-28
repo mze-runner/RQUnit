@@ -1,0 +1,23 @@
+service: service-orders
+version: '1.0'
+endpoints:
+- id: cancel_order
+  method: DELETE
+  path: /api/v1/orders/{id}
+  access: vip
+  ru: FEAT-x
+- id: verify_challenge
+  method: POST
+  path: /api/v1/orders/verify
+  access: scoped
+  scope: ghost-scope
+  ru: FEAT-x
+channels:
+- id: lobby
+  upgrade_path: /ws
+  access: banana
+  ru: FEAT-x
+  frames:
+  - id: pong
+    direction: outbound
+    payload: ws::Pong

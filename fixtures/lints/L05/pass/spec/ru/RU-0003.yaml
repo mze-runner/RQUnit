@@ -1,0 +1,12 @@
+id: RU-0003
+statement: >
+  The system shall issue an access token upon successful login.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+  - { type: contract, ref: "TODO(claim-set check pending)" }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

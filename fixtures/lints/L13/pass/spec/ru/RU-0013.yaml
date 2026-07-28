@@ -1,0 +1,9 @@
+id: RU-0013
+statement: The system shall uphold constitutional invariant number 0013 at all times.
+syntax: ears
+status: active
+tier: constitutional
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-invariant-0013 }
+tags: [audit]

@@ -1,0 +1,33 @@
+service: service-orders
+version: '1.0'
+problem_types:
+  conflict:
+    uri: urn:problem:conflict
+    status: 409
+    title: Conflict
+audit_events:
+- code: orders.cancelled
+  fields:
+  - order_id
+  ru: FEAT-order-cancellation
+endpoints:
+- id: cancel_order
+  method: DELETE
+  path: /api/v1/orders/{id}
+  access: protected
+  ru: FEAT-order-cancellation
+  emits:
+  - conflict
+  - orders.cancelled
+- id: verify_challenge
+  method: POST
+  path: /api/v1/orders/verify
+  access: scoped
+  scope: pending-verification
+  ru: FEAT-order-cancellation
+messages:
+- id: order_cancelled
+  subject: orders.cancelled
+  direction: outbound
+  payload: wire::OrderCancelled
+  ru: FEAT-order-cancellation

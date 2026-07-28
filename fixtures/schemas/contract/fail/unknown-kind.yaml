@@ -1,0 +1,5 @@
+id: CT-shape
+kind: response-shape
+description: Kinds are a closed set grown by schema PR.
+fields:
+  - { name: sub, presence: always }

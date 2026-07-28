@@ -1,0 +1,12 @@
+id: RU-0004
+statement: >
+  The system shall archive screening reports after the retention window.
+syntax: ears
+status: active
+feature: FEAT-d
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/screening]
+tags: [archive]

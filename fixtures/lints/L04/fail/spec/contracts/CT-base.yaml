@@ -1,0 +1,5 @@
+id: CT-base
+kind: claim-set
+description: Baseline fixture contract for verification refs.
+fields:
+  - { name: sub, where: claims, presence: always }

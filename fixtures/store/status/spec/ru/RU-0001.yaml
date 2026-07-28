@@ -1,0 +1,17 @@
+id: RU-0001
+statement: The system shall archive decision logs after the retention window.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: human
+  criterion: Is the archive retrievable by an auditor?
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:7cdec706b7f522848351a1cfc84689f587d55e55d0d68bc11b40a13755f51436
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

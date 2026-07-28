@@ -1,0 +1,15 @@
+# Verification-depth policy (§6.7, L21). The FIRST matching rule wins;
+# `default` closes the set. Policy is DATA — extending it is a PR to this
+# file, never a change to a rule module.
+#
+# Shipped as a starting point; tune the thresholds and tag families to the
+# consumer's risk model at adoption.
+rules:
+  - match: { tier: constitutional }
+    require: { min_mechanical: 2 }
+  - match: { tags_any: [security] }
+    require: { types_all: [contract, test] }
+  - match: { tags_any: [audit] }
+    require: { types_any: [contract] }
+default:
+  require: { min_verifications: 1 }

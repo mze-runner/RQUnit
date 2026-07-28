@@ -1,0 +1,9 @@
+service: service-billing
+version: "1.0"
+messages:
+  - { id: order_cancelled_in, subject: orders.cancelled, direction: inbound,
+      payload: "wire::OrderCancelled", ru: FEAT-y }
+  - { id: refund_requested_in, subject: orders.refund, direction: inbound,
+      payload: "wire::RefundRequested", ru: FEAT-y, planned: true }
+  - { id: gw_event, subject: gateway.member_joined, direction: inbound,
+      payload: "wire::GwMemberJoined", ru: FEAT-y, external: true }

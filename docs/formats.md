@@ -1,0 +1,274 @@
+# RU Framework — Formats & Conventions Reference
+
+Companion to `ru-framework-spec.md` v0.10 and the adoption plan v1.0 (incl. tasks 052–055, C9/TASK-048). This
+document pins every format the plan previously left implicit. It is normative
+for tooling; changes are schema-revision events, not edits.
+
+---
+
+## 1. Identity & filename conventions
+
+| Artifact | Filename | Id form |
+|---|---|---|
+| RU (draft) | `spec/ru/RU-draft-<ULID>.yaml` | `RU-draft-<ULID>` (Crockford base32, 26 chars) |
+| RU (permanent) | `spec/ru/RU-XXXX.yaml` | `RU-` + zero-padded 4-digit monotonic |
+| FEAT | `spec/features/FEAT-<slug>.yaml` | `FEAT-<slug>` |
+| GAP | `spec/gaps/GAP-<ULID>.yaml` | `GAP-<ULID>` |
+| Manifest | `spec/manifests/<service>.manifest.yaml` | service slug; `shared` reserved |
+| Model | `spec/models/MDL-<id>.statechart.json` | `MDL-<id>` |
+| ADR | `spec/rationale/ADR-<slug>.md` | `ADR-<slug>` (pattern `ADR-[A-Za-z0-9-]+`) |
+| Contract | `spec/contracts/CT-<slug>.yaml` | `CT-<slug>` (pattern `CT-[a-z0-9-]+`) |
+| Packet | `spec/packets/TASK-<id>.packet.md` (re-runs: `.v2`, `.v3` suffix before `.packet.md`) | task id from the operator's task system |
+
+Filename ↔ `id` field mismatch is an L9 error. IDs beyond 9999: widen padding
+store-wide in one commit (a tooling migration, documented, never mixed widths).
+
+## 2. Reference token grammar (EBNF)
+
+```
+token      = "{" kind ":" [ qualifier "/" ] key "}" ;
+kind       = "value" | "endpoint" | "problem" | "audit"
+           | "message" | "channel" | "frame" | "vocab" ;
+qualifier  = ident ;                       (* owning service slug (v0.10);
+                                                   FORBIDDEN for kind "value" —
+                                                   foreign scalars promote to shared *)
+key        = dotted | frameref ;
+dotted     = ident { "." ident } ;              (* value: dotted; others: single ident,
+                                                   audit: dotted event code *)
+frameref   = ident "." ident ;                  (* frame only: channel.frame *)
+ident      = lowletter { lowletter | digit | "_" | "-" } ;
+                                                (* v0.10.2: "-" admitted so RFC 7807-style
+                                                   hyphenated keys (problem types, service
+                                                   slugs) are referenceable; the qualifier/key
+                                                   split stays unambiguous — "/" delimits *)
+```
+
+Resolution: a qualified ref resolves against the named manifest ONLY (a miss
+is unresolved, L15 — never a fallback to own-scope or shared); an unqualified
+ref resolves own-scope service manifest → `shared.manifest.yaml`.
+Literal braces in statements are escaped `{{` `}}`.
+Unknown kind, empty key, nesting, or a qualified `value` ref → tokenizer error
+(feeds L15's "malformed" class, distinct from "unresolved").
+
+## 3. EARS grammar (normative for TASK-011)
+
+Statement = one template instance, terminated by a period. `<system>` is the
+literal phrase "the system" or a manifest service name. `<actor>` must resolve
+to `actors.yaml` (L12). `<bound>` = number+unit or `{value:…}` token. Case
+of leading keyword: capitalized as shown.
+
+```
+ubiquitous = <system> " shall " <response> "."
+event      = "When " <trigger> ", " <system> " shall " <response> "."
+state      = "While " <state-cond> ", " <system> " shall " <response> "."
+unwanted   = "If " <condition> ", then " <system> " shall " <response> "."
+optional   = "Where " <feature-cond> ", " <system> " shall " <response> "."
+
+trigger    = <actor-phrase> | <event-phrase>          (* actor extracted when present *)
+response   = verb-phrase [ " within " <bound> ] [ qualifiers ]
+```
+
+Negative responses ("shall not …") are valid responses. A statement matching
+no template, or matching one with an unfillable slot, is an L1 error carrying
+the nearest-template diagnosis. Compound detection (L3) operates on the parsed
+`response`: two coordinated shall-clauses = compound; one shall-clause with a
+coordinated object = single. The TASK-011 golden suite is the executable
+definition of edge cases — extend the suite before extending the grammar.
+
+## 4. Violation report format (all CLIs)
+
+stdout, JSON, one document per run:
+
+```json
+{
+  "tool": "spec-lint",
+  "tool_version": "0.1.0",
+  "store_commit": "<git sha or WORKTREE>",
+  "generated_at": "<iso8601>",
+  "summary": { "errors": 2, "warnings": 1, "checked_files": 41 },
+  "violations": [
+    {
+      "rule": "L2",
+      "severity": "error",              // error | warning | finding
+      "artifact": "RU-0142",
+      "path": "spec/ru/RU-0142.yaml",
+      "line": 3,
+      "message": "Unbounded quantifier 'quickly' in statement bound position.",
+      "suggestion": "State a literal bound or reference a manifest value: {value:...}."
+    }
+  ]
+}
+```
+
+`finding` severity = report-only rules (C7, orphan reports): never affects
+exit code. Exit codes: 0 no errors (warnings allowed unless `--strict`),
+1 errors present, 2 tool failure. Human-readable rendering is `--format text`,
+derived from the JSON, never a separate code path.
+
+## 5. Trace annotation conventions (`verifies`)
+
+| Where | Form |
+|---|---|
+| Python tests | `@pytest.mark.verifies("RU-0142")` (repeatable) |
+| Rust tests | doc-comment line `/// verifies: RU-0142[, RU-0143]` directly above `#[test]`/`#[tokio::test]` |
+| Contracts (CT) | manifest-style metadata field `verifies: [RU-0142]` in the contract definition |
+| Generated conformance suites | no per-test annotations — a sidecar `spec/projections/trace-map.json` `{ "check_id": ["RU-…"] }` emitted by the generator from the model's RU links |
+| Infrastructure tests | `verifies: infrastructure` (audited bucket, §6.6) |
+
+`spec-trace` resolves all four sources; an id failing the `RU-XXXX` pattern or
+resolving to no active RU is an L14 error.
+
+## 6. Task packet layout
+
+`TASK-<id>.packet.md`, sections in this exact order (golden-packet tests
+depend on it):
+
+```
+---                                  # YAML front matter
+task: TASK-0007
+generated_at: <iso8601>              # the only nondeterministic field
+store_commit: <sha>
+hashes:
+  manifests: { service-orders: "sha256:…", shared: "sha256:…" }
+  models:    { MDL-order-lifecycle: "sha256:…" }
+---
+# 0. Constitutional requirements        (full RU renders)
+# 1. Task requirements                  (full RU renders, refs RESOLVED inline:
+#                                        "within 90 days ⟨{value:retention.decision_log_days} = 90⟩")
+# 2. Interface star map                 (per touched service: endpoint table,
+#                                        messages, channels+frames, referenced
+#                                        problem/audit entries, relevant values)
+# 3. Rationale                          (linked ADR contents)
+# 4. Background (read-only)             (k≤8 one-hop RUs, statement-only,
+#                                        then "Further: RU-…, RU-…" id list)
+# 5. Boundaries                         (owns / must_not_touch union, verbatim
+#                                        globs H1 will enforce)
+```
+
+An RU render = id, statement (resolved), verification list with current
+computed status, tags. Resolution provenance format is fixed: `⟨{ref} = value⟩`.
+
+## 7. Index format
+
+`spec/projections/ru-index.json`:
+
+```json
+{ "generated_at": "…", "store_commit": "…",
+  "rus": [ { "id": "RU-0142", "status": "active", "tier": "standard",
+             "computed": "done", "tags": ["orders","cancellation"],
+             "feature": "FEAT-order-cancellation",
+             "owns": ["orders/fulfilment"], "must_not_touch": ["payments/capture"],
+             "verification_types": ["model","test"],
+             "manifest_refs": ["endpoint:cancel_order"] } ] }
+```
+
+## 8. Seed data
+
+`lints/vague_terms.yaml` (L2 wordlist, data not code — extend by PR):
+
+```yaml
+bound_position:   [quickly, soon, promptly, immediately, "in a timely manner", eventually, "as soon as possible", asap]
+quantity_position: [many, few, several, some, large, small, numerous, various, appropriate, sufficient, reasonable, adequate, minimal]
+```
+
+("immediately" is vague — an agent cannot test it; the fix is a literal bound.)
+
+`shared.manifest.yaml` seed (required before any endpoint validates, because
+`access` tiers are a vocabulary, not a schema enum):
+
+```yaml
+service: shared
+version: "1.0"
+vocabularies:
+  access_tiers: [public, internal, scoped, refresh, protected]   # operator-tunable
+```
+
+## 9. Gate stamps & fingerprints (v0.9)
+
+**Canonical hash** (gate stamps, RU-target fingerprints): JSON serialization of
+the object `{statement, scope, verification, tier}` with keys sorted
+recursively, UTF-8, no insignificant whitespace, `tier` defaulted to
+`"standard"` when absent; hash = `sha256:` + hex digest. ADR-target
+fingerprints: sha256 of the raw file bytes. One canonicalizer implementation,
+exported by the store loader — L19, L20, and `spec-activate` MUST share it
+(three implementations of "canonical" is how canonical dies).
+
+**Gate 2 record** — `spec/reviews/RU-XXXX/<iso8601-basic>-<slug>.yaml`,
+append-only (CI rejects modification/deletion of existing records):
+
+```yaml
+ru: RU-0203
+criterion: "Is the rejection message comprehensible to a non-technical customer?"
+verdict: pass            # pass | fail
+note: "Clear at 8th-grade reading level; tone acceptable."
+reviewer: "<operator id>"
+at: "2026-07-21T10:02:00Z"
+packet: TASK-0007        # the packet whose output was judged
+```
+
+`ru.reviewed` computation compares record `at` against `gate1_stamp.at`;
+records predating the stamp never count.
+
+## 10. ADR format
+
+One decision per file at `spec/rationale/ADR-<slug>.md`; the id is the
+filename stem. Section convention (recommended, not machine-parsed — the
+store tracks ADR identity and bytes, never structure):
+
+```markdown
+# ADR-<slug> — <title>
+
+## Context
+## Decision
+## Alternatives
+## Consequences
+```
+
+Rules that ARE enforced:
+
+- A `rationale_ref` that does not resolve to a store file is an **L7 error**.
+- ADRs carry **no lifecycle states** — they remain editable prose. Governance
+  is the byte fingerprint (§9) recorded on dependent RUs at activation: an
+  edit flips every dependent suspect (L20), resolved at the next Gate 1
+  sitting by re-affirm or supersede.
+- `rationale_ref` sits outside the gate-stamp hash, so linking an ADR to an
+  already-active RU is a legal non-normative edit (no supersession needed);
+  `spec-activate restamp` records the missing fingerprint.
+- Task packets inline the full ADR content in section 3 (§6).
+
+**Operator identity (v0.10.1):** every reviewer/operator id in the store
+(`gate1_stamp.by`, Gate 2 `reviewer`, fingerprint re-affirmations) is a stable
+HANDLE (e.g. a VCS username), never contact information — the store is
+published with the repository. Emails are schema-rejected (`by` pattern) and
+CLI-rejected (`--reviewer`); the handle→person mapping lives outside the repo.
+
+## 11. Contract (CT) format
+
+One checkable shape per file at `spec/contracts/CT-<slug>.yaml`, validated
+against `contract.schema.yaml`. One contract per artifact TYPE — presence is
+binary (`always` | `never`), and a field that appears "sometimes" belongs to
+a different artifact type with its own contract. `where` records placement
+(`claims` | `header`); `presence: never` makes absences checkable; `vocab`
+constrains a field's values to a manifest vocabulary (contracts never
+introduce vocabulary); `access_tier` binds the contract to the credential
+tier whose surfaces consume the artifact. `token_scopes` is a reserved
+vocabulary name (like `access_tiers`, §8) for endpoint `scope` values.
+
+Rules that are enforced: dangling non-TODO `contract` refs are L5 errors;
+all memberships (access_tier, scope, vocab) and field-name uniqueness are C5
+errors; resolved refs are content-fingerprinted at activation (§9), so
+editing a referenced contract flips dependents suspect (L20) — governance is
+manifest-like (Gate-1-reviewed edits), never freeze-and-supersede. Task
+packets render referenced contract shapes in section 2 (§6).
+
+## 12. Open decisions ratified by this document (flag to operator, defaults active)
+
+1. GAP ids are ULIDs (parallel creation, no ceremony) — resolution MUST anchor to INT.
+2. Statechart dialect v1 is flat: no hierarchical/parallel states. Revisit only with a concrete need.
+3. `undeclared_event_policy` is per-model, mandatory, `ignore|error` — no implicit behaviour.
+4. Access tiers moved from schema enum to shared vocabulary (C5-checked) — projects tune the set without schema forks.
+5. Packet re-runs are versioned files, not overwrites (immutability, §9.1).
+6. Model `vocabulary` tokens are unqualified — own-scope binding only. A model
+   binds to its service's own manifest entries; cross-service traffic reaches a
+   model as the service's own inbound `message` entry. Deliberate; revisit only
+   with a concrete cross-service-model need.

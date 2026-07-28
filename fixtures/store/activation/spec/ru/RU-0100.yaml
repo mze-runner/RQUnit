@@ -1,0 +1,17 @@
+id: RU-0100
+statement: The system shall retain decision logs for the audit window.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: CT-base
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:f12782366ccc8a9a4cbaafc8a615ad038a13a84fdc3d1444f558e70e289d2463
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

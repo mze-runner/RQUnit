@@ -1,0 +1,7 @@
+service: service-billing
+version: "1.0"
+messages:
+  - { id: dup_b, subject: dup.subject, direction: outbound, payload: "wire::Dup", ru: FEAT-y }
+  - { id: orphan_in, subject: orders.ghost, direction: inbound, payload: "wire::Ghost", ru: FEAT-y }
+  - { id: pay_in, subject: pay.settled, direction: inbound, payload: "wire::PaySettledV2", ru: FEAT-y }
+  - { id: ext_in, subject: ext.event, direction: inbound, payload: "wire::Ext", ru: FEAT-y, external: true }

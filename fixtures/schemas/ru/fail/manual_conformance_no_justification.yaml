@@ -1,0 +1,13 @@
+id: RU-0143
+statement: While an order is cancelling, the system shall not dispatch new shipments.
+syntax: ears
+status: active
+source_ref: INT-0057#L47-49
+verification:
+  - type: model
+    ref: MDL-order-lifecycle
+    model_hash: "sha256:9f1c00000000000000000000000000000000000000000000000000000000abcd"
+    conformance: manual
+scope:
+  owns: [orders/fulfilment]
+tags: [orders]

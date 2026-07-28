@@ -1,0 +1,6 @@
+service: shared
+version: "1.0"
+vocabularies:
+  access_tiers: [public, internal, scoped, refresh, protected]
+values:
+  limits: { body_bytes: 1048576 }

@@ -1,0 +1,7 @@
+ru: RU-0002
+criterion: Is the refund notification comprehensible to customers?
+verdict: pass
+note: ok
+reviewer: fixture-op
+at: '2026-07-25T12:00:00+00:00'
+packet: TASK-0001

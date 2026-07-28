@@ -1,0 +1,12 @@
+id: RU-0003
+statement: >
+  The system shall expose the screening report to reviewers on request.
+syntax: ears
+status: active
+feature: FEAT-c
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/screening/reports]
+tags: [screening]

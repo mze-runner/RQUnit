@@ -1,0 +1,6 @@
+service: service-billing
+version: "1.0"
+problem_types:
+  payment-failed: { uri: "urn:problem:payment-failed", status: 402, title: "Payment failed" }
+endpoints:
+  - { id: charge, method: POST, path: /api/v1/charges, access: internal, ru: FEAT-billing }

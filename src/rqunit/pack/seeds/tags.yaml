@@ -1,0 +1,4 @@
+# Controlled tag vocabulary (L10). A tag used by any RU must be listed here
+# first — the lint refuses unknown tags rather than letting a taxonomy grow by
+# accident. Extend by PR; Gate 1 confirms new tags. Lowercase kebab-case.
+tags: []

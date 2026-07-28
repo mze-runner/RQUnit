@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rqunit/interfaces/actual-surface.schema.json",
+  "title": "ActualSurface",
+  "description": "What a codebase REALLY exposes, in manifest vocabulary. Produced by a per-stack adapter (Rust: syn; JVM: annotation scan; Node: router table), consumed by `rqunit conformance`, which owns the diff against the manifest. Adapters extract and never judge: no adapter decides what a divergence means.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "generated_by", "services"],
+  "properties": {
+    "contract_version": { "const": 1 },
+    "generated_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Adapter name and version — the report attributes findings to their extractor."
+    },
+    "services": {
+      "type": "object",
+      "description": "Keyed by manifest service slug. A service absent here is not reconciled at all (no adapter covers it); a service present with empty surfaces asserts the code exposes nothing.",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["method", "path", "access"],
+              "properties": {
+                "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "ANY"] },
+                "path": { "type": "string", "pattern": "^/" },
+                "access": {
+                  "type": "string",
+                  "description": "Structural access tier as the code composes it (which middleware stack the route is mounted under). Membership in access_tiers is the manifest's business, not the adapter's."
+                }
+              }
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["subject"],
+              "properties": {
+                "subject": { "type": "string", "minLength": 1 },
+                "direction": {
+                  "enum": ["inbound", "outbound"],
+                  "description": "Optional: adapters that cannot determine direction omit it, and the reconciler falls back to presence-only matching."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "description": "Divergences the consumer has ratified at Gate 1. They travel INSIDE the artifact so they are reviewable data, never a constant buried in adapter code — and the reconciler still REPORTS each one as a justified finding rather than silencing it.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule", "service", "target", "justification"],
+        "properties": {
+          "rule": {
+            "enum": ["CF1", "CF2", "CF3", "CF4", "CF5", "CF6"],
+            "description": "Which divergence class this exception excuses."
+          },
+          "service": { "type": "string" },
+          "target": {
+            "type": "string",
+            "description": "Identifies the surface: '<METHOD> <path>' for endpoints, the subject for messages."
+          },
+          "justification": {
+            "type": "string",
+            "minLength": 20,
+            "description": "Why the divergence is correct. Mandatory and substantive: an exception nobody can defend in prose is a defect wearing a waiver."
+          }
+        }
+      }
+    }
+  }
+}

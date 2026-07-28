@@ -1,0 +1,4 @@
+service: service-y
+version: "1.0"
+endpoints:
+  - { id: ping, method: GET, path: /ping, access: public, ru: FEAT-x }

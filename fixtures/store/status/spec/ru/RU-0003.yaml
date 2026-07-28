@@ -1,0 +1,19 @@
+id: RU-0003
+statement: The system shall settle each order exactly once per the lifecycle.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: model
+  ref: MDL-order-lifecycle
+  model_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  conformance: generated
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:c7af40d0a6dc09d163537c3fc12bbe524d9143f66abf6f708a41b90422a4c231
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

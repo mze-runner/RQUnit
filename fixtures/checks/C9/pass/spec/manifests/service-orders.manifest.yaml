@@ -1,0 +1,7 @@
+service: service-orders
+version: "1.0"
+messages:
+  - { id: order_cancelled, subject: orders.cancelled, direction: outbound,
+      payload: "wire::OrderCancelled", ru: FEAT-x }
+  - { id: refund_requested, subject: orders.refund, direction: outbound,
+      payload: "wire::RefundRequested", ru: FEAT-x, planned: true }

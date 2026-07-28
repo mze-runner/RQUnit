@@ -1,0 +1,7 @@
+ru: RU-0001
+criterion: Is the archive retrievable by an auditor?
+verdict: pass
+note: ok
+reviewer: fixture-op
+at: '2026-07-25T12:00:00+00:00'
+packet: TASK-0001

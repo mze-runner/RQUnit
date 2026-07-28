@@ -1,0 +1,20 @@
+id: RU-0011
+statement: When a deletion transaction commits, the system shall publish exactly one
+  {message:order_cancelled} event.
+syntax: ears
+status: active
+feature: FEAT-hot
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: CT-base
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+- audit
+gate1_stamp:
+  hash: sha256:2d531a53087f8618d450b15b642f91c8e77f66fb9f038cde3ad4e27a792effde
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

@@ -1,0 +1,4 @@
+id: FEAT-fraud-screening
+goal: The screening engine shall evaluate rules for every incoming order.
+source_ref: INT-0001#L1-2
+status: active

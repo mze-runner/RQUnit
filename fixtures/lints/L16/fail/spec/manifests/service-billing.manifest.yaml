@@ -1,0 +1,8 @@
+service: service-billing
+version: "1.0"
+vocabularies:
+  charge_kinds: [capture, refund]
+endpoints:
+  - { id: charge, method: POST, path: /api/v1/charges, access: internal, ru: FEAT-billing }
+values:
+  limits: { body_bytes: 4096 }

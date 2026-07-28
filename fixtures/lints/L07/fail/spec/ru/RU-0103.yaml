@@ -1,0 +1,12 @@
+id: RU-0103
+statement: >
+  The system shall expose the revised decision log export endpoint.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]
+supersedes: RU-0102

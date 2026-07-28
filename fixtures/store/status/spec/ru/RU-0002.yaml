@@ -1,0 +1,17 @@
+id: RU-0002
+statement: The system shall expose the decision export endpoint on operator request.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: TODO(CT - export contract missing)
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:de31eede4e51bebe2dc94d4ba7918f06a4ee7c00b92c5267de4f349c6b2bb3f7
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

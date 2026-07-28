@@ -1,0 +1,8 @@
+id: RU-0144
+statement: The system shall retain screening decisions for ninety days at minimum.
+syntax: ears
+status: active
+source_ref: INT-0102#L70-73
+verification:
+  - { type: contract, ref: CT-decision-record-retention }
+tags: [screening]

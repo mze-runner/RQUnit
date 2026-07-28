@@ -1,0 +1,4 @@
+service: shared
+version: "1.0"
+endpoints:
+  - { id: x, method: GET, path: /x, access: public, ru: FEAT-x }

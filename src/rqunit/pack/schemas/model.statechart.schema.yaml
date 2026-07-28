@@ -1,0 +1,84 @@
+# Statechart model dialect (JSON Schema 2020-12 in YAML).
+# Normative source: spec v0.8 §6.3 (model class "statechart"), §5.7 (C8).
+# This PINS the dialect: "XState-style" is not a spec — this is. Deliberately
+# minimal: flat states (no hierarchy/parallel regions in v1), events with an
+# optional single correlation parameter, string invariants. Extend by schema
+# revision, never ad hoc.
+#
+# Beyond-schema loader checks (implement in TASK-003 / model loader):
+#   M1: `initial` ∈ states
+#   M2: every transition target ∈ states
+#   M3: final states have no `on`
+#   M4: at least one final state reachable (graph walk)
+#   M5: every event name resolves to a manifest entry (C8; the mapping is the
+#       model's `vocabulary` block below — explicit, never inferred)
+#   M6: invariant names are unique within the model
+#
+# Conformance generation contract (TASK-070) derives, mechanically:
+#   one test per declared transition;
+#   one rejection test per undeclared (state, event) pair over the model's
+#     event alphabet — expected behaviour for undeclared pairs is the
+#     `undeclared_event_policy` field, never implicit;
+#   one probe per invariant, named after it.
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "spec/framework/model.statechart.schema.yaml"
+title: StatechartModel
+type: object
+additionalProperties: false
+required: [id, kind, initial, states, vocabulary, undeclared_event_policy]
+
+properties:
+
+  id:
+    type: string
+    pattern: "^[a-z][a-z0-9-]*$"
+    description: File is MDL-<id>.statechart.json; MDL- prefix lives in the filename/refs.
+
+  kind:
+    const: statechart
+
+  initial:
+    type: string
+
+  undeclared_event_policy:
+    enum: [ignore, error]
+    description: >
+      What a conforming implementation does with an event not declared for the
+      current state: silently ignore (idempotent no-op) or defined error.
+      Never crash — the generated rejection tests assert this policy.
+
+  vocabulary:
+    type: object
+    description: >
+      C8 binding, explicit: every event maps to the manifest fact that carries
+      it. Values are manifest reference tokens ({endpoint:x}, {frame:c.f},
+      {message:x}) or the literal `internal` for purely internal events
+      (timers, computed transitions) — `internal` usage is reviewed at Gate 1.
+    propertyNames: { pattern: "^[A-Z][A-Z0-9_]*$" }
+    additionalProperties:
+      type: string
+      pattern: "^(\\{(endpoint|frame|message):[a-z0-9_.]+\\}|internal)$"
+
+  states:
+    type: object
+    minProperties: 2
+    propertyNames: { pattern: "^[a-z][a-z0-9_]*$" }
+    additionalProperties:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          const: final
+        invariant:
+          type: string
+          pattern: "^[a-z][a-z0-9_]*$"
+          description: Named invariant holding while in this state; probe generated per name.
+        "on":
+          type: object
+          minProperties: 1
+          description: "Event → target state. Event grammar: NAME or NAME(param). Key quoted — unquoted `on` is YAML-1.1 boolean."
+          propertyNames: { pattern: "^[A-Z][A-Z0-9_]*(\\([a-z_]+\\))?$" }
+          additionalProperties:
+            type: string
+            description: Target state name (must exist — loader check M2).

@@ -1,0 +1,4 @@
+id: FEAT-hot
+goal: Cancellations settle without stranding fulfilment or payments.
+source_ref: INT-0001#L1-2
+status: active

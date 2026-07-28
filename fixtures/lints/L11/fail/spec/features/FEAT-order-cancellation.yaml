@@ -1,0 +1,4 @@
+id: FEAT-order-cancellation
+goal: Cancellation must halt fulfilment for the affected order.
+source_ref: INT-0001#L1-2
+status: active

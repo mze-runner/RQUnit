@@ -1,0 +1,11 @@
+id: RU-0001
+statement: >
+  When a user submits an order, the system shall queue it for screening review.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

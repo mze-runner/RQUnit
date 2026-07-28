@@ -1,0 +1,11 @@
+id: RU-0102
+statement: >
+  The system shall expose the decision log export endpoint.
+syntax: ears
+status: retired
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

@@ -1,0 +1,4 @@
+id: FEAT-refunds
+goal: Customers receive refunds for cancelled orders without manual accounting.
+source_ref: INT-0001#L1-2
+status: active

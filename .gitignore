@@ -1,0 +1,25 @@
+# Rust build output (adapters)
+target/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.log
+
+# Local agent-runtime overrides (checked-in settings are the shared ones)
+.claude/settings.local.json
+
+# NOTE: docs/ is TRACKED. The specification, the formats reference, and the
+# design papers live there and are this product's normative content — a
+# consumer repository may ignore its own docs/, this one must not.

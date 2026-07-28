@@ -1,0 +1,6 @@
+id: GAP-01J3F8KQZ2ABCDEFGHJKMNPQRS
+question: "Cancel bound: 5s or 30s? Transcript says 'quickly'."
+severity: blocking
+raised_by: analyst
+affected: [RU-draft-01J3F8KQZ2ABCDEFGHJKMNPQRT]
+status: resolved

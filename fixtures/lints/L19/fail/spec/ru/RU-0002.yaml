@@ -1,0 +1,17 @@
+id: RU-0002
+statement: The system shall retain the decision log for compliance review.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: CT-base
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:e0531e1645d46ea7b690821ced5006d285efb4b5368c1bb37d8eaed7dbe97d03
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

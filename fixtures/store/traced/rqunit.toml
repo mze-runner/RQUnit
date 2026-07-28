@@ -1,0 +1,5 @@
+[stacks.rust]
+trace_scan = ["*/Cargo.toml"]
+trace_diff = ["*/tests/*.rs"]
+literal_scan = ["*/tests"]
+actual_surface = ""

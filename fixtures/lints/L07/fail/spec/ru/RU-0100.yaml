@@ -1,0 +1,12 @@
+id: RU-0100
+statement: >
+  The system shall retain decision logs for the audit window.
+syntax: ears
+status: superseded
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]
+supersedes: RU-0101

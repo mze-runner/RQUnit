@@ -1,0 +1,11 @@
+id: RU-0002
+statement: >
+  When a user cancels an order, the system shall halt fulfilment and release the reservation.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

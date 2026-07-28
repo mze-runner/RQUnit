@@ -1,0 +1,11 @@
+id: RU-0001
+statement: >
+  The system shall expose the cancellation surface at /api/v1/charges for internal callers.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

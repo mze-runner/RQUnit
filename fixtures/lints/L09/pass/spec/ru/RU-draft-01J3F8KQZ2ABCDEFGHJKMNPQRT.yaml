@@ -1,0 +1,11 @@
+id: RU-draft-01J3F8KQZ2ABCDEFGHJKMNPQRT
+statement: >
+  The system shall queue flagged orders for manual review.
+syntax: ears
+status: draft
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

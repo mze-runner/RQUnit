@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest:*)",
+      "Bash(uv run rqunit:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv build:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ]
+  }
+}

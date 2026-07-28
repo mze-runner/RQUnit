@@ -1,0 +1,193 @@
+# Requirement Unit schema (JSON Schema draft 2020-12, expressed in YAML)
+# Normative source: ru-framework-spec.md v0.10 §3, §6, §7 (v0.9 adds gate1_stamp,
+# link_fingerprints — §7.2/§7.3).
+# Enforced by: L18-analogue for RUs (schema stage), plus semantic lints L1-L17.
+# NOTE: schema validates SHAPE only. Statement parseability (L1), reference
+# resolution (L15), actor membership (L12) etc. are semantic lints, not schema.
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "spec/framework/ru.schema.yaml"
+title: RequirementUnit
+type: object
+additionalProperties: false        # forbidden fields (priority, estimate,
+                                   # assignee, role, permission) rejected here (L8)
+required: [id, statement, syntax, status, source_ref, verification, tags]
+
+properties:
+
+  id:
+    type: string
+    description: >
+      Draft stage: RU-draft-<ULID>. Active/superseded/retired: RU-XXXX.
+      Cross-stage constraint enforced in allOf below.
+    pattern: "^RU-(draft-[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})$"
+
+  draft_id:
+    type: string
+    description: The pre-activation ULID, recorded by spec-activate at Gate 1.
+    pattern: "^RU-draft-[0-9A-HJKMNP-TV-Z]{26}$"
+
+  statement:
+    type: string
+    minLength: 20
+    description: >
+      Exactly one normative EARS/Gherkin statement. May embed manifest
+      references {value:x} {endpoint:x} {problem:x} {audit:x} {message:x}
+      {channel:x} {frame:c.f} {vocab:x}. Parse + bound + compound rules are
+      lints L1-L3, not schema.
+
+  syntax:
+    enum: [ears, gherkin]
+
+  status:
+    enum: [draft, active, superseded, retired]
+
+  tier:
+    enum: [standard, constitutional]
+    default: standard
+
+  feature:
+    type: string
+    pattern: "^FEAT-[a-z0-9-]+$"
+
+  source_ref:
+    type: string
+    description: "INT anchor: INT-XXXX#L<start>[-<end>] or INT-XXXX#S<section>."
+    pattern: "^INT-[0-9]{4}#(L[0-9]+(-[0-9]+)?|S[a-z0-9-]+)$"
+
+  supersedes:
+    type: string
+    pattern: "^RU-[0-9]{4}$"
+
+  rationale_ref:
+    type: string
+    pattern: "^ADR-[A-Za-z0-9-]+$"
+
+  verification:
+    type: array
+    minItems: 1
+    items:
+      oneOf:
+
+        - type: object              # ---- contract ----
+          additionalProperties: false
+          required: [type, ref]
+          properties:
+            type: { const: contract }
+            ref:
+              type: string
+              description: "CT id, or TODO(<description>) for a missing check (§6.5)."
+              pattern: "^(CT-[A-Za-z0-9-]+|TODO\\(.+\\))$"
+
+        - type: object              # ---- test ----
+          additionalProperties: false
+          required: [type, ref]
+          properties:
+            type: { const: test }
+            ref:
+              type: string
+              description: "Stable test identifier resolvable by spec-trace, or TODO(...)."
+              pattern: "^(TODO\\(.+\\)|[A-Za-z_][A-Za-z0-9_:.\\-/]+)$"
+
+        - type: object              # ---- model ----
+          additionalProperties: false
+          required: [type, ref, model_hash, conformance]
+          properties:
+            type: { const: model }
+            ref: { type: string, pattern: "^MDL-[a-z0-9-]+$" }
+            model_hash:
+              type: string
+              description: sha256 of the model file at conformance-generation time (§6.3).
+              pattern: "^sha256:[0-9a-f]{64}$"
+            conformance:
+              enum: [generated, manual]
+            justification:
+              type: string
+              description: REQUIRED when conformance=manual (enforced in allOf).
+
+        - type: object              # ---- human ----
+          additionalProperties: false
+          required: [type, criterion]
+          properties:
+            type: { const: human }
+            criterion:
+              type: string
+              minLength: 10
+              description: What the Gate 2 reviewer judges, stated as a question.
+
+  scope:
+    type: object
+    additionalProperties: false
+    required: [owns]
+    properties:
+      owns:
+        type: array
+        minItems: 1
+        items: { type: string, pattern: "^[^{}]+$" }   # no manifest refs in scope (§3.1)
+      must_not_touch:
+        type: array
+        items: { type: string, pattern: "^[^{}]+$" }
+
+  tags:
+    type: array
+    minItems: 1
+    uniqueItems: true
+    items: { type: string, pattern: "^[a-z][a-z0-9-]*$" }   # membership in tags.yaml is L10
+
+  # ---- tool-written fields (spec-activate owns; hand-authoring detected by
+  # ---- L19 hash mismatch, not by schema) ----
+  gate1_stamp:
+    type: object
+    additionalProperties: false
+    required: [hash, by, at]
+    properties:
+      hash: { type: string, pattern: "^sha256:[0-9a-f]{64}$" }
+      by:
+        type: string
+        minLength: 1
+        pattern: "^[^@]+$"   # stable operator HANDLE, never contact info (no
+                             # emails — the store is published; formats §9)
+      at:   { type: string, format: date-time }
+
+  link_fingerprints:
+    type: object
+    description: Cross-artifact reference fingerprints at activation (§7.3).
+    propertyNames: { pattern: "^(RU-[0-9]{4}|ADR-[A-Za-z0-9-]+|CT-[a-z0-9-]+)$" }
+    additionalProperties: { type: string, pattern: "^sha256:[0-9a-f]{64}$" }
+
+allOf:
+  # Permanent id format required once out of draft.
+  - if:
+      properties: { status: { enum: [active, superseded, retired] } }
+    then:
+      properties: { id: { pattern: "^RU-[0-9]{4}$" } }
+  # Draft status must use draft id.
+  - if:
+      properties: { status: { const: draft } }
+    then:
+      properties: { id: { pattern: "^RU-draft-" } }
+  # manual conformance requires justification.
+  - if:
+      properties:
+        verification:
+          contains:
+            required: [conformance]
+            properties: { conformance: { const: manual } }
+    then:
+      properties:
+        verification:
+          items:
+            if:
+              required: [conformance]
+              properties: { conformance: { const: manual } }
+            then: { required: [justification] }
+  # scope is required for standard-tier RUs; constitutional RUs may omit it.
+  - if:
+      properties: { tier: { const: standard } }
+      required: [tier]
+    then:
+      required: [scope]
+  - if:
+      not: { required: [tier] }      # tier omitted => standard by default
+    then:
+      required: [scope]

@@ -1,0 +1,12 @@
+id: RU-0002
+statement: >
+  The system shall retain cancellation outcomes for audit review.
+syntax: ears
+status: active
+feature: FEAT-b
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [cancellation]

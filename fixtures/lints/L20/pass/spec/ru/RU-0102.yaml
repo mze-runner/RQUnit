@@ -1,0 +1,20 @@
+id: RU-0102
+statement: The system shall purge decision logs after the audit window closes.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+rationale_ref: ADR-audit-window
+verification:
+- type: contract
+  ref: CT-base
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:80219833d326edbc9e456990535d1f9899d13f633daa51820d30867c812501b0
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'
+link_fingerprints:
+  ADR-audit-window: sha256:acbacae54a9bbc31d1aadcc1eb3e7f96f8118095d56a15f0fba8147eb2385116

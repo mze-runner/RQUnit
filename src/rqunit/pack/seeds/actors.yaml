@@ -1,0 +1,7 @@
+# Controlled actor registry (§3.3, L12). The parsed EARS actor of every RU
+# statement must be a canonical id from this list; aliases are rejected in
+# statements and the lint suggests the rename. Register an actor before using
+# it in a requirement.
+#
+# Ids name a ROLE, never a person or a team: lowercase kebab-case nouns.
+actors: []

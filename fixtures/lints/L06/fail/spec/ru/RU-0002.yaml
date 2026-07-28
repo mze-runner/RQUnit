@@ -1,0 +1,14 @@
+id: RU-0002
+statement: >
+  The system shall record every screening decision with reason codes.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - type: model
+    ref: MDL-order-lifecycle
+    model_hash: "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    conformance: generated
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

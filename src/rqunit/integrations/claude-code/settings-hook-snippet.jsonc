@@ -1,0 +1,39 @@
+// ── Spec-consistency hook snippet ───────────────────────────────────────────
+//
+// MERGE this into .claude/settings.json (don't paste the file wholesale — your
+// settings.json already has permissions/model/other hooks; only add the entry
+// under the "hooks" key). This makes the MECHANICAL spec controls fire
+// deterministically when Claude edits a spec file, rather than relying on the
+// agent remembering to run them.
+//
+// The principle (confirmed in the Claude Code docs): CLAUDE.md and agents are
+// advisory; hooks are deterministic. The reviewer gates (C9-C11) stay with the
+// agent/skill because they need judgement; the mechanical checks (C1-C4, C8)
+// belong in a hook because they don't.
+//
+// PostToolUse fires AFTER an edit. The matcher restricts it to spec files so it
+// doesn't run on every code edit. Adjust the matcher path to your repo if your
+// specs live elsewhere than .claude/specs/.
+
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.claude/specs/*) out=$(bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-spec-consistency.sh\" 2>&1) || { echo \"$out\" >&2; exit 2; };; esac"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+// NOTE: the exact env var carrying the edited path (read from stdin JSON via jq) and
+// the PostToolUse schema can vary by Claude Code version. Verify against
+// `code.claude.com/docs` → Configure settings → hooks for your installed
+// version, and adjust the guard condition if the variable name differs. If in
+// doubt, drop the `if echo ... grep` guard and let it run on every edit — the
+// checker is fast and exits 0 when there are no service manifests yet.

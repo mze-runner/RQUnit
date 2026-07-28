@@ -1,0 +1,15 @@
+id: RU-draft-01K1TESTBBBB000000000000BB
+statement: The system shall apply the constraint recorded in RU-draft-01K1TESTAAAA000000000000AA
+  to future orders.
+syntax: ears
+status: draft
+feature: FEAT-pilot
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: CT-base
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders

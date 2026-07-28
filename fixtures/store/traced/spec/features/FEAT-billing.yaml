@@ -1,0 +1,4 @@
+id: FEAT-billing
+goal: Charges are captured reliably for confirmed orders without manual intervention.
+source_ref: INT-0057#L1-3
+status: active

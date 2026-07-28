@@ -1,0 +1,18 @@
+id: RU-0020
+statement: The system shall uphold background constraint number 20 across fulfilment.
+syntax: ears
+status: active
+feature: FEAT-hot
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: CT-base
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:a3da3038cfacf423dc9bca72c4b198cc65c5cc305dc33e04f3f94e945d4a628c
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

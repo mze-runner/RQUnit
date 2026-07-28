@@ -1,0 +1,3 @@
+id: CT-empty
+kind: claim-set
+description: Contract with no fields declared.

@@ -1,0 +1,11 @@
+id: token-revert
+kind: statechart
+initial: live
+undeclared_event_policy: error
+vocabulary:
+  REVERT: "{endpoint:revert_password}"
+states:
+  live:
+    "on": { REVERT: reverted }
+  reverted:
+    type: final

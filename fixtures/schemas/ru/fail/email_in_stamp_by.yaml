@@ -1,0 +1,18 @@
+id: RU-0142
+statement: >
+  When a customer-support-agent calls {endpoint:cancel_order}, the system
+  shall halt fulfilment activity for that order_id within 5 seconds.
+syntax: ears
+status: active
+feature: FEAT-order-cancellation
+source_ref: INT-0057#L34-41
+verification:
+  - type: test
+    ref: itest::orders::cancellation_latency_bound
+scope:
+  owns: [orders/fulfilment]
+tags: [orders, cancellation]
+gate1_stamp:
+  hash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  by: someone@example.com
+  at: "2026-07-20T09:14:00Z"

@@ -1,0 +1,3 @@
+actors:
+  - id: user
+    description: Authenticated end user

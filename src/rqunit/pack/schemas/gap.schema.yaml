@@ -1,0 +1,51 @@
+# GAP artifact schema (JSON Schema 2020-12 in YAML).
+# Split from the reference pack's feat-and-gap.schema.yaml at install
+# (TASK-002); document content unchanged. Normative source: spec v0.10 §8.1, formats.md §12 (decision 1).
+# ---------------------------------------------------------------------------
+# GAP — analyst- or implementer-surfaced ambiguity/conflict.
+# DESIGN DECISION (marked for operator ratification): GAP ids are ULID-based,
+# not sequential — gaps are created by agents in parallel with no activation
+# ceremony, so they get the collision-free scheme drafts use. Resolution MUST
+# point at an INT artifact: the human's answer IS new intent (§4), and any RU
+# compiled from it anchors there. This closes the loop mechanically.
+# ---------------------------------------------------------------------------
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "spec/framework/gap.schema.yaml"
+title: Gap
+type: object
+additionalProperties: false
+required: [id, question, severity, raised_by, affected, status]
+properties:
+  id:        { type: string, pattern: "^GAP-[0-9A-HJKMNP-TV-Z]{26}$" }
+  question:
+    type: string
+    minLength: 15
+    description: >
+      The ambiguity as a direct question to the human, including the
+      candidate answers where known ("bound required — 5s? 30s?").
+  severity:  { enum: [blocking, clarify-later] }
+  raised_by: { enum: [analyst, implementer, human, tooling] }
+  source_ref:
+    type: string
+    description: Where the ambiguity was encountered (INT anchor, RU id, manifest key, task id).
+  affected:
+    type: array
+    minItems: 1
+    items:
+      type: string
+      description: RU/FEAT ids, manifest keys (service:section.key), or model ids this gap holds.
+      pattern: "^(RU-(draft-[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})|FEAT-[a-z0-9-]+|MDL-[a-z0-9-]+|[a-z0-9-]+:[a-z_.]+)$"
+  status:    { enum: [open, resolved, withdrawn] }
+  resolution:
+    type: object
+    additionalProperties: false
+    required: [int_ref, summary]
+    properties:
+      int_ref:
+        type: string
+        pattern: "^INT-[0-9]{4}#(L[0-9]+(-[0-9]+)?|S[a-z0-9-]+)$"
+        description: The captured human answer. Mandatory — an unanchored resolution is invention.
+      summary: { type: string, minLength: 5 }
+allOf:
+  - if: { properties: { status: { const: resolved } } }
+    then: { required: [resolution] }

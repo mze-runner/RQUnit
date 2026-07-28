@@ -1,0 +1,4 @@
+# L2 vague-quantifier wordlist (formats.md §8). Data, not code — extend by PR.
+# ("immediately" is vague — an agent cannot test it; the fix is a literal bound.)
+bound_position: [quickly, soon, promptly, immediately, "in a timely manner", eventually, "as soon as possible", asap]
+quantity_position: [many, few, several, some, large, small, numerous, various, appropriate, sufficient, reasonable, adequate, minimal]

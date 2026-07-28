@@ -1,0 +1,11 @@
+id: RU-0002
+statement: >
+  When a deletion transaction commits, the system shall publish exactly one {message:order_cancelled} event.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-base }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

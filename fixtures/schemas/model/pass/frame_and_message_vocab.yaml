@@ -1,0 +1,12 @@
+id: lobby-conn
+kind: statechart
+initial: open
+undeclared_event_policy: ignore
+vocabulary:
+  PING: "{frame:lobby.ping}"
+  REVOKED: "{message:session_invalidated}"
+states:
+  open:
+    "on": { PING: open, REVOKED: closed }
+  closed:
+    type: final

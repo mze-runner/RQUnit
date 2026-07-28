@@ -1,0 +1,8 @@
+id: stub
+kind: statechart
+initial: only
+undeclared_event_policy: ignore
+vocabulary: {}
+states:
+  only:
+    type: final

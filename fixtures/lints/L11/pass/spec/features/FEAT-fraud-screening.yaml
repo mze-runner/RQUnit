@@ -1,0 +1,4 @@
+id: FEAT-fraud-screening
+goal: Incoming orders are screened by manager-configured rules automatically.
+source_ref: INT-0001#L1-2
+status: active

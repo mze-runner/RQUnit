@@ -1,0 +1,18 @@
+# FEAT artifact schema (JSON Schema 2020-12 in YAML).
+# Split from the reference pack's feat-and-gap.schema.yaml at install
+# (TASK-002); document content unchanged. Normative source: spec v0.10 §2.1.
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "spec/framework/feat.schema.yaml"
+title: Feature
+type: object
+additionalProperties: false
+required: [id, goal, source_ref, status]
+properties:
+  id:         { type: string, pattern: "^FEAT-[a-z0-9-]+$" }
+  goal:
+    type: string
+    minLength: 20
+    maxLength: 400
+    description: One-sentence motivation. Normative language here is an L11 error.
+  source_ref: { type: string, pattern: "^INT-[0-9]{4}#(L[0-9]+(-[0-9]+)?|S[a-z0-9-]+)$" }
+  status:     { enum: [active, retired] }

@@ -1,0 +1,8 @@
+# Cross-service facts (§5.5). Seeded because the `access_tiers` vocabulary
+# must exist before any endpoint validates (C5) — the tier set is project
+# data, deliberately not a schema enum. Tune it to the consumer's access
+# model at adoption.
+service: shared
+version: "1.0"
+vocabularies:
+  access_tiers: [public, internal, protected]

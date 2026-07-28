@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rqunit/interfaces/test-plan.schema.json",
+  "title": "TestPlan",
+  "description": "What must be checked, stated without reference to any language. The framework derives this from a model (diagram-as-oracle, spec §6.3); a per-stack emitter turns it into idiomatic tests. Emitters render, they never decide: nothing about which checks exist, or what each asserts, is an emitter's judgment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "models"],
+  "properties": {
+    "contract_version": { "const": 1 },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["model", "model_hash", "undeclared_event_policy", "checks", "verified_by"],
+        "properties": {
+          "model": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "model_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "The model's content hash when the plan was derived. A suite generated from a stale plan is red by §6.3 — green against a stale model is red."
+          },
+          "undeclared_event_policy": { "enum": ["ignore", "error"] },
+          "verified_by": {
+            "type": "array",
+            "description": "Active RUs whose verification cites this model. Generated suites carry no per-test annotations; their traceability is inherited through this list (formats §5).",
+            "items": { "type": "string", "pattern": "^RU-[0-9]{4}$" }
+          },
+          "checks": {
+            "type": "array",
+            "description": "In emission order. Every check is one assertion: a declared transition, a rejection of an undeclared state/event pair, or an invariant probe.",
+            "items": {
+              "type": "object",
+              "required": ["kind", "id"],
+              "properties": {
+                "kind": { "enum": ["transition", "rejection", "invariant"] },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*$",
+                  "description": "Stable, language-neutral check identity. Emitters map it to an idiomatic test name; the mapping must be deterministic so traceability survives regeneration."
+                }
+              },
+              "oneOf": [
+                {
+                  "properties": {
+                    "kind": { "const": "transition" },
+                    "from": { "type": "string" },
+                    "event": { "type": "string" },
+                    "to": { "type": "string" }
+                  },
+                  "required": ["from", "event", "to"]
+                },
+                {
+                  "properties": {
+                    "kind": { "const": "rejection" },
+                    "state": { "type": "string" },
+                    "event": { "type": "string" },
+                    "expect": { "enum": ["ignored", "error"] }
+                  },
+                  "required": ["state", "event", "expect"]
+                },
+                {
+                  "properties": {
+                    "kind": { "const": "invariant" },
+                    "state": { "type": "string" },
+                    "name": { "type": "string" }
+                  },
+                  "required": ["state", "name"]
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

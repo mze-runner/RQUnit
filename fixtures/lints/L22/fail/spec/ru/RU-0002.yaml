@@ -1,0 +1,18 @@
+id: RU-0002
+statement: When a refund settles, the system shall notify the customer of the outcome.
+syntax: ears
+status: active
+feature: FEAT-refunds
+source_ref: INT-0001#L1-2
+verification:
+- type: human
+  criterion: Is the refund notification comprehensible to customers?
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:9258faf960473c93e614ce501c82bbfedb4637a4311c75d033e90195a3052ecc
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

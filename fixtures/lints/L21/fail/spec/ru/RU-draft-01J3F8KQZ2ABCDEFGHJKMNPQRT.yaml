@@ -1,0 +1,13 @@
+id: RU-draft-01J3F8KQZ2ABCDEFGHJKMNPQRT
+statement: The system shall reject forged cancellation confirmations outright.
+syntax: ears
+status: draft
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: itest::sec::forgery
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- security

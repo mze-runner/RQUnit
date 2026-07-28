@@ -1,0 +1,4 @@
+id: FEAT-pilot
+goal: Screening decisions stay auditable across the retention window.
+source_ref: INT-0001#L1-2
+status: active

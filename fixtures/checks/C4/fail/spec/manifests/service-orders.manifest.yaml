@@ -1,0 +1,17 @@
+service: service-orders
+version: "1.0"
+endpoints:
+  - { id: get_order_a, method: POST, path: "/api/v1/orders/{id}", access: protected, ru: FEAT-x }
+  - { id: get_order_b, method: POST, path: "/api/v1/orders/{uid}", access: protected, ru: FEAT-x }
+  - { id: ws_probe, method: GET, path: /ws, access: public, ru: FEAT-x }
+channels:
+  - id: lobby
+    upgrade_path: /ws
+    access: protected
+    ru: FEAT-x
+    frames: [{ id: pong, direction: outbound, payload: "ws::Pong" }]
+  - id: lobby_two
+    upgrade_path: /ws
+    access: protected
+    ru: FEAT-x
+    frames: [{ id: pong, direction: outbound, payload: "ws::Pong" }]

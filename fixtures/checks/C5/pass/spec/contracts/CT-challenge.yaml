@@ -1,0 +1,7 @@
+id: CT-challenge
+kind: claim-set
+description: Challenge token bound to the scoped tier with vocabulary-backed values.
+access_tier: scoped
+fields:
+  - { name: scope, where: claims, presence: always, vocab: token_scopes }
+  - { name: sid, presence: never }

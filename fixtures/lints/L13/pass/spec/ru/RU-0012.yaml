@@ -1,0 +1,9 @@
+id: RU-0012
+statement: The system shall uphold constitutional invariant number 0012 at all times.
+syntax: ears
+status: active
+tier: constitutional
+source_ref: INT-0001#L1-2
+verification:
+  - { type: contract, ref: CT-invariant-0012 }
+tags: [audit]

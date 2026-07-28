@@ -1,0 +1,8 @@
+id: CT-challenge-token
+kind: claim-set
+description: Challenge token with vocabulary-constrained scope values.
+access_tier: scoped
+fields:
+  - { name: scope, where: claims, presence: always, vocab: token_scopes }
+  - { name: provider, presence: always, type: string }
+  - { name: sid, presence: never, note: a challenge is not a session }

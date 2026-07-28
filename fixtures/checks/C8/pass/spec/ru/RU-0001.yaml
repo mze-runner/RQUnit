@@ -1,0 +1,14 @@
+id: RU-0001
+statement: >
+  When a user calls {endpoint:cancel_order}, the system shall halt fulfilment for the order.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - type: model
+    ref: MDL-order-lifecycle
+    model_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    conformance: generated
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

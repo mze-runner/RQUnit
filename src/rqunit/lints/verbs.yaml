@@ -1,0 +1,8 @@
+# L3 compound-detection verb lexicon (plan D-P1.2). Data, not code — extend by
+# PR. An " and "-conjunct starting with one of these base-form verbs marks a
+# second normative clause ("halt fulfilment and release the reservation");
+# object coordination ("log the actor and reason code") never starts with one.
+verbs: [halt, release, notify, record, log, reject, revoke, publish, send,
+        close, delete, purge, restore, deny, emit, evaluate, hold, route,
+        mark, apply, dispatch, invalidate, rotate, create, update, remove,
+        retain, return, respond, expose, include, redirect, schedule, cancel]

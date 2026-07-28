@@ -1,0 +1,73 @@
+# Contract (CT) schema (JSON Schema draft 2020-12, expressed in YAML)
+# Normative source: ru-framework-spec.md v0.11 §6.1 (contract verification),
+# formats.md §11 (CT format). One contract = one checkable shape, store-wide
+# (referenceable from any service's RU verification).
+# Governance is manifest-like: Gate-1-reviewed edits; dependents fingerprint
+# the content (§7.3), so an unreviewed edit flips them suspect (L20).
+# Kinds are a CLOSED set grown by schema PR — one kind exists today. A generic
+# assertion DSL is deliberately out of scope.
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "spec/framework/contract.schema.yaml"
+title: Contract
+type: object
+additionalProperties: false
+required: [id, kind, description, fields]
+
+properties:
+
+  id:
+    type: string
+    pattern: "^CT-[a-z0-9-]+$"
+
+  kind:
+    enum: [claim-set]
+    description: >
+      claim-set: an exact field set for a minted artifact (token, envelope,
+      payload) — presence, placement, and absence rules, all mechanically
+      assertable.
+
+  description:
+    type: string
+    minLength: 10
+    description: What artifact this contract governs, for humans and packets.
+
+  access_tier:
+    type: string
+    description: >
+      Optional binding to the access tier this artifact authenticates —
+      "endpoints of this tier consume artifacts of this shape". Membership in
+      the shared `access_tiers` vocabulary is C5's check, never a schema enum.
+
+  fields:
+    type: array
+    minItems: 1
+    items:
+      type: object
+      additionalProperties: false
+      required: [name, presence]
+      properties:
+        name:
+          type: string
+          pattern: "^[A-Za-z_][A-Za-z0-9_-]*$"
+        presence:
+          enum: [always, never]
+          description: >
+            One contract per artifact TYPE keeps presence binary — a field
+            that appears "sometimes" belongs to a different artifact type
+            with its own contract. `never` makes absence checkable.
+        where:
+          enum: [claims, header]
+          default: claims
+          description: Placement within the artifact (JWS claims vs header, body vs envelope).
+        type:
+          enum: [string, integer, number, boolean]
+        vocab:
+          type: string
+          pattern: "^[a-z][a-z0-9_-]*$"
+          description: >
+            Name of a manifest vocabulary constraining this field's values
+            (C5 checks the vocabulary exists — shared or the owning service's).
+        note:
+          type: string
+          description: Semantic meaning, for humans and packets.

@@ -1,0 +1,16 @@
+id: RU-0001
+statement: The system shall deny any action that is not explicitly granted to the
+  requesting actor's role.
+syntax: ears
+status: active
+tier: constitutional
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: CT-base
+tags:
+- doctrine
+gate1_stamp:
+  hash: sha256:7c25893bd7c33907c591db6eadc90a3a4f5f45b1cb120df94a0948fc25e29248
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

@@ -1,0 +1,17 @@
+id: RU-0026
+statement: The system shall uphold background constraint number 26 across fulfilment.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: CT-base
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:47ff72a97e6005ff03ad09effe5a25903a61bef744737bba8f7abff947611472
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

@@ -1,0 +1,16 @@
+# Verification-depth policy (spec §6.7, L21). First matching rule wins;
+# `default` closes the set. Policy is DATA — extending it is a PR to this
+# file (Gate-1-governed), never a lint code change.
+#
+# Seeded from the §6.7 example with one adaptation (plan D-P4.3): the
+# tags_any rule keys on our registered `security` tag — no safety/authz tags
+# exist in tags.yaml yet; add rules as those vocabularies arrive.
+rules:
+  - match: { tier: constitutional }
+    require: { min_mechanical: 2 }            # ≥2 of contract|test|model
+  - match: { tags_any: [security] }
+    require: { types_all: [contract, test] }  # both, not either
+  - match: { tags_any: [audit] }
+    require: { types_any: [contract] }
+default:
+  require: { min_verifications: 1 }

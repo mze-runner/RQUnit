@@ -1,0 +1,5 @@
+id: CT-sometimes
+kind: claim-set
+description: Presence is binary — sometimes means a different artifact type.
+fields:
+  - { name: scope, presence: sometimes }

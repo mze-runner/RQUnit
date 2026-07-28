@@ -1,0 +1,19 @@
+{
+  "id": "order-lifecycle",
+  "kind": "statechart",
+  "initial": "pending",
+  "undeclared_event_policy": "ignore",
+  "vocabulary": {
+    "CANCEL": "{endpoint:cancel_order}"
+  },
+  "states": {
+    "pending": {
+      "on": {
+        "CANCEL": "cancelled"
+      }
+    },
+    "cancelled": {
+      "type": "final"
+    }
+  }
+}

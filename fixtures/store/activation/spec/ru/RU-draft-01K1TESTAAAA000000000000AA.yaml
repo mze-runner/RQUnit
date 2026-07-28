@@ -1,0 +1,15 @@
+id: RU-draft-01K1TESTAAAA000000000000AA
+statement: The system shall retain decision logs for the extended audit window.
+syntax: ears
+status: draft
+feature: FEAT-pilot
+source_ref: INT-0001#L1-2
+supersedes: RU-0100
+verification:
+- type: contract
+  ref: CT-base
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders

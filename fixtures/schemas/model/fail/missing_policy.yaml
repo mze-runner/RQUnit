@@ -1,0 +1,17 @@
+id: order-lifecycle
+kind: statechart
+initial: pending
+vocabulary:
+  CONFIRM: "{endpoint:confirm_order}"
+  CANCEL: "{endpoint:cancel_order}"
+  CANCEL_COMPLETE: internal
+states:
+  pending:
+    "on": { CONFIRM: processing, CANCEL: cancelled }
+  processing:
+    "on": { "CANCEL(order_id)": cancelling }
+  cancelling:
+    invariant: no_new_shipments_dispatched
+    "on": { CANCEL_COMPLETE: cancelled }
+  cancelled:
+    type: final

@@ -1,0 +1,11 @@
+actors:
+  - id: user
+    description: Authenticated end user
+  - id: customer-support-agent
+    aliases: [support-agent, csr]
+    description: Acts on individual orders on behalf of customers
+  - id: operations-manager
+    aliases: [ops-manager]
+    description: Configures business rules
+  - id: anonymous
+    description: Unauthenticated principal

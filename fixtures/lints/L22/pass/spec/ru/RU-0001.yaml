@@ -1,0 +1,17 @@
+id: RU-0001
+statement: When a user requests a refund, the system shall queue the refund for settlement.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: TODO(CT - refund settlement contract)
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:c53e92665f3b194df598ea0f63c5cb991a55aa0e5bce95fdafa9448b02986501
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

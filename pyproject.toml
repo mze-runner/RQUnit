@@ -1,0 +1,36 @@
+[project]
+name = "rqunit"
+version = "0.12.0"
+description = "Requirement Unit framework: verifiable requirements stored beside the code they govern, with lints, consistency checks, gates, and manifest/model conformance"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+keywords = ["requirements", "specification", "traceability", "conformance", "agentic"]
+dependencies = [
+    "pyyaml>=6.0",
+    "jsonschema>=4.21",
+    "click>=8.1",
+]
+
+# One binary, noun–verb grammar, organized by lifecycle stage. The per-tool
+# `spec-*` entry points that existed inside the consumer repository retired
+# with the extraction — `rqunit <verb>` is the only supported surface.
+[project.scripts]
+rqunit = "rqunit.cli.rqunit:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# The pack (schemas + seeds) ships INSIDE the package: a consumer's store is
+# validated against the schemas of the tool version enforcing it, which is
+# what makes `pack.yaml` version pinning meaningful and kills the two-copy
+# sync problem the framework had while it lived in a consumer repository.
+packages = ["src/rqunit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

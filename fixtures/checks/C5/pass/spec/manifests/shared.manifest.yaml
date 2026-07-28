@@ -1,0 +1,11 @@
+service: shared
+version: '1.0'
+vocabularies:
+  access_tiers:
+  - public
+  - internal
+  - scoped
+  - refresh
+  - protected
+  token_scopes:
+  - pending-verification

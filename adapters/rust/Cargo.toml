@@ -1,0 +1,21 @@
+[package]
+name = "rqunit-adapter-rust"
+version = "0.1.0"
+edition = "2021"
+description = "RQUnit adapter for Rust: extracts the surface a codebase actually exposes into actual-surface.json, for `rqunit conformance` to reconcile against the manifests"
+publish = false
+
+# Extraction parses router and subject sources. The adapter has NO dependency
+# on the codebase it inspects and none on rqunit itself: it reads sources and
+# writes one JSON artifact against a pinned contract. That is the whole
+# interface — an adapter observes, and never judges.
+[dependencies]
+syn = { version = "2", features = ["full", "visit"] }
+
+[lib]
+name = "rqunit_adapter_rust"
+path = "src/extract.rs"
+
+[[bin]]
+name = "extract-surface"
+path = "src/bin/extract-surface.rs"

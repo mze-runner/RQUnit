@@ -1,0 +1,5 @@
+id: CT-strict
+kind: claim-set
+description: Field entries are closed objects — typos must not pass.
+fields:
+  - { name: sub, presence: always, requird: true }

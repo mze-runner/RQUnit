@@ -1,0 +1,5 @@
+id: CT-JwtAccess
+kind: claim-set
+description: Contract ids are lowercase slugs like every store filename.
+fields:
+  - { name: sub, presence: always }

@@ -1,0 +1,15 @@
+id: RU-0001
+statement: The system shall deny unauthorized mutation of screening rules.
+syntax: ears
+status: active
+tier: constitutional
+source_ref: INT-0001#L1-2
+verification:
+- type: contract
+  ref: CT-base
+tags:
+- audit
+gate1_stamp:
+  hash: sha256:a60c58a243c9c080fb16aa9cd47d458992dba1415a2619a4199a4d51b72edb4a
+  by: fixture-op
+  at: '2026-07-25T10:00:00+00:00'

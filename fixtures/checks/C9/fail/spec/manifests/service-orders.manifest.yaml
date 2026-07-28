@@ -1,0 +1,6 @@
+service: service-orders
+version: "1.0"
+messages:
+  - { id: dup_a, subject: dup.subject, direction: outbound, payload: "wire::Dup", ru: FEAT-x }
+  - { id: pay_out, subject: pay.settled, direction: outbound, payload: "wire::PaySettledV1", ru: FEAT-x }
+  - { id: ext_out, subject: ext.event, direction: outbound, payload: "wire::Ext", ru: FEAT-x }

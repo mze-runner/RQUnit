@@ -1,0 +1,11 @@
+id: RU-draft-01J3F8KQZ2ABCDEFGHJKMNPQRT
+statement: The system shall deny profile edits for a quarantined username.
+syntax: ears
+status: draft
+source_ref: INT-0001#L2-4
+verification:
+  - type: human
+    criterion: "Is the quarantine denial message comprehensible?"
+scope:
+  owns: [profile/username]
+tags: [profile]

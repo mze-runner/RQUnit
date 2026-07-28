@@ -1,0 +1,4 @@
+id: FEAT-order-cancellation
+goal: Support agents can cancel in-flight orders without stranding fulfilment.
+source_ref: INT-0001#L1-2
+status: active

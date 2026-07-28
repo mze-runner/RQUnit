@@ -1,0 +1,19 @@
+{
+  "id": "order-lifecycle",
+  "kind": "statechart",
+  "initial": "pending",
+  "undeclared_event_policy": "ignore",
+  "vocabulary": {
+    "SETTLE": "internal"
+  },
+  "states": {
+    "pending": {
+      "on": {
+        "SETTLE": "settled"
+      }
+    },
+    "settled": {
+      "type": "final"
+    }
+  }
+}
