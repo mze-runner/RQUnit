@@ -1,10 +1,10 @@
-id: lobby-conn
+id: tracking-conn
 kind: statechart
 initial: open
 undeclared_event_policy: ignore
 vocabulary:
-  PING: "{frame:lobby.ping}"
-  REVOKED: "{message:session_invalidated}"
+  PING: "{frame:tracking.ping}"
+  REVOKED: "{message:carrier_disconnected}"
 states:
   open:
     "on": { PING: open, REVOKED: closed }

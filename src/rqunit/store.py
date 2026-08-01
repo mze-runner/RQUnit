@@ -26,6 +26,7 @@ from .errors import (
     UnknownArtifact,
     UnresolvedRef,
 )
+from .parser.tokens import TokenError, parse_one
 from .schemas import validator
 
 _IGNORED = {"README.md", ".gitkeep", ".DS_Store"}
@@ -39,14 +40,10 @@ _INT_FILE = re.compile(r"^INT-[0-9]{4}\.[a-z0-9]+$")
 _ADR_FILE = re.compile(r"^ADR-[A-Za-z0-9-]+\.md$")
 _CT_FILE = re.compile(r"^CT-[a-z0-9-]+\.yaml$")
 
-# Reference token grammar (formats §2, v0.10). The kind alternation is closed:
-# anything else inside braces is malformed, not unresolved.
-# v0.10.2: key idents admit hyphens (kept in lockstep with parser.tokens._BODY).
-_TOKEN = re.compile(
-    r"^\{(?P<kind>value|endpoint|problem|audit|message|channel|frame|vocab):"
-    r"(?:(?P<qualifier>[a-z][a-z0-9-]*)/)?"
-    r"(?P<key>[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*)\}$"
-)
+# Reference token grammar (formats §2): parser.tokens owns it outright. This
+# module used to carry a second regex "kept in lockstep" by hand; v0.13 retires
+# it, because two implementations of one grammar are a drift class rather than a
+# safeguard — the same reasoning that keeps ONE canonicalizer.
 
 
 @dataclass(frozen=True)
@@ -327,16 +324,16 @@ class Store:
         a miss is UnresolvedRef, never a fallback. Unqualified tokens resolve
         against ``scope``'s manifest, then ``shared``. Qualified ``value``
         tokens are malformed (foreign scalars promote to shared)."""
-        m = _TOKEN.match(token)
-        if not m:
+        parsed = parse_one(token)
+        if isinstance(parsed, TokenError):
+            if parsed.reason == "qualified-value":
+                raise MalformedRef(
+                    None,
+                    f"{token!r}: qualified value refs are forbidden — a foreign scalar "
+                    "is the promotion-to-shared trigger (§5.3, §5.5)",
+                )
             raise MalformedRef(None, f"malformed reference token {token!r} (formats §2)")
-        kind, qualifier, key = m.group("kind"), m.group("qualifier"), m.group("key")
-        if qualifier and kind == "value":
-            raise MalformedRef(
-                None,
-                f"{token!r}: qualified value refs are forbidden — a foreign scalar "
-                "is the promotion-to-shared trigger (§5.3, §5.5)",
-            )
+        kind, qualifier, key = parsed.kind, parsed.qualifier, parsed.key
         if qualifier:
             candidates = [qualifier]
         else:
@@ -368,8 +365,10 @@ def _lookup(manifest: dict, kind: str, key: str) -> object | None:
         return next((e for e in manifest.get("audit_events", []) if e.get("code") == key), None)
     if kind == "vocab":
         return manifest.get("vocabularies", {}).get(key)
-    if kind in ("endpoint", "message", "channel"):
-        section = {"endpoint": "endpoints", "message": "messages", "channel": "channels"}[kind]
+    if kind == "endpoint":
+        return _lookup_endpoint(manifest, key)
+    if kind in ("message", "channel"):
+        section = {"message": "messages", "channel": "channels"}[kind]
         return next((e for e in manifest.get(section, []) if e.get("id") == key), None)
     if kind == "frame":
         channel_id, _, frame_id = key.partition(".")
@@ -380,3 +379,29 @@ def _lookup(manifest: dict, kind: str, key: str) -> object | None:
             return None
         return next((f for f in channel.get("frames", []) if f.get("id") == frame_id), None)
     return None
+
+
+def _lookup_endpoint(manifest: dict, key: str) -> object | None:
+    """Resolve `<id>[.<direction>[.<field-path>]]` against the HTTP surface.
+
+    Each depth resolves to the thing at that depth: the entry, the direction's
+    declaration, or one declared field. A direction declared `none` resolves to
+    the string `none` — "this surface carries nothing" is a POSITIVE claim, so
+    it must resolve; an ABSENT direction does not, which is what lets C10 and
+    L23 tell an unfinished declaration from a deliberate empty one."""
+    endpoint_id, _, path = key.partition(".")
+    entry = next((e for e in manifest.get("endpoints", []) if e.get("id") == endpoint_id), None)
+    if entry is None or not path:
+        return entry
+    direction, _, field_path = path.partition(".")
+    slot = entry.get(direction)
+    if slot is None:
+        return None
+    if not field_path:
+        return slot
+    if not isinstance(slot, dict):
+        return None                       # `none`: no field can be addressed inside it
+    fields = slot.get("fields")
+    if not isinstance(fields, list):
+        return None
+    return next((f for f in fields if f.get("name") == field_path), None)

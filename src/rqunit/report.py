@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import html
 import json
-import re
 import subprocess
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -23,6 +22,7 @@ from pathlib import Path
 from .checks.base import run_checks
 from .doctor import run as run_doctor
 from .lints.base import run_lints
+from .schemas import store_pack_version
 from .status import compute, gate2_records
 from .store import Store
 
@@ -42,15 +42,6 @@ def _computed_label(store: Store, ru) -> str:
     if s.debt:
         return "debt"
     return "pending"
-
-
-def _framework_version(root: Path) -> str:
-    path = Path(root) / "spec" / "framework" / "ru-framework-spec.md"
-    if path.is_file():
-        m = re.search(r"^\*\*Status:\*\*\s*(v[0-9][0-9.]*)", path.read_text(), re.M)
-        if m:
-            return m.group(1)
-    return "unknown"
 
 
 def _store_commit(root: Path) -> str:
@@ -164,7 +155,7 @@ def build_data(store: Store, root: Path, now: str | None = None) -> dict:
         "store": {
             "name": root.name,
             "commit": _store_commit(root),
-            "framework_version": _framework_version(root),
+            "framework_version": store_pack_version(root),
         },
         "totals": {
             "rus": dict(Counter(ru.status for ru in rus)),
@@ -414,7 +405,7 @@ footer{{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);color:
 <header>
   <div>
     <h1>Requirements report — {_esc(store["name"])}</h1>
-    <div class="meta">Store commit <b>{_esc(store["commit"])}</b> · framework
+    <div class="meta">Store commit <b>{_esc(store["commit"])}</b> · pack
       <b>{_esc(store["framework_version"])}</b> · generated {_esc(data["generated_at"][:16])}</div>
   </div>
   <span class="badge">{_esc(totals["rus"].get("active", 0))} governed requirements</span>

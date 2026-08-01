@@ -112,6 +112,9 @@ def render_surface_sheet(store: Store, service: str) -> list[str]:
             out.append(f"| {e['method']} | {e['path']} | {e['access']} | "
                        f"{'yes' if e.get('planned') else ''} | {e['ru']} |")
         out.append("")
+        default_policy = (raw.get("defaults") or {}).get("unknown_fields")
+        for e in endpoints:
+            out += render_endpoint_shapes(e, default_policy)
     messages = raw.get("messages") or []
     if messages:
         out += ["| direction | subject | payload | ru |", "|---|---|---|---|"]
@@ -127,6 +130,64 @@ def render_surface_sheet(store: Store, service: str) -> list[str]:
     leaves = manifest_value_leaves(raw.get("values") or {})
     if leaves:
         out.append("Values: " + "; ".join(f"{k}={v}" for k, v in sorted(leaves.items())))
+        out.append("")
+    return out
+
+
+def render_field(field: dict) -> str:
+    """One census row. Absences and rejections are rendered as loudly as
+    presences — `never` and `forbidden` are the claims an implementer is most
+    likely to break, and a packet that omits them reads as permission."""
+    parts = [field["presence"]]
+    if field.get("in"):
+        parts.append(f"in {field['in']}")
+    if field.get("type"):
+        parts.append(field["type"])
+        if field.get("items"):
+            parts.append(f"of {field['items']}")
+    if field.get("nullable") is not None:
+        parts.append("nullable" if field["nullable"] else "never null")
+    if field.get("vocab"):
+        parts.append(f"values ∈ {field['vocab']}")
+    for key in ("max_chars", "min_chars", "min", "max", "min_items", "max_items"):
+        if field.get(key) is not None:
+            parts.append(f"{key} {field[key]}")
+    line = f"- `{field['name']}` ({', '.join(parts)})"
+    if field.get("note"):
+        line += f" — {field['note']}"
+    return line
+
+
+def render_endpoint_shapes(endpoint: dict, default_policy: str | None) -> list[str]:
+    """Both directions of one surface (§5.9).
+
+    Packets exist so an implementing agent never has to read the store. Once a
+    shape lives on the endpoint rather than in a contract file, a packet that
+    renders only the route table hides the very census the RU depends on — so
+    the shapes follow the edge. `none` renders explicitly, because "carries
+    nothing" is a claim and silence is not.
+    """
+    out: list[str] = []
+    for direction in ("inbound", "outbound"):
+        slot = endpoint.get(direction)
+        if slot is None:
+            continue
+        header = f"**{endpoint['id']} · {direction}**"
+        if direction == "outbound" and isinstance(slot, dict):
+            header += f" — status {slot.get('status')}"
+        if slot == "none":
+            out += [f"{header} — declared empty: carries no body.", ""]
+            continue
+        if direction == "inbound":
+            policy = slot.get("unknown_fields", default_policy)
+            if policy:
+                header += f" — undeclared fields: {policy}"
+        fields = slot.get("fields")
+        if fields == "none" or not fields:
+            out += [f"{header} — declared empty: carries no body.", ""]
+            continue
+        out += [header, ""]
+        out += [render_field(f) for f in fields]
         out.append("")
     return out
 

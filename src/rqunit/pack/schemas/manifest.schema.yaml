@@ -1,5 +1,8 @@
 # Manifest schema (JSON Schema 2020-12 in YAML).
-# Normative source: spec v0.10 §5.2, §5.8 (v0.10 adds success_status, planned, external). Harmonized from the donor contract-manifest
+# Normative source: spec v0.13 §5.2, §5.8, §5.9 (v0.13 makes the HTTP surface
+# bidirectional: endpoints declare `inbound` and `outbound` field censuses,
+# `success_status` retires into `outbound.status`, and wire naming is declared
+# in `conventions`). Harmonized from the donor contract-manifest
 # schema with these deliberate changes:
 #   * story:  → ru:  (traceability link to governing RU/FEAT, §6.6)
 #   * rate_limit_keys → generalized `vocabularies` (named controlled sets, C5)
@@ -7,7 +10,9 @@
 #   * inline `# CONFLICT:` comments FORBIDDEN — conflicts are GAP artifacts
 #     (unknown keys are already rejected; the ban on conflict comments is a
 #     documented convention checked by a grep-class lint on manifest sources)
-#   * payload fields remain TYPE NAMES ONLY — the compiler owns shapes.
+#   * message/frame `payload` fields remain TYPE NAMES ONLY — the compiler owns
+#     those shapes. Endpoints declare censuses directly (§5.9); bringing the
+#     async families onto `$defs/field_census` is a later, additive revision.
 # Applies to spec/manifests/<service>.manifest.yaml and shared.manifest.yaml
 # (shared: interface surfaces FORBIDDEN — values/vocabularies/problem_types only;
 #  enforced by the conditional at the bottom).
@@ -28,6 +33,128 @@ $defs:
     type: string
     pattern: "^[a-z][a-z0-9_]*$"
 
+  naming_convention:
+    enum: [snake_case, camelCase, kebab-case, PascalCase]
+
+  field_name:
+    type: string
+    description: >
+      A wire-visible field name. Dots denote nesting: `cancellation.at`
+      declares a member of the object declared as `cancellation`. The pattern
+      admits the union of the naming conventions; which one is legal in a given
+      store is `conventions.field_names` (C13) — the grammar permits, the rule
+      decides.
+    pattern: "^[A-Za-z][A-Za-z0-9_-]*(\\.[A-Za-z][A-Za-z0-9_-]*)*$"
+
+  bound:
+    description: >
+      A numeric constraint: either a literal, or a `{value:<dotted.key>}` reference
+      to a `values` entry. Referencing is preferred — a literal that duplicates a
+      registered value is an L24 finding, because a bound restated in two places is
+      a bound that can diverge.
+    oneOf:
+      - type: integer
+      - type: string
+        pattern: "^\\{value:[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*\\}$"
+
+  field:
+    type: object
+    additionalProperties: false
+    required: [name, presence]
+    properties:
+      name: { $ref: "#/$defs/field_name" }
+      presence:
+        enum: [always, never, required, optional, forbidden]
+        description: >
+          Direction-keyed and NOT interchangeable. Outbound uses always|never,
+          where `never` asserts the field MUST NOT LEAK. Inbound uses
+          required|optional|forbidden, where `forbidden` asserts the field MUST BE
+          REJECTED — the mass-assignment boundary. The schema admits the union;
+          C11 rejects a value foreign to the slot's direction, because a leak and
+          a validation failure are different bugs with different tests.
+      in:
+        enum: [path, query, body]
+        default: body
+        description: >
+          Where the client supplies this field. Inbound only (C11). Query and path
+          parameters are part of the accepted surface, so `inbound: none` is a
+          truthful claim only when the endpoint accepts nothing at all.
+      type:
+        enum: [string, integer, number, boolean, object, array]
+      items:
+        enum: [string, integer, number, boolean, object]
+        description: >
+          Element type; mandatory when `type` is array (C11). Elements that are
+          objects declare their members as dotted children of this field.
+      nullable:
+        type: boolean
+        description: >
+          Whether the VALUE may be null. Orthogonal to presence, which is about the
+          KEY: `presence: always, nullable: false` asserts the key is always there
+          and never null — a claim the store cannot otherwise make. Meaningless on
+          never/forbidden, where there is no value (C11).
+      vocab:
+        type: string
+        pattern: "^[a-z][a-z0-9_]*$"
+        description: Manifest vocabulary constraining this field's values (C5).
+      max_chars: { $ref: "#/$defs/bound" }
+      min_chars: { $ref: "#/$defs/bound" }
+      min:       { $ref: "#/$defs/bound" }
+      max:       { $ref: "#/$defs/bound" }
+      min_items: { $ref: "#/$defs/bound" }
+      max_items: { $ref: "#/$defs/bound" }
+      note:
+        type: string
+        description: Semantic meaning, for humans and packets.
+
+  field_census:
+    description: >
+      The declared field set, or the literal `none` asserting this direction
+      carries no body. `none` is a POSITIVE claim an extractor can falsify; an
+      ABSENT slot is unfinished work, which is why C10 separates the two.
+    oneOf:
+      - type: array
+        minItems: 1
+        items: { $ref: "#/$defs/field" }
+      - const: none
+
+  inbound:
+    description: Everything the endpoint accepts — path, query, and body.
+    oneOf:
+      - type: object
+        additionalProperties: false
+        required: [fields]
+        properties:
+          unknown_fields:
+            enum: [reject, ignore]
+            description: >
+              Overrides `defaults.unknown_fields` for this surface. A policy must
+              resolve here or from the service default (C11) — no implicit value,
+              on the precedent of `undeclared_event_policy` on models.
+          fields: { $ref: "#/$defs/field_census" }
+      - const: none
+
+  outbound:
+    type: object
+    additionalProperties: false
+    required: [status, fields]
+    description: >
+      The success response. Problem responses are not declared here: they are
+      owned by `emits` → `problem_types`, and C13 forbids `status` colliding with
+      an emitted problem type's status.
+    properties:
+      status:
+        type: integer
+        minimum: 200
+        maximum: 399
+        description: >
+          The success code, declared once and beside the body it describes (this
+          is where `success_status` went). One status per endpoint: the known
+          multi-status cases return the SAME body under a different code, and are
+          served additively by a future `alternate_statuses` rather than by
+          duplicating the census.
+      fields: { $ref: "#/$defs/field_census" }
+
 properties:
 
   service:
@@ -38,6 +165,31 @@ properties:
   version:
     type: string
     pattern: "^[0-9]+\\.[0-9]+$"
+
+  defaults:
+    type: object
+    additionalProperties: false
+    description: Service-wide defaults, each overridable at the point of use.
+    properties:
+      unknown_fields:
+        enum: [reject, ignore]
+        description: >
+          What an inbound surface does with a field it does not declare — itself a
+          security requirement, and one the store had no way to state before.
+
+  conventions:
+    type: object
+    additionalProperties: false
+    description: >
+      Store-wide naming standards for WIRE-VISIBLE names, declared once in the
+      shared manifest and enforced by C13. Spec identifiers — endpoint, message and
+      channel ids, vocabulary names — are NOT governed here: `$defs/ident` fixes
+      those, so every id stays addressable by the token grammar. An absent table
+      means unenforced; organisations differ, and the manifest is where a house
+      standard becomes mechanical rather than remembered.
+    properties:
+      field_names:   { $ref: "#/$defs/naming_convention" }
+      path_segments: { $ref: "#/$defs/naming_convention" }
 
   problem_types:
     type: object
@@ -100,12 +252,20 @@ properties:
       properties:
         id:     { $ref: "#/$defs/ident" }
         method: { enum: [GET, POST, PUT, PATCH, DELETE] }
-        path:   { type: string, pattern: "^/" }
-        success_status:
-          type: integer
-          minimum: 200
-          maximum: 399
-          description: Pinned success response code (v0.10) — a checkable surface fact.
+        path:
+          type: string
+          pattern: "^/"
+          description: >
+            Route template. Placeholders are `{name}` and MUST be uniquely named
+            within one path — C12 binds every placeholder to exactly one `in: path`
+            field and back, so the template and the constraints cannot drift.
+        inbound:
+          $ref: "#/$defs/inbound"
+          description: >
+            NOT in `required`: completeness is C10's judgment, at error severity,
+            so a missing declaration is one attributable violation carrying a
+            suggestion rather than a parse failure that says only "invalid".
+        outbound: { $ref: "#/$defs/outbound" }
         planned:
           type: boolean
           description: >
@@ -198,7 +358,8 @@ properties:
               payload:   { type: string, pattern: "^[A-Za-z0-9_:.-]+$" }
 
 allOf:
-  # Shared manifest: facts only, no interface surfaces (§5.5).
+  # Shared manifest: facts only, no interface surfaces (§5.5). `defaults` is a
+  # surface-shaping fact and belongs with the surfaces it shapes.
   - if:
       properties: { service: { const: shared } }
     then:
@@ -206,6 +367,15 @@ allOf:
         endpoints: false
         messages:  false
         channels:  false
+        defaults:  false
+  # `conventions` is store-wide by definition: per-service tables would let the
+  # house standard diverge service by service, which is the thing it exists to
+  # prevent. Declared once, in the shared manifest, or not at all.
+  - if:
+      not:
+        properties: { service: { const: shared } }
+    then:
+      properties: { conventions: false }
   # Non-shared boundary manifests: at least one surface. Pure-internal
   # services with no surface set service kind via absence — the anyOf below
   # is enforced only when any surface key is expected; operator may relax by

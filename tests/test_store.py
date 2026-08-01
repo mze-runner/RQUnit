@@ -85,8 +85,8 @@ def test_resolve_unqualified_kinds_in_scope(store):
     assert store.resolve_ref("{problem:conflict}", "service-orders").value["status"] == 409
     assert store.resolve_ref("{audit:orders.cancelled}", "service-orders").value["code"] == "orders.cancelled"
     assert store.resolve_ref("{message:order_cancelled}", "service-orders").value["direction"] == "outbound"
-    assert store.resolve_ref("{channel:lobby}", "service-orders").value["upgrade_path"] == "/ws"
-    assert store.resolve_ref("{frame:lobby.pong}", "service-orders").value["payload"] == "ws::Pong"
+    assert store.resolve_ref("{channel:tracking}", "service-orders").value["upgrade_path"] == "/ws"
+    assert store.resolve_ref("{frame:tracking.pong}", "service-orders").value["payload"] == "ws::Pong"
 
 
 def test_resolve_unqualified_falls_back_to_shared(store):

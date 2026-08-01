@@ -5,18 +5,26 @@
   "description": "What a codebase REALLY exposes, in manifest vocabulary. Produced by a per-stack adapter (Rust: syn; JVM: annotation scan; Node: router table), consumed by `rqunit conformance`, which owns the diff against the manifest. Adapters extract and never judge: no adapter decides what a divergence means.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["contract_version", "generated_by", "services"],
+  "required": [
+    "contract_version",
+    "generated_by",
+    "services"
+  ],
   "properties": {
-    "contract_version": { "const": 1 },
+    "contract_version": {
+      "const": 1
+    },
     "generated_by": {
       "type": "string",
       "minLength": 1,
-      "description": "Adapter name and version — the report attributes findings to their extractor."
+      "description": "Adapter name and version \u2014 the report attributes findings to their extractor."
     },
     "services": {
       "type": "object",
       "description": "Keyed by manifest service slug. A service absent here is not reconciled at all (no adapter covers it); a service present with empty surfaces asserts the code exposes nothing.",
-      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
@@ -26,13 +34,37 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["method", "path", "access"],
+              "required": [
+                "method",
+                "path",
+                "access"
+              ],
               "properties": {
-                "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "ANY"] },
-                "path": { "type": "string", "pattern": "^/" },
+                "method": {
+                  "enum": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE",
+                    "HEAD",
+                    "OPTIONS",
+                    "ANY"
+                  ]
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^/"
+                },
                 "access": {
                   "type": "string",
                   "description": "Structural access tier as the code composes it (which middleware stack the route is mounted under). Membership in access_tiers is the manifest's business, not the adapter's."
+                },
+                "inbound": {
+                  "$ref": "#/$defs/observed_shape"
+                },
+                "outbound": {
+                  "$ref": "#/$defs/observed_shape"
                 }
               }
             }
@@ -42,11 +74,19 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["subject"],
+              "required": [
+                "subject"
+              ],
               "properties": {
-                "subject": { "type": "string", "minLength": 1 },
+                "subject": {
+                  "type": "string",
+                  "minLength": 1
+                },
                 "direction": {
-                  "enum": ["inbound", "outbound"],
+                  "enum": [
+                    "inbound",
+                    "outbound"
+                  ],
                   "description": "Optional: adapters that cannot determine direction omit it, and the reconciler falls back to presence-only matching."
                 }
               }
@@ -55,28 +95,38 @@
         }
       }
     },
-    "exceptions": {
+    "covers": {
       "type": "array",
-      "description": "Divergences the consumer has ratified at Gate 1. They travel INSIDE the artifact so they are reviewable data, never a constant buried in adapter code — and the reconciler still REPORTS each one as a justified finding rather than silencing it.",
+      "uniqueItems": true,
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["rule", "service", "target", "justification"],
-        "properties": {
-          "rule": {
-            "enum": ["CF1", "CF2", "CF3", "CF4", "CF5", "CF6"],
-            "description": "Which divergence class this exception excuses."
-          },
-          "service": { "type": "string" },
-          "target": {
+        "enum": [
+          "endpoints",
+          "messages",
+          "channels"
+        ]
+      },
+      "description": "Which surface families this artifact EXAMINED. A probe reads one framework and finds one family, so an artifact from a NATS probe makes no claim about routes \u2014 and without this key the reconciler reads that silence as 'the code serves no endpoints' and reports every declared route as unserved. Omit to mean 'everything', which is what a single whole-stack extractor asserts and what every pre-existing artifact meant."
+    }
+  },
+  "$defs": {
+    "observed_shape": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the code DECLARES it carries in this direction \u2014 the handler's request or response type and that type's field names. Optional at every level: an adapter that cannot resolve a handler to a type omits the block, and one that can name the type but not walk its fields omits `fields`. Omission means 'not observed', never 'empty' \u2014 so a stack whose extractor cannot see shapes degrades to presence-only matching rather than reporting every declared field as missing.",
+      "properties": {
+        "type_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The declared type, e.g. 'MeResponse'. Identity only: the reconciler uses it to notice that two routes serve the SAME type while their manifests declare different censuses (CF8). The adapter does not decide whether that is wrong."
+        },
+        "fields": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
             "type": "string",
-            "description": "Identifies the surface: '<METHOD> <path>' for endpoints, the subject for messages."
+            "minLength": 1
           },
-          "justification": {
-            "type": "string",
-            "minLength": 20,
-            "description": "Why the divergence is correct. Mandatory and substantive: an exception nobody can defend in prose is a defect wearing a waiver."
-          }
+          "description": "Field names the type declares, dotted for nesting, in manifest vocabulary. Names only: whether a field is required, nullable, or must not leak is a runtime and requirement question the manifest answers and tests prove \u2014 an adapter reporting it would be judging."
         }
       }
     }

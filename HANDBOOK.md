@@ -12,13 +12,16 @@ those win.
 
 ```
 spec/
-  framework/     the law: spec, formats, schemas, coverage policy, actors/tags
-                 vocabularies; consumers migrating an existing corpus keep an
-                 area-ownership ledger here (MIGRATION.md)
+  framework/     what you author or tune: coverage policy, actors/tags
+                 vocabularies, and pack.yaml (the pack version this store was
+                 authored against). Schemas ship inside the tool, never here;
+                 consumers migrating an existing corpus keep an area-ownership
+                 ledger here (MIGRATION.md)
   intent/        INT-XXXX — verbatim captured human intent; immutable, append-only
   ru/            one file per Requirement Unit (the normative statements)
   features/      FEAT-* — grouping + one goal sentence; never normative
   manifests/     per-service interface facts + shared.manifest.yaml
+  framework/     vocabularies, coverage policy, ratified conformance divergences
   models/        MDL-* statecharts (dynamics; conformance suites are generated)
   contracts/     CT-* checkable shapes (claim sets etc.) — what a minted
                  artifact must contain, including absences; referenced from
@@ -60,11 +63,12 @@ at the repo root — the tools carry no consumer paths in code.
 
 | Command | Purpose | Typical moment |
 |---|---|---|
-| `rqunit lint [--only L3]` | lints L1–L22 | after any spec/ edit |
-| `rqunit check [--only C4]` | consistency C1–C9 | same |
+| `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`. Reports the stack it detected; refuses a non-empty store | once, at adoption |
+| `rqunit lint [--only L3]` | lints L1–L24 | after any spec/ edit |
+| `rqunit check [--only C4]` | consistency C1–C13 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
-| `rqunit conformance` | manifest ↔ code surfaces (CF1–CF6) — reads each stack's `actual-surface.json`; never runs an extractor | after changing routes/messages; every gate |
+| `rqunit conformance` | manifest ↔ code surfaces (CF1–CF9) — reads each stack's `actual-surface.json`; never runs an extractor | after changing routes/messages; every gate |
 | `rqunit doctor [--strict]` | structural health: lost RUs (id gaps), orphaned artifacts, dangling review records, a branch stale enough to make activation collide. Advisory — exit 0 unless `--strict` | after merges; before a Gate 1 sitting |
 | `rqunit report [--out F] [--format html\|json]` | a self-contained HTML snapshot for review audiences — coverage, status, verification completeness, Gate activity, burn-down, health. `--format json` emits the underlying data contract | before a steering review; on demand |
 | `rqunit activate batch --feature F --reviewer H` | Gate 1 activation (atomic, refuses on red, commits) | end of a Gate 1 sitting |
@@ -219,11 +223,18 @@ so traceability survives regeneration and is identical across languages.
 The same split runs through the whole conformance layer, in three pinned
 contracts: a stack's **extractor** reports what the code exposes
 (`actual-surface.json`), the framework diffs it against the manifests
-(CF1–CF6); the framework plans what must be checked (`test-plan.json`), a
+(CF1–CF9); the framework plans what must be checked (`test-plan.json`), a
 stack's **emitter** renders it; a stack's **scanner** finds tests and their
 `verifies` traces. Everything language-specific lives in those three
 per-stack pieces, and every judgment lives in the framework — so supporting
 a language costs an adapter, never a second copy of the rules.
+
+An extractor's repo-specific inputs — which router functions mount at which
+prefix and tier, where subject constants live, which manifest service the
+artifact is keyed by — are `[stacks.*]` config in `rqunit.toml`, never
+constants in adapter source. Composition is a fact about one repository, not
+about a language or a web framework, and an extractor that guessed one would
+report a surface nobody declared.
 
 Status is computed, never asserted:
 
@@ -272,6 +283,7 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | L20 | finding | a `link_fingerprints` target changed → the RU enters the suspect queue (re-affirm or supersede at Gate 1) |
 | L21 | draft: error · active: warning | coverage policy (`coverage.policy.yaml`, first match wins): constitutional needs ≥2 mechanical verifications, `security` needs contract+test, `audit` needs a contract, default ≥1. Under-covered drafts cannot activate; actives are burn-down |
 | L22 | error | a `planned: true` surface must be governed by a not-done RU (FEAT link = no member done) — either it shipped without its Gate 1 flip, or its verifications lie |
+| L24 | finding | a bound literal that restates a registered `values` entry — reference it instead; `finding` because two numbers can coincide innocently |
 
 ### Consistency checks (`rqunit check`)
 
@@ -286,6 +298,10 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | C7 | finding | orphan facts: surfaces/shared values referenced by no active RU (statement tokens or model vocabulary) — dead interface or missing requirement either way; during migration this list enumerates legacy-governed surfaces (see §6) |
 | C8 | error | every model vocabulary binding resolves to a manifest entry — manifests own vocabulary, models own dynamics |
 | C9 | error | message topology: each inbound subject has exactly one in-store outbound declarer with an identical payload type, unless `external: true`; multiple declarers, payload disagreement, and external-with-in-store-declarer are all errors |
+| C10 | error | every endpoint declares `inbound` and `outbound` (§5.9). `none` is a declaration; an absent slot is unfinished work; `planned` is no exemption |
+| C11 | error | shape well-formedness: presence vocabulary matches the direction (`always\|never` out, `required\|optional\|forbidden` in), inbound resolves an unknown-field policy, `in` is inbound-only, `nullable` is meaningless on a never/forbidden field, arrays name `items`, objects declare members, bound keys suit the type, dotted children imply declared parents |
+| C12 | error | path placeholders and `in: path` fields reconcile both ways; placeholder names unique within a path |
+| C13 | error | wire-visible names follow the `conventions` declared in the shared manifest (absent table = unenforced) |
 
 ⚠ **Naming collision:** consumers migrating from a pre-existing requirements
 system may carry an unrelated legacy control catalog reusing C-numbers. Legacy
@@ -309,6 +325,9 @@ still matches the code.
 | CF4 | error | access tier disagrees between manifest and code composition |
 | CF5 | error | a declared outbound message the code never publishes (`external: true` exempts) |
 | CF6 | error | the code publishes a message no manifest declares |
+| CF7 | error | the route matches but its declared shape and the code's disagree — a field declared and not carried, or carried and not declared. Silent where the adapter reports no shape: omission means *not observed*, never *empty* |
+| CF8 | error | two routes serve the same request/response type while their manifests declare different censuses. The code's type is the shape identity the store deliberately does not carry |
+| CF9 | error | a covered service declares a surface family no probe examined. `covers` stops an unexamined family reading as an absent one; this stops it reading as a passing one |
 
 **Ratified exceptions** live inside the artifact — `{rule, service, target,
 justification}`, the justification mandatory and substantive — and downgrade a
@@ -326,7 +345,8 @@ reason becomes camouflage.
 
 ### Model dialect checks (M1–M6)
 
-Declared in [model.statechart.schema.yaml](model.statechart.schema.yaml):
+Declared in the statechart schema that ships with the tool
+([model.statechart.schema.yaml](src/rqunit/pack/schemas/model.statechart.schema.yaml)):
 M1 `initial` ∈ states · M2 transition targets exist · M3 final states have no
 `on` · M4 a final state is reachable · M5 every event resolves via the
 `vocabulary` block (delivered as C8) · M6 invariant names unique.

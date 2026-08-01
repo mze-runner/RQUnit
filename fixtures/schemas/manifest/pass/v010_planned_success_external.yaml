@@ -7,11 +7,33 @@ values:
 audit_events:
   - { code: orders.cancelled, fields: [order_id, reason], ru: FEAT-order-cancellation }
 endpoints:
-  - { id: cancel_order, method: DELETE, path: "/api/v1/orders/{id}", access: protected,
-      ru: FEAT-order-cancellation, emits: [conflict, orders.cancelled] }
+  - id: cancel_order
+    method: DELETE
+    path: "/api/v1/orders/{id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    emits: [conflict, orders.cancelled]
+    inbound:
+      fields:
+        - { name: id, in: path, presence: required, type: string }
+    outbound: { status: 204, fields: none }
 
-  - { id: refund_order, method: POST, path: "/api/v1/orders/{id}/refund", access: protected,
-      ru: FEAT-order-cancellation, planned: true, success_status: 202 }
+  # planned surfaces declare their shapes too: a surface whose shape cannot be
+  # stated has not been designed.
+  - id: refund_order
+    method: POST
+    path: "/api/v1/orders/{id}/refund"
+    access: protected
+    ru: FEAT-order-cancellation
+    planned: true
+    inbound:
+      fields:
+        - { name: id,     in: path, presence: required, type: string }
+        - { name: amount, presence: required, type: integer, min: 1 }
+    outbound:
+      status: 202
+      fields:
+        - { name: refund_id, presence: always, type: string }
 messages:
   - { id: gw_event, subject: gateway.member_joined, direction: inbound,
       payload: "wire::GwMemberJoined", ru: FEAT-order-cancellation, external: true }

@@ -5,7 +5,7 @@
 #
 # Contract decisions this suite pins (flag at G1 if wrong):
 # - The shall-clause subject is "the system" or a HYPHENATED service name
-#   (service-auth). A bare noun subject ("Operations manager shall...") is an
+#   (service-orders). A bare noun subject ("Operations manager shall...") is an
 #   L1 error — actors live in triggers/conditions or as response objects.
 # - `subject` is the leading article-stripped ident of the clause; the parser
 #   does not judge whether it is an actor (that is L12's registry heuristic).
@@ -52,10 +52,10 @@ parsed:
     expected: {template: event, subject: user}
   - statement: When an operations-manager enables screening for a channel, the system shall apply the rule set to subsequent orders.
     expected: {template: event, subject: operations-manager}
-  - statement: When the system receives {message:session_invalidated}, the system shall close every affected connection within 3 seconds.
+  - statement: When the system receives {message:carrier_disconnected}, the system shall close every affected connection within 3 seconds.
     expected: {template: event, subject: system, bound: {text: 3 seconds, kind: literal}}
-  - statement: When a user calls {endpoint:service-auth/token_refresh}, service-core shall accept the rotated token.
-    expected: {template: event, system: service-core, subject: user}
+  - statement: When a user calls {endpoint:service-billing/charge_order}, service-orders shall accept the confirmed charge.
+    expected: {template: event, system: service-orders, subject: user}
   - statement: When an order is placed via {endpoint:place_order} with screening enabled, the system shall evaluate the rules within 30 seconds.
     expected: {template: event, subject: order, bound: {text: 30 seconds, kind: literal}}
   - statement: When a user completes a password change, the system shall send the revert link within {value:revert.dispatch_seconds} seconds.
@@ -64,9 +64,9 @@ parsed:
     expected: {template: event, subject: customer-support-agent}
 
   # ---------- state template variants
-  - statement: While an account is pending-deletion, the system shall reject profile mutations with {problem:conflict}.
-    expected: {template: state, subject: account}
-  - statement: While a lobby connection is open, the system shall respond to {frame:lobby.ping} within 2 seconds.
+  - statement: While an order is pending-cancellation, the system shall reject line-item mutations with {problem:conflict}.
+    expected: {template: state, subject: order}
+  - statement: While a tracking connection is open, the system shall respond to {frame:tracking.ping} within 2 seconds.
     expected: {template: state, bound: {text: 2 seconds, kind: literal}}
   - statement: While the screening engine is unavailable, the system shall not auto-approve any order.
     expected: {template: state, negated: true}
@@ -76,7 +76,7 @@ parsed:
   # ---------- unwanted-behaviour template
   - statement: If the screening engine is unavailable at order placement, then the system shall hold the order pending-review.
     expected: {template: unwanted, subject: screening}
-  - statement: If a refresh token is replayed, then the system shall revoke the session family within 1 seconds.
+  - statement: If a payment token is replayed, then the system shall void the charge family within 1 seconds.
     expected: {template: unwanted, bound: {text: 1 seconds, kind: literal}}
   - statement: If the payload exceeds {value:limits.body_bytes} bytes, then the system shall respond with {problem:validation}.
     expected: {template: unwanted}
@@ -86,7 +86,7 @@ parsed:
   # ---------- optional template
   - statement: Where finding severity is critical, the system shall route the notification to the operations-manager channel.
     expected: {template: optional, subject: finding}
-  - statement: Where the discord feature is enabled, the system shall expose {endpoint:discord_login}.
+  - statement: Where the gift-wrapping feature is enabled, the system shall expose {endpoint:gift_options}.
     expected: {template: optional}
 
   # ---------- bounds, negation, refs
@@ -102,17 +102,17 @@ parsed:
     expected: {template: event, bound: null}
   - statement: The system shall not expose internal error detail in any response body.
     expected: {template: ubiquitous, negated: true}
-  - statement: service-auth shall publish {message:account_deleted} after the grace period elapses.
-    expected: {template: ubiquitous, system: service-auth}
+  - statement: service-orders shall publish {message:order_cancelled} after the grace period elapses.
+    expected: {template: ubiquitous, system: service-orders}
   - statement: The system shall log the actor and reason code for every screening decision.
     expected: {template: ubiquitous, shall_clauses: 1}
   - statement: When a user calls {endpoint:cancel_order}, the system shall halt fulfilment and shall release the reservation.
     expected: {template: event, shall_clauses: 2}
 
   # ---------- qualified refs in clauses (v0.10)
-  - statement: When service-core consumes {message:service-auth/account_deleted}, the system shall purge cached profile rows.
-    expected: {template: event, subject: service-core}
-  - statement: The system shall reject revoked sessions with {problem:service-auth/unauthorized}.
+  - statement: When service-orders consumes {message:service-billing/charge_refunded}, the system shall purge cached pricing rows.
+    expected: {template: event, subject: service-orders}
+  - statement: The system shall reject revoked holds with {problem:service-billing/unauthorized}.
     expected: {template: ubiquitous}
 
   # ---------- gherkin mode
@@ -124,17 +124,17 @@ parsed:
     expected: {template: gherkin, bound: {text: 30 seconds, kind: literal}}
 
   # ---------- misc shapes that must stay parseable
-  - statement: The system shall serialize audit events as {audit:profile.username_changed} entries.
+  - statement: The system shall serialize audit events as {audit:orders.address_changed} entries.
     expected: {template: ubiquitous}
   - statement: When the grace period elapses, the system shall execute the deletion.
     expected: {template: event, subject: grace}
-  - statement: While a deletion is pending, service-auth shall include the scheduled execution time in {endpoint:get_me} responses.
-    expected: {template: state, system: service-auth}
+  - statement: While a cancellation is pending, service-orders shall include the scheduled execution time in {endpoint:get_order} responses.
+    expected: {template: state, system: service-orders}
   - statement: When a user submits a display name, the system shall normalize it per {vocab:display_name_rules}.
     expected: {template: event}
   - statement: If a connection exceeds {value:ws.max_frames_per_second} frames, then the system shall close it with close code 4429.
     expected: {template: unwanted}
-  - statement: When an anonymous principal opens {channel:lobby}, the system shall reject the upgrade before socket establishment.
+  - statement: When an anonymous principal opens {channel:tracking}, the system shall reject the upgrade before socket establishment.
     expected: {template: event, subject: anonymous}
 
 diagnosed:

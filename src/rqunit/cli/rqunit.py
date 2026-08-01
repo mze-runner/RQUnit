@@ -1,10 +1,10 @@
 """`rqunit` — the Requirement Unit Framework umbrella CLI.
 
 One binary, noun–verb grammar, organized by lifecycle stage. Every verb
-delegates to the existing implementation; the per-tool `spec-*` entry points
-remain as compatibility aliases until the product extraction retires them.
+delegates to the implementation module of the same name.
 
 Lifecycle map:
+  adoption       rqunit init
   verification   rqunit lint · rqunit check · rqunit trace · rqunit conformance
   health         rqunit doctor
   reporting      rqunit report
@@ -17,7 +17,7 @@ Lifecycle map:
   enforcement    rqunit hooks h1|h2
 
 Planned product verbs (not yet built — see the product backlog):
-  rqunit init · rqunit intent capture · rqunit draft new · rqunit supersede · rqunit gap new
+  rqunit intent capture · rqunit draft new · rqunit supersede · rqunit gap new
   · rqunit show · rqunit status · rqunit migrate · rqunit pack upgrade
 """
 
@@ -32,6 +32,7 @@ from .generate import main as _generate
 from .hooks import main as _hooks
 from .impact import main as _impact
 from .index import main as _index
+from .init import main as _init
 from .lineage import main as _lineage
 from .lint import main as _lint
 from .report import main as _report
@@ -45,6 +46,7 @@ def main() -> None:
     (store verification, gates, packets, projections, enforcement)."""
 
 
+main.add_command(_init, name="init")
 main.add_command(_lint, name="lint")
 main.add_command(_check, name="check")
 main.add_command(_trace, name="trace")

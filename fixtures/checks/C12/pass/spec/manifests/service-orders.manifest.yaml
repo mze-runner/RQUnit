@@ -1,0 +1,22 @@
+service: service-orders
+version: "1.0"
+defaults: { unknown_fields: reject }
+endpoints:
+  - id: get_order_item
+    method: GET
+    path: "/api/v1/orders/{order_id}/items/{item_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: order_id, in: path,  presence: required, type: string }
+        - { name: item_id,  in: path,  presence: required, type: string }
+        - { name: expand,   in: query, presence: optional, type: string }
+    outbound: { status: 200, fields: none }
+  - id: list_orders
+    method: GET
+    path: /api/v1/orders
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound: none
+    outbound: { status: 200, fields: none }

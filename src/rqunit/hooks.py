@@ -14,9 +14,9 @@ spec/packets/.active (or $SPEC_ACTIVE_PACKET), whose `# 5. Boundaries`
 section carries a fenced yaml block:
 
     task: TASK-0007
-    owns: [service-auth/domain, service-auth/application]
+    owns: [orders/fulfilment, orders/application]
     must_not_touch:
-      - { glob: service-core, ru: RU-0142 }
+      - { glob: payments/capture, ru: RU-0142 }
 """
 
 from __future__ import annotations

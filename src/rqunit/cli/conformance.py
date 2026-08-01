@@ -13,6 +13,7 @@ from pathlib import Path
 
 import click
 
+from ..conformance import boundary_provenance, load_actual
 from ..conformance import run as run_conformance
 from ..config import load as load_config
 from ..errors import StoreError
@@ -29,7 +30,7 @@ from ..violations import build_report, exit_code, render_text
 @click.option("--format", "fmt", type=click.Choice(["json", "text"]), default="json")
 @click.option("--strict", is_flag=True, help="Findings also fail the run.")
 def main(store_path: Path | None, artifacts: tuple[Path, ...], fmt: str, strict: bool) -> None:
-    """Report CF1–CF6 divergences between the manifests and the code."""
+    """Report CF1–CF9 divergences between the manifests and the code."""
     try:
         root = Path(store_path or repo_root())
         store = Store.load(root)
@@ -39,6 +40,11 @@ def main(store_path: Path | None, artifacts: tuple[Path, ...], fmt: str, strict:
                        "([stacks.<name>] actual_surface in rqunit.toml)", err=True)
             sys.exit(2)
         violations = run_conformance(store, root, paths)
+        # What extraction actually reached. The manifest is allowed to exceed
+        # what an extractor can see — that is how it carries target state — so
+        # the unproven fraction has to be countable, or a green run reads as
+        # "checked" when most of the boundary was never looked at (§5.6).
+        provenance = boundary_provenance(store, [load_actual(p) for p in paths])
     except StoreError as e:
         click.echo(f"rqunit conformance: {e}", err=True)
         sys.exit(2)
@@ -47,7 +53,17 @@ def main(store_path: Path | None, artifacts: tuple[Path, ...], fmt: str, strict:
         sys.exit(2)
 
     report = build_report("rqunit-conformance", violations, len(paths), root)
-    click.echo(json.dumps(report, indent=2) if fmt == "json" else render_text(report))
+    report["boundary"] = provenance
+    if fmt == "json":
+        click.echo(json.dumps(report, indent=2))
+    else:
+        click.echo(render_text(report))
+        click.echo(
+            f"\nBoundary: {provenance['endpoints']} endpoint(s), "
+            f"{provenance['shapes_declared']} shape(s) declared — "
+            f"{provenance['fields_extractor_confirmed']} field(s) extractor-confirmed, "
+            f"{provenance['fields_unproven_by_extraction']} not reached by extraction "
+            "(test-proved or unproven).")
     sys.exit(exit_code(report, strict=strict))
 
 
