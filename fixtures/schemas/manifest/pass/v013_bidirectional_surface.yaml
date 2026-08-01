@@ -1,0 +1,68 @@
+service: service-orders
+version: "1.0"
+defaults:
+  unknown_fields: reject
+problem_types:
+  not-found: { uri: "urn:problem:not-found", status: 404, title: "Not Found" }
+values:
+  paging: { max_limit: 100 }
+  order: { max_note_chars: 500 }
+endpoints:
+  # A read: path and query parameters are part of the accepted surface, so
+  # `inbound: none` would be a false claim here.
+  - id: list_order_items
+    method: GET
+    path: "/api/v1/orders/{order_id}/items"
+    access: protected
+    ru: FEAT-order-cancellation
+    emits: [not-found]
+    inbound:
+      fields:
+        - { name: order_id, in: path,  presence: required, type: string }
+        - { name: limit,    in: query, presence: optional, type: integer,
+            min: 1, max: "{value:paging.max_limit}" }
+        - { name: cursor,   in: query, presence: optional, type: string, nullable: true }
+    outbound:
+      status: 200
+      fields:
+        - { name: items,             presence: always, type: array, items: object }
+        - { name: items.id,          presence: always, type: string }
+        - { name: items.name,        presence: always, type: string }
+        - { name: items.cost_basis,  presence: never, note: internal pricing never leaves }
+        - { name: next_cursor,       presence: always, type: string, nullable: true }
+
+  # A write: `forbidden` marks the fields a client must not be able to set.
+  # The census overlaps the read's heavily, and the DIFFERENCE is the boundary.
+  - id: update_order
+    method: PATCH
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    emits: [not-found]
+    inbound:
+      unknown_fields: reject
+      fields:
+        - { name: order_id,   in: path, presence: required, type: string }
+        - { name: note,       presence: optional, type: string,
+            max_chars: "{value:order.max_note_chars}" }
+        - { name: id,         presence: forbidden, note: server-owned }
+        - { name: created_at, presence: forbidden, note: server-owned }
+        - { name: total,      presence: forbidden, note: "derived, never client-supplied" }
+    outbound:
+      status: 200
+      fields:
+        - { name: id,               presence: always, type: string }
+        - { name: note,             presence: always, type: string, nullable: true }
+        - { name: cancellation,     presence: always, type: object, nullable: true }
+        - { name: cancellation.at,  presence: always, type: string }
+
+  # No body in either direction, stated rather than left silent.
+  - id: cancel_order
+    method: DELETE
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: order_id, in: path, presence: required, type: string }
+    outbound: { status: 204, fields: none }

@@ -43,13 +43,21 @@ Hard rules the linter enforces — write to them, don't fight them:
 - Never restate a fact the manifest owns (L17): no literal paths, subjects, wire types, or
   registered values in statements — reference them.
 
-## Reference tokens (formats §2, v0.10)
+## Reference tokens (formats §2)
 
 `{value:dotted.key}` `{endpoint:id}` `{problem:id}` `{audit:code}` `{message:id}`
 `{channel:id}` `{frame:channel.frame}` `{vocab:name}` — resolved against the RU's scope service
 manifest, then shared. Cross-service: `{endpoint:service-orders/cancel_order}` — qualified refs
 resolve ONLY in the named manifest, are allowed for surfaces + problem/audit only, and NEVER for
 values (a foreign scalar is the promotion-to-shared trigger). Literal braces escape as `{{ }}`.
+
+**Endpoint shapes.** `{endpoint:id.outbound.field}` / `{endpoint:id.inbound.field}` addresses a
+declared field of a surface; nesting rides in the field name
+(`{endpoint:get_order.outbound.cancellation.at}`), and a bare `{endpoint:id.outbound}`
+names the whole census. This is how a statement about a *shape* binds — an RU asserting a field
+never leaves, or that a client may not set it, cites the field rather than describing it. The
+direction set is closed: a misspelling is a malformed token, not an unresolved one. Summary only —
+the linter is the law (spec §5.9, formats §13).
 
 ## Compiling requirements (the analyst contract, spec §8.1)
 

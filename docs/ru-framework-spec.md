@@ -1,6 +1,22 @@
 # Requirement Unit (RU) Framework — Specification Management for Agentic Development
 
-**Status:** v0.11.1-draft (v0.11.1: TODO-resolution path — `resolve` converts TODO refs to real same-type refs at Gate 1 without supersession, §6.5; v0.11.0: the contracts (CT) declaration layer — `spec/contracts/CT-<slug>.yaml`, kind `claim-set`, `access_tier` binding, endpoint `scope` field with `token_scopes` vocabulary, L5 resolution, C5 membership, packet rendering, manifest-like governance via content fingerprints; v0.10.5: model evolution gets its lawful path — `reaffirm` re-stamps active dependents of an edited model under the reviewer's id; L6 scopes to active/draft RUs, superseded hashes read as provenance; v0.10.4: L2 scans authored prose only — reference-token spans are masked before vague-term scanning, closing the hyphenated-identifier false positive; v0.10.3: ADRs live in-store at `spec/rationale/ADR-<slug>.md` — dangling `rationale_ref` is an L7 error, packets inline ADR content, format in formats §10; v0.10.2: token key grammar admits hyphens — schema/grammar consistency; v0.10: cross-service reference qualifier; `success_status` on endpoints; `planned` surfaces with asymmetric conformance + L22 backlink lint; `external` message producers; C9 message-topology check — dispositions of the six Phase-2 adoption GAPs)
+**Status:** v0.13.0-draft (v0.13.0: the HTTP surface becomes bidirectional —
+endpoints declare `inbound` and `outbound` field censuses inline, both
+mandatory with `none` as an explicit declaration (C10); `success_status`
+retires into `outbound.status`; presence is direction-keyed (`always|never`
+outbound, `required|optional|forbidden` inbound) and joined by
+`unknown_fields`, `nullable`, nesting via dotted field names, arrays, and a
+closed bound-key set whose values reference `values`; wire naming is declared
+once in the shared manifest under `conventions` and enforced by C13; the
+reference-token grammar gains `{endpoint:<id>.<direction>[.<field>]}`; §5.9,
+formats §2 and §13. **Consumers MUST act:** every endpoint declares both
+directions, and any `success_status` key moves into `outbound.status`;
+v0.12.0: the store carries a pack pin —
+`spec/framework/pack.yaml` records the pack version a store was authored
+against, and JSON Schemas move out of `spec/framework/` into the tool, so a
+store is validated by the schemas of the version enforcing it; §12.1, formats
+§8. Consumers scaffolded by an earlier version: nothing to do — an unpinned
+store reports the enforcing version; v0.11.1: TODO-resolution path — `resolve` converts TODO refs to real same-type refs at Gate 1 without supersession, §6.5; v0.11.0: the contracts (CT) declaration layer — `spec/contracts/CT-<slug>.yaml`, kind `claim-set`, `access_tier` binding, endpoint `scope` field with `token_scopes` vocabulary, L5 resolution, C5 membership, packet rendering, manifest-like governance via content fingerprints; v0.10.5: model evolution gets its lawful path — `reaffirm` re-stamps active dependents of an edited model under the reviewer's id; L6 scopes to active/draft RUs, superseded hashes read as provenance; v0.10.4: L2 scans authored prose only — reference-token spans are masked before vague-term scanning, closing the hyphenated-identifier false positive; v0.10.3: ADRs live in-store at `spec/rationale/ADR-<slug>.md` — dangling `rationale_ref` is an L7 error, packets inline ADR content, format in formats §10; v0.10.2: token key grammar admits hyphens — schema/grammar consistency; v0.10: cross-service reference qualifier; `success_status` on endpoints; `planned` surfaces with asymmetric conformance + L22 backlink lint; `external` message producers; C9 message-topology check — dispositions of the six Phase-2 adoption GAPs)
 **Canonical location:** `spec/framework/ru-framework-spec.md`
 **Normativity:** This document is normative for authoring and managing requirements. Where it conflicts with any prose story, epic, or feature description, this document wins. RFC-2119 keywords (MUST, MUST NOT, SHOULD, MAY) apply throughout.
 
@@ -172,14 +188,16 @@ Manifests serve a second role: they are the **navigation layer for agents**. An 
 
 ### 5.2 Structure
 
-One file per service at `spec/manifests/<service>.manifest.yaml`, validated against `spec/framework/manifest.schema.yaml` (JSON Schema; CI-blocking). Sections, all optional except identity, at least one interface surface required for boundary services:
+One file per service at `spec/manifests/<service>.manifest.yaml`, validated against the tool's `manifest.schema.yaml` (JSON Schema; CI-blocking). Sections, all optional except identity, at least one interface surface required for boundary services:
 
 - `service`, `version` — identity and manifest schema revision.
 - `problem_types` — RFC 7807-style error registry, keyed by short id: `{uri, status, title}`.
 - `values` — nested map of cross-cutting scalar facts (TTLs, limits, windows, hash parameters). Leaves are scalars.
 - `audit_events` — catalog of `{code, level, fields}`; common fields declared once at catalog level.
 - `vocabularies` — named controlled value sets (e.g., rate-limit key types), referenced by consistency checks.
-- `endpoints` — HTTP surface: `{id, method, path, access, ru, emits[], success_status?, planned?}`. Authoritative for method+path+access; `success_status` (optional) pins the success response code — a surface fact two stories can otherwise state differently, and conformance-checkable. Request/response **shapes** stay out: types own shapes (the DTO/wire-contract layer, `deny_unknown_fields` enforced at code level); field bounds are literals in validation RUs or registered `values` — never manifest structure.
+- `endpoints` — HTTP surface: `{id, method, path, access, ru, emits[], inbound, outbound, planned?}`. Authoritative for method+path+access and for both directions of the shape (§5.9).
+- `defaults` — service-wide defaults overridable at the point of use; currently `unknown_fields` (§5.9). Forbidden in the shared manifest: it shapes surfaces, and the shared manifest carries none.
+- `conventions` — store-wide naming standards for **wire-visible** names (`field_names`, `path_segments`), declared in the shared manifest **only** and enforced by C13. Per-service tables would let a house standard diverge service by service, which is what the table exists to prevent. Spec identifiers are not governed here: the schema fixes those, so every id stays addressable by the token grammar. An absent table means unenforced.
 - `messages` — async surface: `{id, subject, direction, payload, ru, external?, planned?}`. `payload` is a **type name only**, owned by the shared wire-contracts crate/package — the compiler owns the shape; the manifest never duplicates it. `external: true` marks an inbound subject produced outside the spec store (§5.8).
 - `channels` — WebSocket surface: `{id, upgrade_path, access, ru, connection_close_codes[], frames[]}` with frames as `{id, direction, payload}` (type names only).
 
@@ -193,7 +211,11 @@ Inside RU statements (and only there — not scope, not verification refs):
 {value:<dotted.key>}   {endpoint:<id>}   {problem:<id>}   {audit:<code>}
 {message:<id>}         {channel:<id>}    {frame:<channel_id>.<frame_id>}
 {vocab:<name>}
+
+{endpoint:<id>.<direction>}            {endpoint:<id>.<direction>.<field>}
 ```
+
+An endpoint reference may address one of the surface's two directions, and a field within that direction's declared census (§5.9); nesting is expressed by the field name (`…outbound.cancellation.at`). `direction` is `inbound` or `outbound` and closed by the grammar — a misspelling is malformed, not unresolved. This is how an RU binds to a shape: the statement names the field, and L23 reports a reference to a field the surface does not declare.
 
 **Cross-service qualifier (v0.10).** A reference may name the owning service: `{endpoint:service-billing/charge}`, `{problem:service-billing/payment-failed}`. One slash, before the key; grammar in `formats.md` §2. Rules:
 
@@ -229,7 +251,12 @@ For **mutating** edits the activation tool additionally generates an **impact re
 
 The manifest is normative; code that disagrees is wrong by definition (spec store is the source of truth — the codebase must be reproducible from it, never the reverse). This is enforced, not asserted:
 
-- Each service carries a **generated conformance check** asserting that its runtime surface equals its manifest: the actual router table matches `endpoints` (method, path, access tier, and `success_status` where declared and reportable — otherwise that field's verification is delegated to the governing RU's tests), subscribed/published subjects match `messages`, and the frame catalog matches `channels`. `planned: true` entries are handled asymmetrically per §5.8.
+- **Ratified divergences live in the store**, at `spec/framework/conformance-exceptions.yaml`, and are reported as findings with their justification attached — never silenced. They MUST NOT travel inside an adapter artifact. Everything a probe emits is an *observation* the framework judges; an exception is a *judgment* that overrides it, and the two cannot share a channel once a probe may be written by anyone — a probe able to author its own waivers could turn its own mistakes green. A justification is mandatory and substantive: an exception nobody can defend in prose is a defect wearing a waiver.
+- Extraction is per **(language, framework)**: discovering routes in one web framework shares nothing with discovering them in another beyond the parser. An artifact therefore declares which surface families it **examined** — a probe that reads a message library says nothing about routes, and that silence MUST NOT be read as "the code serves none". Artifacts are assembled per service before any judgment, as a union: a surface one probe saw exists whether or not another was looking for it. Judging artifact-by-artifact would make every probe report every other probe's surfaces as undeclared. An artifact that declares no coverage means it examined everything — what a single whole-stack extractor asserts.
+- A declared family that no probe examined is a divergence in its own right. Coverage declarations stop an unexamined family reading as an absent one; without this rule they would make it read as a passing one instead, and a run that never asked the question would go green. A service NO adapter reports on stays deliberately out of scope (§5.6 has always said so) — the rule is about a family left unlooked-at within a service some probe did examine.
+- Route identity is the path with placeholders reduced to position: `/orders/{id}` and `/orders/:id` are one route spelled by two frameworks, and matching raw strings would report a declared-but-unserved / served-but-undeclared pair for every parameterized route in the store. Placeholder *names* are reconciled separately, by C12, against the `in: path` fields — the only place a name carries meaning. Normalization lives in the core: an adapter that normalized its own paths would be deciding what counts as the same route.
+- Each service carries a **generated conformance check** asserting that its runtime surface equals its manifest: the actual router table matches `endpoints` (method, path, access tier, and each direction's declared shape where the adapter can report it — otherwise that field's verification is delegated to the governing RU's tests), subscribed/published subjects match `messages`, and the frame catalog matches `channels`. `planned: true` entries are handled asymmetrically per §5.8.
+- A declared field's proof is therefore one of three things, and the report distinguishes them rather than letting one green check stand for all of it: **extractor-confirmed**, **test-proved**, or **unproven**. The manifest is permitted to exceed what an extractor can see — that is what carries target state alongside current state (§5.8 is the same asymmetry at entry granularity) — so the unproven fraction must be reportable, never invisible.
 - Manifests are **content-hashed** like models: conformance artifacts record the hash they were generated against; a hash mismatch flips every dependent verification to failing (stale = red, same rule as §6.3).
 - Schema validation (`manifest.schema.yaml`) and all consistency checks (§10.2) run on every commit and MUST pass before any gate.
 
@@ -251,6 +278,24 @@ The manifest is normative; code that disagrees is wrong by definition (spec stor
 - Under the clean-room criterion, planned surfaces are part of the rebuild instructions; a rebuild produces them planned.
 
 **External producers.** An inbound subject whose producer lives outside the spec store (e.g., a third-party gateway) carries `external: true`. It is exempt from C9's one-outbound-declarer rule — there is no in-store declarer to find. If an in-store outbound declarer for the subject DOES exist, the `external` marker is itself a C9 error: a wrong marker does not get to disable the check. `external` on an outbound message is a schema error (we always own what we emit). Like the model-vocabulary `internal` escape, `external` markers are reviewed at Gate 1: it is the bucket that will attract exactly the traffic it was built to exclude, and its growth is watched.
+
+### 5.9 Surface shapes (v0.13)
+
+An HTTP surface has two directions, and the manifest declares both. An endpoint carries `inbound` and `outbound`; C10 requires both, at error severity, with no exemption for `planned` — a surface whose shape cannot be stated has not been designed. Shape formats are in `formats.md` §13.
+
+**`none` is a declaration, absence is not.** `inbound: none` and `fields: none` assert that the surface carries nothing in that direction — a positive claim an extractor can falsify. An omitted slot asserts nothing and is unfinished work. Distinguishing the two is the whole reason completeness is mandatory: a boundary that is silent about a direction reads identically to one that has none.
+
+**`inbound` is everything the endpoint accepts** — not only the body. Each field declares `in: path | query | body`. Query strings and path segments are first-class validation surfaces, so a declaration that ignored them would make `inbound: none` false on most reads. Path placeholders are uniquely named within a path and reconciled against the `in: path` fields by C12, so the route template and its constraints cannot drift apart.
+
+**Presence is direction-keyed and the two vocabularies are not interchangeable** (C11). Outbound uses `always | never`, where `never` asserts a field MUST NOT LEAK. Inbound uses `required | optional | forbidden`, where `forbidden` asserts a field MUST BE REJECTED. Optionality is ordinary for input and does not indicate a second artifact type. Where a resource is both read and written the two censuses overlap heavily, and the difference between them is the mass-assignment boundary: the read says `cost_basis: never`, the write says `id: forbidden`. Collapsing them into one shape erases exactly the requirement worth stating.
+
+**Nullability is separate from presence.** Presence is about the key; `nullable` is about the value. An object that is never absent but may be null is a different contract from one that is sometimes absent, and `presence: always, nullable: false` is a claim the store could not otherwise make.
+
+**Bounds reference `values`; they do not restate them.** `max_chars: "{value:email.max_chars}"` keeps one source for a registered fact; a literal duplicating a registered value is an L24 finding. The bound-key set is closed — lengths, numeric ranges, item counts, vocabulary membership — with no expressions, no operators, and no regex. This is the assertion-DSL line, and it is drawn deliberately.
+
+**`outbound` declares the success response and its status.** Problem responses are not declared here: they are owned by `emits` → `problem_types`. The two registries cannot collide: a success status is 2xx–3xx and a problem status is 4xx–5xx, so the schema makes the overlap unrepresentable and no rule is needed to forbid it. One status per endpoint — the known multi-status cases return the same body under a different code, and are served additively when a real case arrives rather than by duplicating a census.
+
+`messages` and `channels.frames` continue to carry a type name rather than a census. Bringing them onto the same shape grammar is additive and follows.
 
 ---
 
@@ -452,6 +497,10 @@ This section is the framework. Without it, the rest of this document is prose.
 - C7: orphan manifest facts — surfaces or shared values referenced by no active RU → report (dead interface or missing requirement; a finding either way).
 - C8: every model event, frame, emission, or close code resolves to a manifest entry → error (manifests own vocabulary; models own dynamics).
 - C9: message topology — every inbound message subject matches **exactly one** outbound declaration store-wide with an identical `payload` type, unless the inbound entry carries `external: true` (§5.8). Zero declarers (non-external) or multiple declarers → error; payload-type disagreement between the declarer and any consumer → error; an `external: true` inbound whose subject HAS an in-store outbound declarer → error (the marker is wrong, and it is silently exempting the pair from payload agreement). Planned entries participate (topology is designed before it ships).
+- C10: every endpoint declares both `inbound` and `outbound` (§5.9) → error. `none` is a legal declaration; an omitted slot is not, and `planned` is no exemption. Enforced as a rule rather than a schema requirement so a shortfall is one attributable violation per endpoint, not a parse failure.
+- C11: declared shapes are well-formed → error. Presence vocabulary matches the slot's direction (`always|never` outbound, `required|optional|forbidden` inbound); an inbound shape resolves an unknown-field policy; `in` is inbound-only; `nullable` is meaningless on a field that never appears; `type: array` names its `items`; `type: object` declares at least one member; bound keys suit the declared type; a dotted child implies a declared parent, and a `never`/`forbidden` parent carries no children.
+- C12: path placeholders and `in: path` fields reconcile in both directions, and placeholder names are unique within a path → error.
+- C13: wire-visible names follow the `conventions` declared in the shared manifest → error where a convention is declared; absent table means unenforced.
 
 ### 10.3 Hooks (runtime, blocking)
 - H1 (pre-write): writes matching in-context `must_not_touch` globs → blocked.
@@ -486,8 +535,7 @@ Dashboards render computed status only. No manual status field exists — includ
 
 ```
 spec/
-  framework/ru-framework-spec.md       # this document
-  framework/manifest.schema.yaml       # JSON Schema for manifests (L18)
+  framework/pack.yaml                  # pack version this store was authored against
   framework/coverage.policy.yaml       # verification-depth policy (L21, §6.7)
   framework/tags.yaml                  # controlled tag vocabulary (L10)
   framework/actors.yaml                # controlled actor registry (L12)
@@ -504,6 +552,11 @@ spec/
   packets/TASK-XXXX.packet.md          # materialized assembly, immutable post-task
   projections/                         # generated only
 ```
+
+The JSON Schemas the store validates against are NOT store content: they ship
+inside the tool, so a store is always checked by the schemas of the version
+enforcing it. `framework/` holds only what the consumer authors or tunes —
+vocabularies, the coverage policy, and the pack pin (formats §8).
 
 ### 12.2 Granularity rule: one RU, one file (normative)
 

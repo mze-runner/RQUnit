@@ -1,0 +1,33 @@
+service: service-orders
+version: "1.0"
+defaults: { unknown_fields: reject }
+endpoints:
+  # placeholder reused: neither segment can be constrained separately, and a
+  # token cannot say which one it means
+  - id: get_order_item
+    method: GET
+    path: "/api/v1/orders/{id}/items/{id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: id, in: path, presence: required, type: string }
+    outbound: { status: 200, fields: none }
+  # placeholder with no field constraining it
+  - id: get_order
+    method: GET
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound: none
+    outbound: { status: 200, fields: none }
+  # field claims a path segment the template does not have
+  - id: list_orders
+    method: GET
+    path: /api/v1/orders
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: tenant_id, in: path, presence: required, type: string }
+    outbound: { status: 200, fields: none }

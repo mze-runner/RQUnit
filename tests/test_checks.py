@@ -11,7 +11,7 @@ from rqunit.checks.normalize import content_words, lemma
 from rqunit.store import Store
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "checks"
-CHECKS = [f"C{i}" for i in range(1, 10)]
+CHECKS = [f"C{i}" for i in range(1, 14)]
 
 
 def _run(code: str, kind: str):
@@ -19,7 +19,7 @@ def _run(code: str, kind: str):
     return [v for v in run_checks(store, only=code) if v.rule == code]
 
 
-def test_registry_covers_c1_through_c9():
+def test_registry_covers_every_built_check():
     assert sorted(discover(), key=lambda c: int(c[1:])) == CHECKS
 
 
@@ -103,3 +103,47 @@ def test_c7_stays_finding_class():
     COUNT is consumer state and is deliberately not asserted."""
     store = Store.load(Path(__file__).parent.parent / "fixtures" / "store" / "valid")
     assert all(v.severity == "finding" for v in run_checks(store, only="C7"))
+
+
+# ------------------------------------------------------------ v0.13 surfaces
+
+def test_c10_treats_none_as_a_declaration_not_an_omission():
+    """The distinction the whole rule exists for: `none` is a claim an extractor
+    can falsify, an absent slot is unfinished work."""
+    assert _run("C10", "pass") == []                       # the pass store uses `none` in both slots
+    assert any("declares no `inbound`" in v.message for v in _run("C10", "fail"))
+    assert any("declares no `outbound`" in v.message for v in _run("C10", "fail"))
+
+
+def test_c10_does_not_exempt_planned_surfaces():
+    planned = [v for v in _run("C10", "fail") if "bulk_refund" in v.artifact]
+    assert planned, "a planned surface whose shape is unstated has not been designed"
+
+
+def test_c11_rejects_each_vocabulary_in_the_wrong_direction():
+    messages = " ".join(v.message for v in _run("C11", "fail"))
+    assert "belongs to outbound shapes" in messages       # `never` used inbound
+    assert "in: query" in messages                        # client-supplied marker used outbound
+
+
+def test_c11_message_explains_why_presence_and_nullable_differ():
+    nullable = [v for v in _run("C11", "fail") if "nullable" in v.message]
+    assert nullable and any("has no value to be null" in v.suggestion for v in nullable)
+
+
+def test_c12_reconciles_both_directions_of_the_path_binding():
+    messages = " ".join(v.message for v in _run("C12", "fail"))
+    assert "has no `in: path` field" in messages          # template names it, census does not
+    assert "no such placeholder" in messages              # census names it, template does not
+    assert "more than once" in messages                   # duplicate placeholder
+
+
+def test_c13_is_silent_when_no_convention_is_declared():
+    """An absent `conventions` table means unenforced — a store that has not
+    opted in must not be reddened by someone else's house standard."""
+    store = Store.load(FIXTURES / "C11" / "fail")          # no shared manifest, no conventions
+    assert [v for v in run_checks(store, only="C13")] == []
+
+
+def test_c13_checks_each_dotted_segment_of_a_nested_field():
+    assert any("unitPrice" in v.message for v in _run("C13", "fail"))

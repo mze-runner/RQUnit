@@ -67,3 +67,64 @@ def test_targets_honors_conformance_crate(tmp_path):
     trace_map = out[root / "spec" / "projections" / "trace-map.json"]
     assert '"conf::' in trace_map                              # basename = package prefix
     assert "spec-conformance-tests" not in trace_map
+
+
+# ------------------------------------------------ composition is configuration
+
+def _toml(tmp_path, body: str):
+    (tmp_path / "rqunit.toml").write_text(body)
+    return tmp_path
+
+
+def test_router_composition_round_trips(tmp_path):
+    """Which router mounts where is a fact about one repository, so it belongs
+    here rather than as a constant in adapter source."""
+    cfg = load(_toml(tmp_path, """
+[stacks.rust]
+service = "service-orders"
+
+[[stacks.rust.routers]]
+file = "http/src/routes/mod.rs"
+function = "router"
+
+[[stacks.rust.routers]]
+file = "http/src/routes/orders/mod.rs"
+function = "router"
+prefix = "/api/v1/orders"
+access = "protected"
+
+[stacks.rust.messages]
+subject_sources = ["wire-contracts/src"]
+publisher_sources = ["adapters/nats/src"]
+"""))
+    assert cfg.rust.service == "service-orders"
+    assert [r.function for r in cfg.rust.routers] == ["router", "router"]
+    assert cfg.rust.routers[1].prefix == "/api/v1/orders"
+    assert cfg.rust.routers[0].prefix == ""            # optional, defaults empty
+    assert cfg.rust.messages.subject_sources == ("wire-contracts/src",)
+
+
+def test_a_router_that_cannot_be_named_is_an_error(tmp_path):
+    with pytest.raises(BadConfig) as caught:
+        load(_toml(tmp_path, """
+[stacks.rust]
+[[stacks.rust.routers]]
+file = "http/src/routes/mod.rs"
+"""))
+    assert "cannot find a router it cannot name" in str(caught.value)
+
+
+def test_typos_in_the_new_tables_are_errors_not_silence(tmp_path):
+    for body, expected in (
+        ("[stacks.rust]\n[[stacks.rust.routers]]\nfile='a'\nfunction='r'\ntier='x'\n",
+         "unknown router key"),
+        ("[stacks.rust]\n[stacks.rust.messages]\nsubjects=['a']\n", "unknown messages key"),
+    ):
+        with pytest.raises(BadConfig) as caught:
+            load(_toml(tmp_path, body))
+        assert expected in str(caught.value)
+
+
+def test_defaults_survive_for_a_repo_that_configures_nothing(tmp_path):
+    cfg = load(tmp_path)
+    assert cfg.rust.routers == () and cfg.rust.service == ""

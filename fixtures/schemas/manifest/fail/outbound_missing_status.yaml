@@ -1,0 +1,14 @@
+# Red for one reason: `outbound` omits `status`. A success response always has a
+# code; the shape and the code are declared together so neither can drift.
+service: service-orders
+version: "1.0"
+endpoints:
+  - id: get_order
+    method: GET
+    path: "/api/v1/orders/{id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound: none
+    outbound:
+      fields:
+        - { name: order_id, presence: always, type: string }

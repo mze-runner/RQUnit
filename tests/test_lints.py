@@ -14,7 +14,11 @@ from rqunit.store import Store
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 LINTS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9",
          "L10", "L11", "L12", "L13", "L15", "L16", "L17", "L18",
-         "L19", "L20", "L21", "L22"]
+         "L19", "L20", "L21", "L22", "L24"]
+# L23 is deliberately absent and never to be issued: the shape-reference case it
+# was reserved for is already L15's ("every manifest reference resolves"), and a
+# field of a declared census IS a manifest reference. L15 carries the sharper
+# message instead. Numbers are permanent, so an unused one stays unused.
 
 
 def _load(root: Path) -> Store:
@@ -116,3 +120,29 @@ def test_l1_diagnosis_names_the_nearest_template():
 def test_l15_qualified_miss_says_no_fallback():
     v = next(x for x in _run("L15", "fail") if "service-billing/cancel_order" in x.message)
     assert "never fall back" in v.message
+
+
+def test_l24_is_finding_class_only():
+    """Two numbers can coincide innocently, so the tool reports and a human
+    judges. Erroring on a guess teaches people to bypass the gate."""
+    violations = _run("L24", "fail")
+    assert violations and all(v.severity == "finding" for v in violations)
+    assert all("{value:" in v.suggestion for v in violations)
+
+
+def test_l24_leaves_referenced_bounds_and_unregistered_literals_alone():
+    assert _run("L24", "pass") == []
+
+
+def test_l15_diagnoses_an_unresolved_shape_reference_specifically():
+    """L15 owns 'every manifest reference resolves'; a census field IS one. The
+    shape case needs a sharper message, not a second rule number."""
+    from rqunit.lints.l15 import _shape_diagnosis
+    from rqunit.parser.tokens import parse_one
+
+    message, suggestion = _shape_diagnosis(parse_one("{endpoint:get_order.outbound.ghost}"))
+    assert "declares no field 'ghost'" in message and "§5.9" in suggestion
+    message, _ = _shape_diagnosis(parse_one("{endpoint:get_order.inbound}"))
+    assert "declares no `inbound`" in message
+    assert _shape_diagnosis(parse_one("{endpoint:get_order}")) is None
+    assert _shape_diagnosis(parse_one("{problem:conflict}")) is None

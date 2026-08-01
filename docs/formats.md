@@ -32,16 +32,34 @@ kind       = "value" | "endpoint" | "problem" | "audit"
 qualifier  = ident ;                       (* owning service slug (v0.10);
                                                    FORBIDDEN for kind "value" —
                                                    foreign scalars promote to shared *)
-key        = dotted | frameref ;
+key        = dotted | frameref | surfaceref ;
 dotted     = ident { "." ident } ;              (* value: dotted; others: single ident,
                                                    audit: dotted event code *)
 frameref   = ident "." ident ;                  (* frame only: channel.frame *)
+surfaceref = ident [ "." direction [ { "." fieldname } ] ] ;
+                                                (* endpoint only *)
+direction  = "inbound" | "outbound" ;
 ident      = lowletter { lowletter | digit | "_" | "-" } ;
                                                 (* v0.10.2: "-" admitted so RFC 7807-style
                                                    hyphenated keys (problem types, service
                                                    slugs) are referenceable; the qualifier/key
                                                    split stays unambiguous — "/" delimits *)
+fieldname  = letter { letter | digit | "_" | "-" } ;
+                                                (* mixed case admitted: `conventions.field_names`
+                                                   decides which convention is legal in a store
+                                                   (C13), and the grammar must not pre-empt that.
+                                                   Identical to manifest `$defs/field_name`'s
+                                                   segment — widening either alone is a red build *)
 ```
+
+An `endpoint` key addresses a surface, optionally one of its two directions,
+optionally a path into that direction's declared census — nesting is expressed
+by the field name itself (`cancellation.at`), matching the manifest.
+`direction` is closed by the grammar, so a misspelling is **malformed**, not
+merely unresolved: the mistake is in the reference, not in the manifest. A
+direction declared `none` resolves — "this surface carries nothing" is a
+positive claim — while an absent direction does not, which is what lets C10
+tell a deliberate empty from an unfinished declaration.
 
 Resolution: a qualified ref resolves against the named manifest ONLY (a miss
 is unresolved, L15 — never a fallback to own-scope or shared); an unqualified
@@ -180,8 +198,20 @@ quantity_position: [many, few, several, some, large, small, numerous, various, a
 service: shared
 version: "1.0"
 vocabularies:
-  access_tiers: [public, internal, scoped, refresh, protected]   # operator-tunable
+  access_tiers: [public, internal, partner, protected]   # operator-tunable
 ```
+
+**Pack pin** — `spec/framework/pack.yaml`, written when the store is
+scaffolded and thereafter edited only by a deliberate upgrade:
+
+```yaml
+pack: "0.13.0"
+```
+
+It records the pack version the store was **authored against**, which is not
+necessarily the version enforcing it today; the pin is reported, never
+reconciled. A store without the pin is unpinned, not invalid — reporting
+falls back to the enforcing version.
 
 ## 9. Gate stamps & fingerprints (v0.9)
 
@@ -272,3 +302,105 @@ packets render referenced contract shapes in section 2 (§6).
    binds to its service's own manifest entries; cross-service traffic reaches a
    model as the service's own inbound `message` entry. Deliberate; revisit only
    with a concrete cross-service-model need.
+
+## 13. Surface shape format (v0.13)
+
+An endpoint declares both directions; spec §5.9 is normative for what they mean.
+Sections are numbered by arrival, so this one follows §12 rather than sitting
+beside the other format sections — renumbering would break every reference.
+
+```yaml
+- id: list_order_items
+  method: GET
+  path: "/api/v1/orders/{order_id}/items"      # placeholders uniquely named (C12)
+  access: protected
+  ru: FEAT-order-read
+  emits: [not-found]                            # problem responses live here, not in outbound
+  inbound:
+    unknown_fields: reject                      # overrides service `defaults`
+    fields:
+      - { name: order_id, in: path,  presence: required, type: string }
+      - { name: limit,    in: query, presence: optional, type: integer,
+          min: 1, max: "{value:paging.max_limit}" }
+  outbound:
+    status: 200
+    fields:
+      - { name: items,            presence: always, type: array, items: object }
+      - { name: items.id,         presence: always, type: string }
+      - { name: items.cost_basis, presence: never, note: internal pricing never leaves }
+      - { name: next_cursor,      presence: always, type: string, nullable: true }
+```
+
+`inbound: none` and `fields: none` declare that the direction carries nothing.
+An omitted direction declares nothing and is a C10 error.
+
+Field keys: `name` (dotted for nesting), `presence`, `in` (inbound only,
+default `body`), `type`, `items` (mandatory when `type: array`), `nullable`,
+`vocab`, `note`, and the bound keys `max_chars`, `min_chars`, `min`, `max`,
+`min_items`, `max_items`. A bound is a literal or a `{value:…}` reference; the
+reference form is preferred and a literal duplicating a registered value is an
+L24 finding. A field typed `object` declares at least one dotted child —
+otherwise it is an unbounded blob wearing a type, which reads as specified
+without being so.
+
+The schema admits the union of both presence vocabularies and every bound key
+on every type: applicability is C11's judgment, not the schema's, so a mistake
+arrives as a message that teaches rather than as a parse failure. The same
+split governs naming — the grammar admits mixed case and `conventions`
+(§8, shared manifest only) decides which convention is legal, enforced by C13.
+An absent `conventions` table means unenforced.
+
+## 14. Ratified conformance divergences
+
+`spec/framework/conformance-exceptions.yaml` — seeded empty by `rqunit init`,
+edited at Gate 1 like any other reviewed decision. An absent file means none.
+
+```yaml
+exceptions:
+  - rule: CF4                       # the divergence class this excuses
+    service: service-orders
+    target: "GET /api/v1/healthz"   # '<METHOD> <path>' for endpoints, the subject for messages
+    justification: >
+      `internal` is a network-policy tier enforced at the ingress rather than by
+      route middleware, so the route is structurally public by design.
+```
+
+A matching divergence is downgraded from `error` to `finding` and reported with
+its justification. It is never suppressed: an exception that outlives its reason
+becomes camouflage, and the report is what surfaces it at the next sitting.
+
+`justification` has a minimum length, checked on load. The rule that matters is
+not structural — a one-word waiver satisfies any shape check and defends
+nothing.
+
+Adapters may not author these. An artifact carrying an `exceptions` key is
+rejected as a configuration error naming this file, because an extractor
+observes and does not get to excuse what it observed (spec §5.6).
+
+## 15. Adapter inputs (`rqunit.toml`)
+
+Repo-specific facts an extractor needs. Composition is a property of one
+repository — not of a language, and not of a web framework — so it is
+configuration, and the adapter stays generic.
+
+```toml
+[stacks.rust]
+service = "service-orders"          # manifest slug the artifact is keyed by; never guessed
+actual_surface = "conformance/actual-surface.json"
+
+[[stacks.rust.routers]]             # one table per mounted router
+file = "http/src/routes/orders/mod.rs"
+function = "router"
+prefix = "/api/v1/orders"
+access = "protected"
+
+[stacks.rust.messages]
+subject_sources = ["wire-contracts/src"]    # where subject constants are declared
+publisher_sources = ["adapters/nats/src"]   # code that references them
+```
+
+`file` and `function` are required on a router — an extractor cannot find a
+router it cannot name. Unknown keys are errors: a typo silently ignored would
+read as configured. A missing `[stacks.rust]` table is an error for the
+extractor rather than a default, because a guessed composition produces a
+surface nobody declared and the reconciler would believe it.

@@ -149,7 +149,7 @@ SHARED = yaml.safe_load("""
 service: shared
 version: "1.0"
 vocabularies:
-  access_tiers: [public, internal, scoped, refresh, protected]
+  access_tiers: [public, internal, partner, protected]
 """)
 
 def test_manifest_example_a_validates():
@@ -221,13 +221,18 @@ def test_gap_validates_and_resolved_requires_int_anchor():
 # ---------------------------------------------------------------- v0.10
 def test_endpoint_success_status_and_planned_ok():
     m = copy.deepcopy(MAN)
-    m["endpoints"][0]["success_status"] = 204
+    m["endpoints"][0]["outbound"] = {"status": 204, "fields": "none"}
     m["endpoints"].append({"id": "refund_order", "method": "POST", "path": "/api/v1/orders/{id}/refund",
                            "access": "protected", "ru": "FEAT-order-cancellation", "planned": True})
     ok(m, MANIFEST)
 
 def test_endpoint_error_code_as_success_status_rejected():
-    m = copy.deepcopy(MAN); m["endpoints"][0]["success_status"] = 409
+    m = copy.deepcopy(MAN)
+    m["endpoints"][0]["outbound"] = {"status": 409, "fields": "none"}
+    bad(m, MANIFEST)
+
+def test_endpoint_legacy_success_status_key_rejected():      # v0.13: retired into outbound.status
+    m = copy.deepcopy(MAN); m["endpoints"][0]["success_status"] = 204
     bad(m, MANIFEST)
 
 def test_message_external_inbound_ok_outbound_rejected():   # spec §5.8
@@ -246,3 +251,66 @@ def test_ru_email_in_stamp_by_rejected():                   # formats §9: handl
     bad(r, RU)
     r["gate1_stamp"]["by"] = "mze-runner"
     ok(r, RU)
+
+# ---------------------------------------------------------------- v0.13
+def _ep(**over):
+    ep = {"id": "cancel_order", "method": "DELETE", "path": "/api/v1/orders/{id}",
+          "access": "protected", "ru": "FEAT-order-cancellation"}
+    ep.update(over)
+    return ep
+
+def _man(ep):
+    m = copy.deepcopy(MAN); m["endpoints"] = [ep]; return m
+
+def test_endpoint_declares_both_directions():
+    ok(_man(_ep(inbound={"fields": [{"name": "id", "in": "path", "presence": "required",
+                                     "type": "string"}]},
+                outbound={"status": 200, "fields": [{"name": "order_id", "presence": "always",
+                                                     "type": "string"}]})), MANIFEST)
+
+def test_none_is_a_legal_declaration_in_both_directions():
+    # `none` is a POSITIVE claim; an absent slot is unfinished work (C10's job).
+    ok(_man(_ep(inbound="none", outbound={"status": 204, "fields": "none"})), MANIFEST)
+    ok(_man(_ep()), MANIFEST)                               # schema permits absence; C10 does not
+
+def test_outbound_requires_a_status():
+    bad(_man(_ep(outbound={"fields": "none"})), MANIFEST)
+
+def test_presence_union_admitted_by_schema_direction_is_c11():
+    # Grammar permissive, linter strict: the schema takes the union so C11 can
+    # produce a teaching message instead of a parse failure.
+    for p in ("always", "never", "required", "optional", "forbidden"):
+        ok(_man(_ep(inbound={"fields": [{"name": "amount", "presence": p}]})), MANIFEST)
+    bad(_man(_ep(inbound={"fields": [{"name": "amount", "presence": "maybe"}]})), MANIFEST)
+
+def test_nested_and_array_fields():
+    ok(_man(_ep(outbound={"status": 200, "fields": [
+        {"name": "items", "presence": "always", "type": "array", "items": "object"},
+        {"name": "items.id", "presence": "always", "type": "string"},
+        {"name": "cancellation", "presence": "always", "type": "object", "nullable": True},
+        {"name": "cancellation.at", "presence": "always", "type": "string"}]})), MANIFEST)
+
+def test_bounds_accept_literal_or_value_token():
+    for b in (254, "{value:email.max_chars}"):
+        ok(_man(_ep(inbound={"fields": [{"name": "email", "presence": "required",
+                                         "type": "string", "max_chars": b}]})), MANIFEST)
+    bad(_man(_ep(inbound={"fields": [{"name": "email", "presence": "required",
+                                      "type": "string", "max_chars": "{vocab:emails}"}]})), MANIFEST)
+
+def test_field_name_pattern_admits_convention_union():
+    # C14 decides which convention is legal here; the grammar must not pre-empt it.
+    for n in ("order_id", "orderId", "order-id", "OrderId"):
+        ok(_man(_ep(outbound={"status": 200,
+                              "fields": [{"name": n, "presence": "always"}]})), MANIFEST)
+    bad(_man(_ep(outbound={"status": 200,
+                           "fields": [{"name": "9lives", "presence": "always"}]})), MANIFEST)
+
+def test_conventions_shared_only_and_defaults_service_only():
+    s = copy.deepcopy(SHARED); s["conventions"] = {"field_names": "snake_case"}
+    ok(s, MANIFEST)
+    s2 = copy.deepcopy(SHARED); s2["defaults"] = {"unknown_fields": "reject"}
+    bad(s2, MANIFEST)
+    m = copy.deepcopy(MAN); m["conventions"] = {"field_names": "snake_case"}
+    bad(m, MANIFEST)
+    m2 = copy.deepcopy(MAN); m2["defaults"] = {"unknown_fields": "reject"}
+    ok(m2, MANIFEST)

@@ -22,6 +22,31 @@ from .errors import BadConfig
 
 
 @dataclass(frozen=True)
+class Router:
+    """One mounted router: which function in which file, at what prefix, under
+    which access tier. This is composition — a fact about THIS repository's
+    layout, not about Rust or about axum — so it is configuration. It lived as
+    a constant in adapter source, which put a consumer's file paths and service
+    names inside the product."""
+
+    file: str
+    function: str
+    prefix: str = ""
+    access: str = ""
+
+
+@dataclass(frozen=True)
+class Messages:
+    """Where async subjects are declared and who publishes them."""
+
+    # Files or directories declaring subject constants.
+    subject_sources: tuple[str, ...] = ()
+    # Files or directories whose code references those constants — what the
+    # service actually publishes, as opposed to what it could name.
+    publisher_sources: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class RustStack:
     # Globs (repo-root-relative) to the Cargo.toml of every crate whose
     # tests/ directory participates in verifies-tracing (`rqunit trace`).
@@ -37,6 +62,13 @@ class RustStack:
     # Where this stack's extractor writes actual-surface.json — the artifact
     # `rqunit conformance` reconciles against the manifests. Empty disables.
     actual_surface: str = "spec-conformance-tests/actual-surface.json"
+    # Manifest service slug this stack's extractor reports on. Empty means the
+    # extractor cannot key its output and conformance is not attempted.
+    service: str = ""
+    # HTTP composition table (see Router).
+    routers: tuple[Router, ...] = ()
+    # Async surface discovery.
+    messages: Messages = Messages()
 
 
 @dataclass(frozen=True)
@@ -69,9 +101,13 @@ def load(root: Path) -> Config:
     kwargs = {}
     for name in known & set(rust_raw):
         value = rust_raw[name]
-        if name == "conformance_crate":
-            if not isinstance(value, str) or not value:
-                raise BadConfig(str(path), "conformance_crate must be a non-empty string")
+        if name == "routers":
+            kwargs[name] = _routers(path, value)
+        elif name == "messages":
+            kwargs[name] = _messages(path, value)
+        elif name in ("conformance_crate", "service"):
+            if not isinstance(value, str) or (name == "conformance_crate" and not value):
+                raise BadConfig(str(path), f"{name} must be a non-empty string")
             kwargs[name] = value
         elif name == "actual_surface":
             if not isinstance(value, str):
@@ -82,3 +118,40 @@ def load(root: Path) -> Config:
                 raise BadConfig(str(path), f"{name} must be a list of glob strings")
             kwargs[name] = tuple(value)
     return Config(rust=RustStack(**kwargs))
+
+
+def _routers(path: Path, value: object) -> tuple[Router, ...]:
+    if not isinstance(value, list):
+        raise BadConfig(str(path), "routers must be a list of [[stacks.rust.routers]] tables")
+    out = []
+    for entry in value:
+        if not isinstance(entry, dict):
+            raise BadConfig(str(path), "each router must be a table")
+        unknown = set(entry) - {"file", "function", "prefix", "access"}
+        if unknown:
+            raise BadConfig(str(path), f"unknown router key(s): {', '.join(sorted(unknown))} "
+                                       "(supported: file, function, prefix, access)")
+        missing = {"file", "function"} - set(entry)
+        if missing:
+            raise BadConfig(str(path), f"router is missing {', '.join(sorted(missing))} — an "
+                                       "extractor cannot find a router it cannot name")
+        out.append(Router(file=entry["file"], function=entry["function"],
+                          prefix=entry.get("prefix", ""), access=entry.get("access", "")))
+    return tuple(out)
+
+
+def _messages(path: Path, value: object) -> Messages:
+    if not isinstance(value, dict):
+        raise BadConfig(str(path), "messages must be a [stacks.rust.messages] table")
+    unknown = set(value) - {"subject_sources", "publisher_sources"}
+    if unknown:
+        raise BadConfig(str(path), f"unknown messages key(s): {', '.join(sorted(unknown))} "
+                                   "(supported: subject_sources, publisher_sources)")
+    for key in ("subject_sources", "publisher_sources"):
+        entries = value.get(key, [])
+        if not isinstance(entries, list) or not all(isinstance(v, str) for v in entries):
+            raise BadConfig(str(path), f"{key} must be a list of path strings")
+    return Messages(
+        subject_sources=tuple(value.get("subject_sources", [])),
+        publisher_sources=tuple(value.get("publisher_sources", [])),
+    )

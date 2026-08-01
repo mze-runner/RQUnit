@@ -12,33 +12,33 @@ cases:
     tokens: [{kind: audit, key: orders.screening.decided}]
   - text: "publishes {message:order_cancelled}"
     tokens: [{kind: message, key: order_cancelled}]
-  - text: "over {channel:lobby}"
-    tokens: [{kind: channel, key: lobby}]
-  - text: "sends {frame:lobby.forced_logout} before closing"
-    tokens: [{kind: frame, key: lobby.forced_logout}]
+  - text: "over {channel:tracking}"
+    tokens: [{kind: channel, key: tracking}]
+  - text: "sends {frame:tracking.shipment_moved} before closing"
+    tokens: [{kind: frame, key: tracking.shipment_moved}]
   - text: "one of {vocab:access_tiers}"
     tokens: [{kind: vocab, key: access_tiers}]
   # ---- qualified forms (v0.10)
-  - text: "calls {endpoint:service-auth/token_refresh}"
-    tokens: [{kind: endpoint, qualifier: service-auth, key: token_refresh}]
-  - text: "rejects with {problem:service-auth/expired_token}"
-    tokens: [{kind: problem, qualifier: service-auth, key: expired_token}]
-  - text: "emits {audit:service-auth/account.deleted}"
-    tokens: [{kind: audit, qualifier: service-auth, key: account.deleted}]
-  - text: "consumes {message:service-auth/session_invalidated}"
-    tokens: [{kind: message, qualifier: service-auth, key: session_invalidated}]
-  - text: "receives {frame:service-core/lobby.forced_logout}"
-    tokens: [{kind: frame, qualifier: service-core, key: lobby.forced_logout}]
+  - text: "calls {endpoint:service-billing/charge_order}"
+    tokens: [{kind: endpoint, qualifier: service-billing, key: charge_order}]
+  - text: "rejects with {problem:service-billing/expired_hold}"
+    tokens: [{kind: problem, qualifier: service-billing, key: expired_hold}]
+  - text: "emits {audit:service-billing/charge.refunded}"
+    tokens: [{kind: audit, qualifier: service-billing, key: charge.refunded}]
+  - text: "consumes {message:service-billing/payment_captured}"
+    tokens: [{kind: message, qualifier: service-billing, key: payment_captured}]
+  - text: "receives {frame:service-orders/tracking.shipment_moved}"
+    tokens: [{kind: frame, qualifier: service-orders, key: tracking.shipment_moved}]
   # ---- adjacency, multiplicity, position
   - text: "{endpoint:place_order} emits {audit:orders.screening.decided} within {value:screening.window_seconds} seconds"
     tokens:
       - {kind: endpoint, key: place_order}
       - {kind: audit, key: orders.screening.decided}
       - {kind: value, key: screening.window_seconds}
-  - text: "{channel:lobby}{frame:lobby.pong}"
+  - text: "{channel:tracking}{frame:tracking.pong}"
     tokens:
-      - {kind: channel, key: lobby}
-      - {kind: frame, key: lobby.pong}
+      - {kind: channel, key: tracking}
+      - {kind: frame, key: tracking.pong}
   - text: "{vocab:access_tiers}"
     tokens: [{kind: vocab, key: access_tiers}]
   # ---- escaped literal braces
@@ -58,10 +58,31 @@ cases:
     tokens: [{kind: problem, key: too-many-requests}]
   - text: "rejects with {problem:service-billing/payment-failed}"
     tokens: [{kind: problem, qualifier: service-billing, key: payment-failed}]
-  - text: "{message:notify_send}"
-    tokens: [{kind: message, key: notify_send}]
-  - text: "{endpoint:get_me}"
-    tokens: [{kind: endpoint, key: get_me}]
+  - text: "{message:receipt_dispatched}"
+    tokens: [{kind: message, key: receipt_dispatched}]
+  - text: "{endpoint:get_order}"
+    tokens: [{kind: endpoint, key: get_order}]
+  # ---- endpoint shape addressing (v0.13): <id>.<direction>[.<field-path>]
+  - text: "the census of {endpoint:get_order.outbound} is fixed"
+    tokens: [{kind: endpoint, key: get_order.outbound}]
+  - text: "accepts nothing beyond {endpoint:get_order.inbound}"
+    tokens: [{kind: endpoint, key: get_order.inbound}]
+  - text: "shall exclude {endpoint:get_order.outbound.cost_basis} from every response"
+    tokens: [{kind: endpoint, key: get_order.outbound.cost_basis}]
+  # nested fields address through the parent, as the census declares them
+  - text: "exposes only {endpoint:get_order.outbound.cancellation.at}"
+    tokens: [{kind: endpoint, key: get_order.outbound.cancellation.at}]
+  # query and path parameters are part of the accepted surface, so addressable
+  - text: "bounds {endpoint:list_items.inbound.limit} at the registered maximum"
+    tokens: [{kind: endpoint, key: list_items.inbound.limit}]
+  - text: "reads {endpoint:service-billing/get_charge.outbound.card_pan}"
+    tokens: [{kind: endpoint, qualifier: service-billing, key: get_charge.outbound.card_pan}]
+  # field segments admit the naming-convention union: the grammar permits, C14
+  # decides which convention is legal in a given store.
+  - text: "rejects {endpoint:update_order.inbound.orderId} from clients"
+    tokens: [{kind: endpoint, key: update_order.inbound.orderId}]
+  - text: "rejects {endpoint:update_order.inbound.order-id} from clients"
+    tokens: [{kind: endpoint, key: update_order.inbound.order-id}]
   # ---- malformed (8 cases; reasons are the L15 "malformed" classes)
   - text: "uses {endpoints:cancel_order} wrongly"
     errors: [{reason: unknown-kind}]
@@ -75,8 +96,16 @@ cases:
     errors: [{reason: malformed}]
   - text: "frame without channel {frame:pong}"
     errors: [{reason: malformed}]
+  # a second segment that is not a direction: the set is closed by the grammar,
+  # so this is malformed, not merely unresolved
   - text: "dotted endpoint {endpoint:orders.cancel}"
     errors: [{reason: malformed}]
+  - text: "misspelled direction {endpoint:get_order.outbund.cost_basis}"
+    errors: [{reason: malformed}]
+  - text: "field starting with a digit {endpoint:get_order.outbound.9lives}"
+    errors: [{reason: malformed}]
+  - text: "direction with no endpoint {endpoint:outbound}"
+    tokens: [{kind: endpoint, key: outbound}]
   - text: "unterminated {endpoint:cancel_order and onwards"
     errors: [{reason: malformed}]
   # ---- mixed valid + invalid in one statement

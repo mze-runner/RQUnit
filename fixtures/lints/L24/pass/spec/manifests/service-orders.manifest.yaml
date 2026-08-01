@@ -1,0 +1,20 @@
+service: service-orders
+version: "1.0"
+values:
+  order: { max_note_chars: 200 }
+  paging: { max_limit: 100 }
+defaults: { unknown_fields: reject }
+endpoints:
+  - id: update_order
+    method: PATCH
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: order_id, in: path, presence: required, type: string }
+        # registered facts are referenced, not restated
+        - { name: note, presence: optional, type: string, max_chars: "{value:order.max_note_chars}" }
+        # a one-off bound stays literal, and matches no registered value
+        - { name: quantity, presence: optional, type: integer, max: 7 }
+    outbound: { status: 200, fields: none }

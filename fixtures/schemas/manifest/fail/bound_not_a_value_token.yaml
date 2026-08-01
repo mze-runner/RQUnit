@@ -1,0 +1,15 @@
+# Red for one reason: a bound given as a non-`{value:...}` string. Bounds are a
+# literal or a reference into `values`; anything else is neither checkable nor
+# resolvable.
+service: service-orders
+version: "1.0"
+endpoints:
+  - id: create_order
+    method: POST
+    path: /api/v1/orders
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: note, presence: optional, type: string, max_chars: "{vocab:notes}" }
+    outbound: { status: 201, fields: none }

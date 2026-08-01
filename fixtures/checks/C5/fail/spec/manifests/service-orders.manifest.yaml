@@ -13,7 +13,7 @@ endpoints:
   scope: ghost-scope
   ru: FEAT-x
 channels:
-- id: lobby
+- id: tracking
   upgrade_path: /ws
   access: banana
   ru: FEAT-x

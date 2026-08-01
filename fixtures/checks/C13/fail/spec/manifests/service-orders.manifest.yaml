@@ -1,0 +1,21 @@
+service: service-orders
+version: "1.0"
+defaults: { unknown_fields: reject }
+endpoints:
+  # path segment is camelCase where the store declared kebab-case
+  - id: list_order_items
+    method: GET
+    path: "/api/v1/orderItems/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: order_id, in: path,  presence: required, type: string }
+        # camelCase where the store declared snake_case
+        - { name: pageSize, in: query, presence: optional, type: integer }
+    outbound:
+      status: 200
+      fields:
+        - { name: items,           presence: always, type: array, items: object }
+        # the nested segment is a wire name in its own right
+        - { name: items.unitPrice, presence: always, type: integer }

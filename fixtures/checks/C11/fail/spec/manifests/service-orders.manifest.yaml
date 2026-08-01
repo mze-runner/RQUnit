@@ -1,0 +1,30 @@
+service: service-orders
+version: "1.0"
+# no `defaults.unknown_fields`, and the inbound shape does not override it
+endpoints:
+  - id: update_order
+    method: PATCH
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: order_id, in: path, presence: required, type: string }
+        # outbound vocabulary on an inbound shape: a leak claim where a
+        # rejection claim belongs
+        - { name: note,     presence: never, type: string }
+        # bound that does not apply to the declared type
+        - { name: quantity, presence: optional, type: string, max: 10 }
+    outbound:
+      status: 200
+      fields:
+        # `in` describes client-supplied input; meaningless outbound
+        - { name: id,        in: query, presence: always, type: string }
+        # nullable on a field that never appears
+        - { name: cost_basis, presence: never, nullable: true }
+        # array with no element type
+        - { name: items,     presence: always, type: array }
+        # object with no declared members
+        - { name: shipping,  presence: always, type: object }
+        # a child whose parent is not declared
+        - { name: totals.net, presence: always, type: integer }

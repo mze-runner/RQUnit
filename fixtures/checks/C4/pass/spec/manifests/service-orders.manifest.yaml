@@ -11,7 +11,7 @@ messages:
   - { id: order_cancelled, subject: orders.cancelled, direction: outbound,
       payload: "wire::OrderCancelled", ru: FEAT-order-cancellation }
 channels:
-  - id: lobby
+  - id: tracking
     upgrade_path: /ws
     access: protected
     ru: FEAT-order-cancellation
