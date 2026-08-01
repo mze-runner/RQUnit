@@ -55,9 +55,13 @@ fn strings(value: Option<&toml::Value>) -> Vec<String> {
 /// reconciler would believe it.
 pub fn load_config(root: &Path) -> Result<StackConfig> {
     let path = root.join("rqunit.toml");
-    let source = fs::read_to_string(&path)
-        .map_err(|e| format!("read {}: {e} — the extractor needs [stacks.rust] to know which \
-                              routers to walk", path.display()))?;
+    let source = fs::read_to_string(&path).map_err(|e| {
+        format!(
+            "read {}: {e} — the extractor needs [stacks.rust] to know which \
+                              routers to walk",
+            path.display()
+        )
+    })?;
     let doc: toml::Table = source
         .parse()
         .map_err(|e| format!("parse {}: {e}", path.display()))?;
@@ -249,8 +253,9 @@ fn published_subjects(root: &Path, config: &StackConfig) -> Result<BTreeSet<Stri
     let constants = subject_constants(root, &config.subject_sources)?;
     let mut publisher_source = String::new();
     for file in expand(root, &config.publisher_sources) {
-        publisher_source
-            .push_str(&fs::read_to_string(&file).map_err(|e| format!("read {}: {e}", file.display()))?);
+        publisher_source.push_str(
+            &fs::read_to_string(&file).map_err(|e| format!("read {}: {e}", file.display()))?,
+        );
     }
     Ok(constants
         .into_iter()
@@ -266,9 +271,11 @@ fn published_subjects(root: &Path, config: &StackConfig) -> Result<BTreeSet<Stri
 pub fn render(root: &Path) -> Result<String> {
     let config = load_config(root)?;
     if config.service.is_empty() {
-        return Err("rqunit.toml: [stacks.rust] needs `service` — the artifact is keyed by \
+        return Err(
+            "rqunit.toml: [stacks.rust] needs `service` — the artifact is keyed by \
                     manifest service slug, and an extractor must not guess it"
-            .into());
+                .into(),
+        );
     }
     let mut routes: BTreeMap<(String, String), (String, Option<String>)> = BTreeMap::new();
     for (file, fn_name, prefix, tier) in &config.routers {
@@ -447,7 +454,9 @@ impl MetaText for syn::Meta {
 /// The innermost named type of `Json<T>`, `Option<T>`, `Vec<T>`, `Result<T, _>`
 /// — the shape a wrapper carries, which is what the manifest declares.
 pub(crate) fn inner_type_name(ty: &syn::Type) -> Option<String> {
-    let syn::Type::Path(path) = ty else { return None };
+    let syn::Type::Path(path) = ty else {
+        return None;
+    };
     let segment = path.path.segments.last()?;
     let name = segment.ident.to_string();
     if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
@@ -487,7 +496,9 @@ pub(crate) fn source_files(dir: &Path) -> Vec<PathBuf> {
 /// A request type is read from a `Json<T>` parameter; a response type from the
 /// return position. Handlers the walk cannot resolve simply do not appear —
 /// omission is "not observed", and the reconciler treats it as such.
-pub(crate) fn handler_signatures(files: &[PathBuf]) -> BTreeMap<String, (Option<String>, Option<String>)> {
+pub(crate) fn handler_signatures(
+    files: &[PathBuf],
+) -> BTreeMap<String, (Option<String>, Option<String>)> {
     let mut out = BTreeMap::new();
     for file in files {
         let Ok(source) = fs::read_to_string(file) else {
@@ -638,7 +649,9 @@ mod tests {
         let files = tree("nested", &[("src/lib.rs", SOURCE)]);
         let structs = struct_fields(&files);
         let shape = shape_for(Some(&"OrderView".to_string()), &structs);
-        let fields = shape.fields.expect("OrderView is in reach, so its fields are observed");
+        let fields = shape
+            .fields
+            .expect("OrderView is in reach, so its fields are observed");
         assert!(fields.contains(&"total.amount".to_string()));
         assert!(fields.contains(&"total.currency".to_string()));
     }
@@ -650,9 +663,15 @@ mod tests {
         let fields = shape_for(Some(&"OrderView".to_string()), &structs)
             .fields
             .unwrap();
-        assert!(fields.contains(&"placed_at".to_string()), "rename wins: {fields:?}");
+        assert!(
+            fields.contains(&"placed_at".to_string()),
+            "rename wins: {fields:?}"
+        );
         assert!(!fields.contains(&"placed".to_string()));
-        assert!(!fields.contains(&"internal_cost".to_string()), "skip means not on the wire");
+        assert!(
+            !fields.contains(&"internal_cost".to_string()),
+            "skip means not on the wire"
+        );
     }
 
     #[test]
@@ -660,8 +679,16 @@ mod tests {
         let files = tree("wrappers", &[("src/lib.rs", SOURCE)]);
         let signatures = handler_signatures(&files);
         let (request, response) = signatures.get("place_order").expect("handler found");
-        assert_eq!(response.as_deref(), Some("OrderView"), "through Result<Json<T>, E>");
-        assert_eq!(request.as_deref(), Some("NewOrder"), "from the Json<T> parameter");
+        assert_eq!(
+            response.as_deref(),
+            Some("OrderView"),
+            "through Result<Json<T>, E>"
+        );
+        assert_eq!(
+            request.as_deref(),
+            Some("NewOrder"),
+            "from the Json<T> parameter"
+        );
     }
 
     #[test]
@@ -712,10 +739,23 @@ mod tests {
         assert_eq!(config.routers.len(), 1);
         let (file, function, prefix, access) = &config.routers[0];
         assert_eq!(
-            (file.as_str(), function.as_str(), prefix.as_str(), access.as_str()),
-            ("http/src/routes/mod.rs", "router", "/api/v1/orders", "protected")
+            (
+                file.as_str(),
+                function.as_str(),
+                prefix.as_str(),
+                access.as_str()
+            ),
+            (
+                "http/src/routes/mod.rs",
+                "router",
+                "/api/v1/orders",
+                "protected"
+            )
         );
-        assert_eq!(config.subject_sources, vec!["wire-contracts/src".to_string()]);
+        assert_eq!(
+            config.subject_sources,
+            vec!["wire-contracts/src".to_string()]
+        );
         assert_eq!(config.actual_surface, "conformance/actual-surface.json");
     }
 
@@ -731,13 +771,20 @@ mod tests {
 
     #[test]
     fn a_router_without_a_name_is_rejected() {
-        let files = tree("badrouter", &[(
-            "rqunit.toml",
-            "[stacks.rust]\nservice = \"s\"\n[[stacks.rust.routers]]\nfile = \"a.rs\"\n",
-        )]);
+        let files = tree(
+            "badrouter",
+            &[(
+                "rqunit.toml",
+                "[stacks.rust]\nservice = \"s\"\n[[stacks.rust.routers]]\nfile = \"a.rs\"\n",
+            )],
+        );
         let root = files[0].parent().unwrap();
         let err = load_config(root).expect_err("router missing `function`");
-        assert!(err.to_string().contains("cannot find a router it cannot name"), "{err}");
+        assert!(
+            err.to_string()
+                .contains("cannot find a router it cannot name"),
+            "{err}"
+        );
     }
 
     #[test]
