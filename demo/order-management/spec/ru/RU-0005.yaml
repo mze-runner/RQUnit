@@ -1,0 +1,24 @@
+id: RU-0005
+statement: 'The system shall not populate {artifact:access-token.iss}.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-cancellation
+source_ref: INT-0001#L21-23
+verification:
+- type: test
+  ref: TODO(minted token carries no issuer claim)
+- type: test
+  ref: TODO(token decode rejects an issuer claim if present)
+scope:
+  owns:
+  - service-orders/sessions
+  must_not_touch:
+  - service-billing
+tags:
+- security
+gate1_stamp:
+  hash: sha256:aefe7fdb9ea0b9ff2da028b4bad52a878911987b8251c67222eafcfd56148e7c
+  by: demo-operator
+  at: '2026-08-02T05:41:17+00:00'

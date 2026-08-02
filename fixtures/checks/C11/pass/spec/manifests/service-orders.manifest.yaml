@@ -1,0 +1,24 @@
+service: service-orders
+version: "1.0"
+defaults: { unknown_fields: reject }
+endpoints:
+  - id: update_order
+    method: PATCH
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: order_id,   in: path, presence: required, type: string }
+        - { name: note,       presence: optional, type: string, max_chars: 500 }
+        - { name: id,         presence: forbidden, note: server-owned }
+        - { name: created_at, presence: forbidden, note: server-owned }
+    outbound:
+      status: 200
+      fields:
+        - { name: id,              presence: always, type: string }
+        - { name: items,           presence: always, type: array, items: object }
+        - { name: items.sku,       presence: always, type: string }
+        - { name: cancellation,    presence: always, type: object, nullable: true }
+        - { name: cancellation.at, presence: always, type: string }
+        - { name: cost_basis,      presence: never }

@@ -5,16 +5,16 @@ status: active
 source_ref: INT-0001#L1-2
 supersedes: RU-0100
 verification:
-- type: contract
-  ref: CT-base
+- type: test
+  ref: TODO(base census not yet proved)
 scope:
   owns:
   - service-orders/fulfilment
 tags:
 - orders
 gate1_stamp:
-  hash: sha256:eaca38b6ca62a393fd94faf1b181a7e31ce75576d1221ea60f2008da1d4fd64d
+  hash: sha256:2f5261eec1ee1f7a8b372a4bdeef43d005d39eab82be39806ce97bc4c6afd403
   by: fixture-op
   at: '2026-07-25T10:00:00+00:00'
 link_fingerprints:
-  RU-0100: sha256:f12782366ccc8a9a4cbaafc8a615ad038a13a84fdc3d1444f558e70e289d2463
+  RU-0100: sha256:cb94c90c3179bb11198a407cd52838710719b3bf9364984441868d67f08f6515

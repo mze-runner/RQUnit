@@ -1,0 +1,20 @@
+id: RU-0001
+statement: 'The system shall deny any action that is not explicitly granted to the
+  requesting actor''s role.
+
+  '
+syntax: ears
+status: active
+tier: constitutional
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: TODO(default-deny architecture test not yet written)
+- type: test
+  ref: TODO(per-tier route composition test not yet written)
+tags:
+- security
+gate1_stamp:
+  hash: sha256:9afce69ef94841072cc3e54d8fc0d085f0359e60a5b4a65f17f9ad935ca8cd96
+  by: demo-operator
+  at: '2026-08-02T05:41:17+00:00'

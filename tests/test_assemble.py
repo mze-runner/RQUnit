@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from rqunit.assemble import one_hop, packet_path, render_packet
+from rqunit.assemble import one_hop, packet_path, render_packet, render_surface_sheet
 from rqunit.generate import render_ru_index
 from rqunit.hooks import load_boundaries
 from rqunit.store import Store
@@ -127,3 +127,45 @@ def test_ru_index_carries_the_formats_fields():
         assert required <= set(row), row["id"]
         assert row["computed"] in labels, row["id"]
     assert any(row["tier"] == "constitutional" for row in index["rus"])
+
+
+# ------------------------------------------------------------ v0.13 shapes
+
+def test_star_map_carries_the_census_the_ru_depends_on():
+    """Packets exist so an implementing agent never has to read the store. Once
+    a shape lives on the endpoint rather than in a contract file, a packet that
+    renders only the route table hides the very thing the RU asserts about."""
+    sheet = "\n".join(render_surface_sheet(Store.load(ASSEMBLY), "service-orders"))
+    assert "cancel_order · inbound" in sheet
+    assert "`id` (required, in path, string)" in sheet
+
+
+def test_declared_empty_is_rendered_not_omitted():
+    """`none` is a claim; silence is not. A packet that prints nothing for an
+    empty direction reads as 'unspecified' — the opposite of what it says."""
+    sheet = "\n".join(render_surface_sheet(Store.load(ASSEMBLY), "service-orders"))
+    assert "outbound** — status 204 — declared empty" in sheet
+
+
+def test_negative_claims_render_as_loudly_as_positive_ones():
+    from rqunit.assemble import render_field
+
+    leak = render_field({"name": "cost_basis", "presence": "never",
+                         "note": "internal pricing never leaves"})
+    reject = render_field({"name": "id", "presence": "forbidden", "note": "server-owned"})
+    assert "`cost_basis` (never)" in leak and "never leaves" in leak
+    assert "`id` (forbidden)" in reject
+    # An implementer skimming a packet must not be able to mistake an absence
+    # claim for an omission — these are the claims most likely to be broken.
+    assert "never" in leak and "forbidden" in reject
+
+
+def test_bounds_and_nullability_reach_the_packet():
+    from rqunit.assemble import render_field
+
+    line = render_field({"name": "note", "presence": "optional", "type": "string",
+                         "nullable": True, "max_chars": 200})
+    assert "max_chars 200" in line and "nullable" in line
+    strict = render_field({"name": "email", "presence": "always", "type": "string",
+                           "nullable": False})
+    assert "never null" in strict

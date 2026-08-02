@@ -16,6 +16,7 @@ Two lookups that used to be one, separated by the extraction:
 from __future__ import annotations
 
 import functools
+import importlib.metadata
 from pathlib import Path
 
 import yaml
@@ -27,7 +28,6 @@ SCHEMA_FILES = {
     "model": "model.statechart.schema.yaml",
     "feat": "feat.schema.yaml",
     "gap": "gap.schema.yaml",
-    "contract": "contract.schema.yaml",
 }
 
 PACK_DIR = Path(__file__).parent / "pack"
@@ -50,6 +50,29 @@ def store_root(start: Path | None = None) -> Path:
 # Retained name for call sites that predate the extraction; a store root is
 # what every one of them actually meant.
 repo_root = store_root
+
+
+def installed_version() -> str:
+    """The pack version of the tool doing the enforcing."""
+    try:
+        return importlib.metadata.version("rqunit")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def store_pack_version(root: Path) -> str:
+    """The pack version a store was authored against, from
+    ``spec/framework/pack.yaml`` (written by ``rqunit init``).
+
+    Falls back to the installed version: a store predating the pin is not
+    broken, it is merely unpinned, and reporting the enforcing version is a
+    better answer than reporting nothing."""
+    path = Path(root) / "spec" / "framework" / "pack.yaml"
+    if path.is_file():
+        pinned = (yaml.safe_load(path.read_text()) or {}).get("pack")
+        if isinstance(pinned, str) and pinned:
+            return pinned
+    return installed_version()
 
 
 @functools.lru_cache(maxsize=None)

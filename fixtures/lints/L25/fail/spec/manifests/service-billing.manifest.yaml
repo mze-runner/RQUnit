@@ -1,0 +1,4 @@
+service: service-billing
+version: "1.0"
+endpoints:
+  - { id: settle_refund, method: POST, path: /api/v1/refunds, access: internal, ru: FEAT-billing }

@@ -1,0 +1,21 @@
+id: RU-0002
+statement: 'The system shall record an audit event for every state-changing action.
+
+  '
+syntax: ears
+status: active
+tier: constitutional
+source_ref: INT-0001#L12-15
+verification:
+- type: test
+  ref: TODO(every-mutating-route-records architecture test)
+- type: model
+  ref: MDL-order-lifecycle
+  model_hash: sha256:8d9f1f8a86f4c04fae5fd8c9f07259005c247caf0fe19e2f119c56d6cb507d1b
+  conformance: generated
+tags:
+- audit
+gate1_stamp:
+  hash: sha256:25ee093d81f9f941623b47b346e387fe5e6cd3d6041dc3bdd85efe7fe98dedb9
+  by: demo-operator
+  at: '2026-08-02T05:41:17+00:00'

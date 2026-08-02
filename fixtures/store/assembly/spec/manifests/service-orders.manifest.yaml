@@ -5,9 +5,18 @@ problem_types:
 values:
   retention: { decision_log_days: 90 }
 audit_events:
-  - { code: orders.cancelled, fields: [order_id], ru: FEAT-hot }
+  - { code: orders.cancelled, fields: [{ name: order_id, presence: always }], ru: FEAT-hot }
 endpoints:
-  - { id: cancel_order, method: DELETE, path: "/api/v1/orders/{id}", access: protected, ru: FEAT-hot }
+  - id: cancel_order
+    method: DELETE
+    path: "/api/v1/orders/{id}"
+    access: protected
+    ru: FEAT-hot
+    inbound:
+      unknown_fields: reject
+      fields:
+        - { name: id, in: path, presence: required, type: string }
+    outbound: { status: 204, fields: none }
 messages:
   - { id: order_cancelled, subject: orders.cancelled, direction: outbound,
       payload: "wire::OrderCancelled", ru: FEAT-hot }

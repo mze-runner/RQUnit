@@ -17,6 +17,8 @@ build/
 .DS_Store
 *.log
 
+.ignore/
+
 # Local agent-runtime overrides (checked-in settings are the shared ones)
 .claude/settings.local.json
 

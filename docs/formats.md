@@ -17,7 +17,6 @@ for tooling; changes are schema-revision events, not edits.
 | Manifest | `spec/manifests/<service>.manifest.yaml` | service slug; `shared` reserved |
 | Model | `spec/models/MDL-<id>.statechart.json` | `MDL-<id>` |
 | ADR | `spec/rationale/ADR-<slug>.md` | `ADR-<slug>` (pattern `ADR-[A-Za-z0-9-]+`) |
-| Contract | `spec/contracts/CT-<slug>.yaml` | `CT-<slug>` (pattern `CT-[a-z0-9-]+`) |
 | Packet | `spec/packets/TASK-<id>.packet.md` (re-runs: `.v2`, `.v3` suffix before `.packet.md`) | task id from the operator's task system |
 
 Filename ↔ `id` field mismatch is an L9 error. IDs beyond 9999: widen padding
@@ -32,16 +31,34 @@ kind       = "value" | "endpoint" | "problem" | "audit"
 qualifier  = ident ;                       (* owning service slug (v0.10);
                                                    FORBIDDEN for kind "value" —
                                                    foreign scalars promote to shared *)
-key        = dotted | frameref ;
+key        = dotted | frameref | surfaceref ;
 dotted     = ident { "." ident } ;              (* value: dotted; others: single ident,
                                                    audit: dotted event code *)
 frameref   = ident "." ident ;                  (* frame only: channel.frame *)
+surfaceref = ident [ "." direction [ { "." fieldname } ] ] ;
+                                                (* endpoint only *)
+direction  = "inbound" | "outbound" ;
 ident      = lowletter { lowletter | digit | "_" | "-" } ;
                                                 (* v0.10.2: "-" admitted so RFC 7807-style
                                                    hyphenated keys (problem types, service
                                                    slugs) are referenceable; the qualifier/key
                                                    split stays unambiguous — "/" delimits *)
+fieldname  = letter { letter | digit | "_" | "-" } ;
+                                                (* mixed case admitted: `conventions.field_names`
+                                                   decides which convention is legal in a store
+                                                   (C13), and the grammar must not pre-empt that.
+                                                   Identical to manifest `$defs/field_name`'s
+                                                   segment — widening either alone is a red build *)
 ```
+
+An `endpoint` key addresses a surface, optionally one of its two directions,
+optionally a path into that direction's declared census — nesting is expressed
+by the field name itself (`cancellation.at`), matching the manifest.
+`direction` is closed by the grammar, so a misspelling is **malformed**, not
+merely unresolved: the mistake is in the reference, not in the manifest. A
+direction declared `none` resolves — "this surface carries nothing" is a
+positive claim — while an absent direction does not, which is what lets C10
+tell a deliberate empty from an unfinished declaration.
 
 Resolution: a qualified ref resolves against the named manifest ONLY (a miss
 is unresolved, L15 — never a fallback to own-scope or shared); an unqualified
@@ -111,7 +128,6 @@ derived from the JSON, never a separate code path.
 |---|---|
 | Python tests | `@pytest.mark.verifies("RU-0142")` (repeatable) |
 | Rust tests | doc-comment line `/// verifies: RU-0142[, RU-0143]` directly above `#[test]`/`#[tokio::test]` |
-| Contracts (CT) | manifest-style metadata field `verifies: [RU-0142]` in the contract definition |
 | Generated conformance suites | no per-test annotations — a sidecar `spec/projections/trace-map.json` `{ "check_id": ["RU-…"] }` emitted by the generator from the model's RU links |
 | Infrastructure tests | `verifies: infrastructure` (audited bucket, §6.6) |
 
@@ -180,8 +196,20 @@ quantity_position: [many, few, several, some, large, small, numerous, various, a
 service: shared
 version: "1.0"
 vocabularies:
-  access_tiers: [public, internal, scoped, refresh, protected]   # operator-tunable
+  access_tiers: [public, internal, partner, protected]   # operator-tunable
 ```
+
+**Pack pin** — `spec/framework/pack.yaml`, written when the store is
+scaffolded and thereafter edited only by a deliberate upgrade:
+
+```yaml
+pack: "0.13.0"
+```
+
+It records the pack version the store was **authored against**, which is not
+necessarily the version enforcing it today; the pin is reported, never
+reconciled. A store without the pin is unpinned, not invalid — reporting
+falls back to the enforcing version.
 
 ## 9. Gate stamps & fingerprints (v0.9)
 
@@ -242,24 +270,13 @@ HANDLE (e.g. a VCS username), never contact information — the store is
 published with the repository. Emails are schema-rejected (`by` pattern) and
 CLI-rejected (`--reviewer`); the handle→person mapping lives outside the repo.
 
-## 11. Contract (CT) format
+## 11. (retired — the contract layer)
 
-One checkable shape per file at `spec/contracts/CT-<slug>.yaml`, validated
-against `contract.schema.yaml`. One contract per artifact TYPE — presence is
-binary (`always` | `never`), and a field that appears "sometimes" belongs to
-a different artifact type with its own contract. `where` records placement
-(`claims` | `header`); `presence: never` makes absences checkable; `vocab`
-constrains a field's values to a manifest vocabulary (contracts never
-introduce vocabulary); `access_tier` binds the contract to the credential
-tier whose surfaces consume the artifact. `token_scopes` is a reserved
-vocabulary name (like `access_tiers`, §8) for endpoint `scope` values.
-
-Rules that are enforced: dangling non-TODO `contract` refs are L5 errors;
-all memberships (access_tier, scope, vocab) and field-name uniqueness are C5
-errors; resolved refs are content-fingerprinted at activation (§9), so
-editing a referenced contract flips dependents suspect (L20) — governance is
-manifest-like (Gate-1-reviewed edits), never freeze-and-supersede. Task
-packets render referenced contract shapes in section 2 (§6).
+`spec/contracts/CT-<slug>.yaml` and the `contract` verification type were
+retired in v0.14. A shape is a manifest fact: a surface declares its census
+inline (§13), and structure behind an encoding boundary is a shared `artifacts`
+entry (§16). The section number stays spent — references in the wild point
+here rather than at something else.
 
 ## 12. Open decisions ratified by this document (flag to operator, defaults active)
 
@@ -272,3 +289,172 @@ packets render referenced contract shapes in section 2 (§6).
    binds to its service's own manifest entries; cross-service traffic reaches a
    model as the service's own inbound `message` entry. Deliberate; revisit only
    with a concrete cross-service-model need.
+
+## 13. Surface shape format (v0.13)
+
+An endpoint declares both directions; spec §5.9 is normative for what they mean.
+Sections are numbered by arrival, so this one follows §12 rather than sitting
+beside the other format sections — renumbering would break every reference.
+
+```yaml
+- id: list_order_items
+  method: GET
+  path: "/api/v1/orders/{order_id}/items"      # placeholders uniquely named (C12)
+  access: protected
+  ru: FEAT-order-read
+  emits: [not-found]                            # problem responses live here, not in outbound
+  inbound:
+    unknown_fields: reject                      # overrides service `defaults`
+    fields:
+      - { name: order_id, in: path,  presence: required, type: string }
+      - { name: limit,    in: query, presence: optional, type: integer,
+          min: 1, max: "{value:paging.max_limit}" }
+  outbound:
+    status: 200
+    fields:
+      - { name: items,            presence: always, type: array, items: object }
+      - { name: items.id,         presence: always, type: string }
+      - { name: items.cost_basis, presence: never, note: internal pricing never leaves }
+      - { name: next_cursor,      presence: always, type: string, nullable: true }
+```
+
+`inbound: none` and `fields: none` declare that the direction carries nothing.
+An omitted direction declares nothing and is a C10 error.
+
+Field keys: `name` (dotted for nesting), `presence`, `in` (inbound only,
+default `body`), `type`, `items` (mandatory when `type: array`), `nullable`,
+`vocab`, `note`, and the bound keys `max_chars`, `min_chars`, `min`, `max`,
+`min_items`, `max_items`. A bound is a literal or a `{value:…}` reference; the
+reference form is preferred and a literal duplicating a registered value is an
+L24 finding. A field typed `object` declares at least one dotted child —
+otherwise it is an unbounded blob wearing a type, which reads as specified
+without being so.
+
+The schema admits the union of both presence vocabularies and every bound key
+on every type: applicability is C11's judgment, not the schema's, so a mistake
+arrives as a message that teaches rather than as a parse failure. The same
+split governs naming — the grammar admits mixed case and `conventions`
+(§8, shared manifest only) decides which convention is legal, enforced by C13.
+An absent `conventions` table means unenforced.
+
+## 14. Ratified conformance divergences
+
+`spec/framework/conformance-exceptions.yaml` — seeded empty by `rqunit init`,
+edited at Gate 1 like any other reviewed decision. An absent file means none.
+
+```yaml
+exceptions:
+  - rule: CF4                       # the divergence class this excuses
+    service: service-orders
+    target: "GET /api/v1/healthz"   # '<METHOD> <path>' for endpoints, the subject for messages
+    justification: >
+      `internal` is a network-policy tier enforced at the ingress rather than by
+      route middleware, so the route is structurally public by design.
+```
+
+A matching divergence is downgraded from `error` to `finding` and reported with
+its justification. It is never suppressed: an exception that outlives its reason
+becomes camouflage, and the report is what surfaces it at the next sitting.
+
+`justification` has a minimum length, checked on load. The rule that matters is
+not structural — a one-word waiver satisfies any shape check and defends
+nothing.
+
+Adapters may not author these. An artifact carrying an `exceptions` key is
+rejected as a configuration error naming this file, because an extractor
+observes and does not get to excuse what it observed (spec §5.6).
+
+## 15. Adapter inputs (`rqunit.toml`)
+
+Repo-specific facts an extractor needs. Composition is a property of one
+repository — not of a language, and not of a web framework — so it is
+configuration, and the adapter stays generic.
+
+```toml
+[stacks.rust]
+service = "service-orders"          # manifest slug the artifact is keyed by; never guessed
+actual_surface = "conformance/actual-surface.json"
+
+[[stacks.rust.routers]]             # one table per mounted router
+file = "http/src/routes/orders/mod.rs"
+function = "router"
+prefix = "/api/v1/orders"
+access = "protected"
+
+[stacks.rust.messages]
+subject_sources = ["wire-contracts/src"]    # where subject constants are declared
+publisher_sources = ["adapters/nats/src"]   # code that references them
+```
+
+`file` and `function` are required on a router — an extractor cannot find a
+router it cannot name. Unknown keys are errors: a typo silently ignored would
+read as configured. A missing `[stacks.rust]` table is an error for the
+extractor rather than a default, because a guessed composition produces a
+surface nobody declared and the reconciler would believe it.
+
+## 16. Shared artifacts
+
+`artifacts` in `spec/manifests/shared.manifest.yaml` — structures minted
+somewhere, carried as a VALUE inside payloads, and validated elsewhere.
+Credentials are the population; the test is whether a field census can reach
+the structure, and for anything base64'd or signed it cannot.
+
+```yaml
+artifacts:
+  jwt-access-token:
+    access_tier: protected            # the tier whose surfaces consume it (C5)
+    fields:
+      - { name: sub, where: claims, presence: always, type: string }
+      - { name: kid, where: header, presence: always }
+      - { name: iss, presence: never }
+```
+
+Fields use the same grammar as every surface census (§13), plus `where`
+(`claims | header`) — JWS vocabulary, and correct for the population it
+describes. C11 rejects `where` on a surface census, where the position IS the
+field name.
+
+A field declares that its value is one of these with `artifact:`:
+
+```yaml
+- { name: access_token, presence: always, type: string, artifact: jwt-access-token }
+```
+
+That key sits beside `vocab:` and makes the same class of claim — one says which
+values are legal, the other what structure the value has. A dangling reference
+is a C5 error.
+
+Promotion by demonstrated reuse applies (spec §5.5): an artifact used by one
+service stays in that service's manifest, and only reaches `shared` when a
+second needs it.
+
+## 17. Audit records
+
+```yaml
+audit_common: [event, timestamp, actor, ip_address]   # every record carries these
+
+audit_events:
+  - code: orders.cancelled
+    ru: FEAT-order-cancellation
+    retention: "{value:retention.audit_days}"
+    fields:
+      - { name: order_id, presence: always, type: string }
+      - { name: reason,   presence: always, type: string, vocab: cancellation_reasons }
+```
+
+Presence is the OUTBOUND vocabulary (`always | never`) — a record is minted,
+never accepted. `retention` is a literal or a `{value:…}` reference.
+
+Fields no record may EVER carry are declared once, store-wide:
+
+```yaml
+# shared.manifest.yaml
+audit_forbidden: [password, raw_token, card_pan]
+```
+
+A census declaring one of those as `always` is a C6 error. There is no `level`:
+trace/debug/info/warn/error is logging severity, and an audit record either
+happened and must be kept or it did not.
+
+Surfaces declare what they record with `audits:` — endpoints, and inbound
+messages (an outbound entry produces a message rather than handling one).

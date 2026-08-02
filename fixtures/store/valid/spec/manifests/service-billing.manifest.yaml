@@ -3,4 +3,21 @@ version: "1.0"
 problem_types:
   payment-failed: { uri: "urn:problem:payment-failed", status: 402, title: "Payment failed" }
 endpoints:
-  - { id: charge, method: POST, path: /api/v1/charges, access: internal, ru: FEAT-billing }
+  - id: charge
+    method: POST
+    path: /api/v1/charges
+    access: internal
+    ru: FEAT-billing
+    inbound:
+      unknown_fields: reject
+      fields:
+        - { name: order_id,     presence: required, type: string }
+        - { name: amount_cents, presence: required, type: integer, min: 1 }
+        - { name: captured_at,  presence: forbidden, note: server-owned }
+    outbound:
+      status: 201
+      fields:
+        - { name: charge_id, presence: always, type: string }
+        - { name: session_token, presence: always, type: string,
+            artifact: session-token }
+        - { name: card_pan,  presence: never, note: never leaves the payment adapter }

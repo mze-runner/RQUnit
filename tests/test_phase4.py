@@ -226,9 +226,10 @@ def test_simulation_refuses_post_activation_conflicts_before_writing(repo):
     with zero files written (reproduced live at the first Gate 1 sitting)."""
     (repo / "spec" / "ru" / "RU-0098.yaml").write_text(yaml.safe_dump({
         "id": "RU-0098",
-        "statement": "When a user cancels an order, the system shall halt fulfilment for the order.",
+        "statement": "When a user cancels an order, the system shall halt fulfilment "
+                     "for the order within 5 seconds.",
         "syntax": "ears", "status": "active", "source_ref": "INT-0001#L1-2",
-        "verification": [{"type": "contract", "ref": "CT-base"}],
+        "verification": [{"type": "test", "ref": "TODO(pending)"}],
         "scope": {"owns": ["service-orders/fulfilment"]}, "tags": ["orders"],
     }, sort_keys=False))
     from rqunit.canonical import canonical_hash
@@ -239,10 +240,11 @@ def test_simulation_refuses_post_activation_conflicts_before_writing(repo):
     conflicting = "RU-draft-01K1TESTDDDD000000000000DD"
     (repo / "spec" / "ru" / f"{conflicting}.yaml").write_text(yaml.safe_dump({
         "id": conflicting,
-        "statement": "When a user cancels an order, the system shall continue fulfilment until shipment completes.",
+        "statement": "When a user cancels an order, the system shall halt fulfilment "
+                     "for the order within 30 seconds.",
         "syntax": "ears", "status": "draft", "feature": "FEAT-pilot",
         "source_ref": "INT-0001#L1-2",
-        "verification": [{"type": "contract", "ref": "CT-base"}],
+        "verification": [{"type": "test", "ref": "TODO(pending)"}],
         "scope": {"owns": ["service-orders/fulfilment"]}, "tags": ["orders"],
     }, sort_keys=False))
     _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "add", "-A")

@@ -2,15 +2,15 @@
 # `default` closes the set. Policy is DATA — extending it is a PR to this
 # file (Gate-1-governed), never a lint code change.
 #
-# Seeded from the §6.7 example with one adaptation (plan D-P4.3): the
-# tags_any rule keys on our registered `security` tag — no safety/authz tags
-# exist in tags.yaml yet; add rules as those vocabularies arrive.
+# `binds_shape` reads the STATEMENT: since v0.14 an RU proves it is bound to a
+# declared shape by addressing a field, not by carrying a contract ref. Without
+# it the policy could demand depth but not relevance.
 rules:
   - match: { tier: constitutional }
-    require: { min_mechanical: 2 }            # ≥2 of contract|test|model
+    require: { min_mechanical: 2 }                    # ≥2 of test|model
   - match: { tags_any: [security] }
-    require: { types_all: [contract, test] }  # both, not either
+    require: { types_all: [test], binds_shape: true }
   - match: { tags_any: [audit] }
-    require: { types_any: [contract] }
+    require: { binds_shape: true }
 default:
   require: { min_verifications: 1 }

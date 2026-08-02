@@ -1,0 +1,12 @@
+# Negation: asserts exactly what RU-0001 denies.
+id: RU-0004
+statement: >
+  When a user calls {endpoint:cancel_order}, the system shall not halt fulfilment for the order within 5 seconds.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - { type: test, ref: TODO(not yet proved) }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

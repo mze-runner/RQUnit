@@ -26,6 +26,7 @@ from .errors import (
     UnknownArtifact,
     UnresolvedRef,
 )
+from .parser.tokens import TokenError, parse_one
 from .schemas import validator
 
 _IGNORED = {"README.md", ".gitkeep", ".DS_Store"}
@@ -37,16 +38,11 @@ _MANIFEST_FILE = re.compile(r"^[a-z][a-z0-9-]*\.manifest\.yaml$")
 _MODEL_FILE = re.compile(r"^MDL-[a-z][a-z0-9-]*\.statechart\.json$")
 _INT_FILE = re.compile(r"^INT-[0-9]{4}\.[a-z0-9]+$")
 _ADR_FILE = re.compile(r"^ADR-[A-Za-z0-9-]+\.md$")
-_CT_FILE = re.compile(r"^CT-[a-z0-9-]+\.yaml$")
 
-# Reference token grammar (formats §2, v0.10). The kind alternation is closed:
-# anything else inside braces is malformed, not unresolved.
-# v0.10.2: key idents admit hyphens (kept in lockstep with parser.tokens._BODY).
-_TOKEN = re.compile(
-    r"^\{(?P<kind>value|endpoint|problem|audit|message|channel|frame|vocab):"
-    r"(?:(?P<qualifier>[a-z][a-z0-9-]*)/)?"
-    r"(?P<key>[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*)\}$"
-)
+# Reference token grammar (formats §2): parser.tokens owns it outright. This
+# module used to carry a second regex "kept in lockstep" by hand; v0.13 retires
+# it, because two implementations of one grammar are a drift class rather than a
+# safeguard — the same reasoning that keeps ONE canonicalizer.
 
 
 @dataclass(frozen=True)
@@ -84,11 +80,6 @@ class Model(Artifact):
     id: str = ""  # bare id; the MDL- prefix lives in filename/refs
     content_hash: str = ""
 
-
-@dataclass(frozen=True)
-class Contract(Artifact):
-    id: str = ""
-    content_hash: str = ""  # dependents fingerprint this (§7.3, manifest-like governance)
 
 
 @dataclass(frozen=True)
@@ -148,7 +139,6 @@ class Store:
     _intents: list[str] = field(default_factory=list)
     _intent_paths: dict[str, Path] = field(default_factory=dict)
     _adrs: dict[str, Path] = field(default_factory=dict)
-    _contracts: dict[str, Contract] = field(default_factory=dict)
     # Framework vocabularies (L10/L12) come from the STORE's spec/framework/ —
     # fixture stores carry their own; JSON Schemas stay repo-level (D-P1.6).
     _tags: list[str] = field(default_factory=list)
@@ -167,8 +157,7 @@ class Store:
             files = sorted(Path(p).resolve() for p in changed)
         else:
             files = sorted(
-                p for d in ("ru", "features", "gaps", "manifests", "models", "intent", "rationale",
-                            "contracts")
+                p for d in ("ru", "features", "gaps", "manifests", "models", "intent", "rationale")
                 if (spec / d).is_dir()
                 for p in (spec / d).iterdir()
                 if p.is_file() and p.name not in _IGNORED
@@ -246,16 +235,6 @@ class Store:
                 raise UnknownArtifact(str(path), "not an INT filename (INT-XXXX.<ext>)")
             self._intents.append(path.stem)
             self._intent_paths[path.stem] = path
-        elif kind == "contracts":
-            if not _CT_FILE.match(name):
-                raise UnknownArtifact(str(path), "not a contract filename (CT-<slug>.yaml)")
-            data = _load_yaml(path)
-            _validate("contract", data, path)
-            if data["id"] != path.stem:
-                raise FilenameIdMismatch(str(path), f"id {data['id']!r} != filename {path.stem!r}")
-            self._contracts[data["id"]] = Contract(
-                path=path, raw=data, id=data["id"], content_hash=_sha256(path),
-            )
         elif kind == "rationale":
             # ADRs are prose, not schema-validated YAML — the store tracks
             # identity and bytes (link fingerprints, §7.3), never structure.
@@ -291,9 +270,6 @@ class Store:
     def adrs(self) -> dict[str, Path]:
         return dict(sorted(self._adrs.items()))
 
-    def contracts(self) -> dict[str, Contract]:
-        return dict(sorted(self._contracts.items()))
-
     def adr_path(self, adr_id: str) -> Path | None:
         return self._adrs.get(adr_id)
 
@@ -327,16 +303,16 @@ class Store:
         a miss is UnresolvedRef, never a fallback. Unqualified tokens resolve
         against ``scope``'s manifest, then ``shared``. Qualified ``value``
         tokens are malformed (foreign scalars promote to shared)."""
-        m = _TOKEN.match(token)
-        if not m:
+        parsed = parse_one(token)
+        if isinstance(parsed, TokenError):
+            if parsed.reason == "qualified-value":
+                raise MalformedRef(
+                    None,
+                    f"{token!r}: qualified value refs are forbidden — a foreign scalar "
+                    "is the promotion-to-shared trigger (§5.3, §5.5)",
+                )
             raise MalformedRef(None, f"malformed reference token {token!r} (formats §2)")
-        kind, qualifier, key = m.group("kind"), m.group("qualifier"), m.group("key")
-        if qualifier and kind == "value":
-            raise MalformedRef(
-                None,
-                f"{token!r}: qualified value refs are forbidden — a foreign scalar "
-                "is the promotion-to-shared trigger (§5.3, §5.5)",
-            )
+        kind, qualifier, key = parsed.kind, parsed.qualifier, parsed.key
         if qualifier:
             candidates = [qualifier]
         else:
@@ -368,8 +344,17 @@ def _lookup(manifest: dict, kind: str, key: str) -> object | None:
         return next((e for e in manifest.get("audit_events", []) if e.get("code") == key), None)
     if kind == "vocab":
         return manifest.get("vocabularies", {}).get(key)
-    if kind in ("endpoint", "message", "channel"):
-        section = {"endpoint": "endpoints", "message": "messages", "channel": "channels"}[kind]
+    if kind == "artifact":
+        artifact_id, _, field = key.partition(".")
+        artifact = (manifest.get("artifacts") or {}).get(artifact_id)
+        if artifact is None or not field:
+            return artifact
+        return next((f for f in artifact.get("fields") or []
+                     if f.get("name") == field), None)
+    if kind == "endpoint":
+        return _lookup_endpoint(manifest, key)
+    if kind in ("message", "channel"):
+        section = {"message": "messages", "channel": "channels"}[kind]
         return next((e for e in manifest.get(section, []) if e.get("id") == key), None)
     if kind == "frame":
         channel_id, _, frame_id = key.partition(".")
@@ -380,3 +365,29 @@ def _lookup(manifest: dict, kind: str, key: str) -> object | None:
             return None
         return next((f for f in channel.get("frames", []) if f.get("id") == frame_id), None)
     return None
+
+
+def _lookup_endpoint(manifest: dict, key: str) -> object | None:
+    """Resolve `<id>[.<direction>[.<field-path>]]` against the HTTP surface.
+
+    Each depth resolves to the thing at that depth: the entry, the direction's
+    declaration, or one declared field. A direction declared `none` resolves to
+    the string `none` — "this surface carries nothing" is a POSITIVE claim, so
+    it must resolve; an ABSENT direction does not, which is what lets C10 and
+    L23 tell an unfinished declaration from a deliberate empty one."""
+    endpoint_id, _, path = key.partition(".")
+    entry = next((e for e in manifest.get("endpoints", []) if e.get("id") == endpoint_id), None)
+    if entry is None or not path:
+        return entry
+    direction, _, field_path = path.partition(".")
+    slot = entry.get(direction)
+    if slot is None:
+        return None
+    if not field_path:
+        return slot
+    if not isinstance(slot, dict):
+        return None                       # `none`: no field can be addressed inside it
+    fields = slot.get("fields")
+    if not isinstance(fields, list):
+        return None
+    return next((f for f in fields if f.get("name") == field_path), None)

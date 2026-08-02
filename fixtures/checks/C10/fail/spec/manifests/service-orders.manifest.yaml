@@ -1,0 +1,20 @@
+service: service-orders
+version: "1.0"
+defaults: { unknown_fields: reject }
+endpoints:
+  # silent about what it returns
+  - id: list_orders
+    method: GET
+    path: /api/v1/orders
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound: none
+  # silent about what it accepts, and `planned` is no exemption: a surface whose
+  # shape cannot be stated has not been designed
+  - id: bulk_refund
+    method: POST
+    path: /api/v1/refunds
+    access: protected
+    ru: FEAT-order-cancellation
+    planned: true
+    outbound: { status: 202, fields: none }

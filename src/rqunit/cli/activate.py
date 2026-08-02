@@ -326,7 +326,7 @@ def reaffirm(store_path, model_ref, ru_ids, reviewer) -> None:
 def resolve(pairs, store_path, match_text, reviewer) -> None:
     """Gate 1 TODO resolution — the debt-conversion path: replace a TODO(…)
     verification entry on an ACTIVE RU with a real, resolvable ref of the
-    SAME type (CT-… contract, or a scanned test id), re-stamp under the
+    SAME type (a scanned test id), re-stamp under the
     reviewer's id, refresh fingerprints, regenerate. Strictly strengthening:
     statement/scope/tier untouched, entries never removed, real refs never
     replaced — anything else stays supersession-only. Prior Gate 2 records
@@ -352,19 +352,13 @@ def resolve(pairs, store_path, match_text, reviewer) -> None:
         if target.startswith("MDL-"):
             _fail(f"{ru_id}: model refs carry hash+conformance fields — resolve those by "
                   "regenerating conformance, not through this verb.")
-        if target.startswith("CT-"):
-            entry_type = "contract"
-            if target not in store.contracts():
-                _fail(f"{ru_id}: {target} does not resolve — no spec/contracts/{target}.yaml. "
-                      "A TODO converts only to a check that EXISTS.")
-        else:
-            entry_type = "test"
-            if test_ids is None:
-                from ..trace import scan_tests
-                test_ids = {c.id for c in scan_tests(root)}
-            if target not in test_ids:
-                _fail(f"{ru_id}: test id '{target}' resolves to no scanned test. "
-                      "A TODO converts only to a check that EXISTS.")
+        entry_type = "test"
+        if test_ids is None:
+            from ..trace import scan_tests
+            test_ids = {c.id for c in scan_tests(root)}
+        if target not in test_ids:
+            _fail(f"{ru_id}: test id '{target}' resolves to no scanned test. "
+                  "A TODO converts only to a check that EXISTS.")
         candidates = [e for e in ru.raw.get("verification") or []
                       if e.get("type") == entry_type
                       and str(e.get("ref", "")).startswith("TODO(")

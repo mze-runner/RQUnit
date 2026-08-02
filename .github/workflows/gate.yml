@@ -1,0 +1,102 @@
+# The gate, run on CI exactly as it runs locally.
+#
+# This mirrors .claude/commands/check.md step for step, deliberately: a CI gate
+# that checks something different from the local one teaches people to ignore
+# whichever is louder. If you change one, change the other in the same commit.
+#
+# Two jobs rather than one, because they prove different things. `core` is the
+# framework; `adapter` is a language adapter that must build with no dependency
+# on the core — running them together would hide a coupling between them.
+name: gate
+
+on:
+  push:
+    branches: [master, integration]
+  pull_request:
+    branches: [master, integration]
+
+# A newer push to the same ref makes the older run's answer irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: core (suite, CLI, fixture stores)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --frozen
+
+      - name: Suite
+        run: uv run pytest -q
+
+      # The CLI must work as an INSTALLED tool, not only as a module: consumers
+      # get a wheel, and an entry point that works in-tree but not installed is
+      # a defect they meet before they meet anything else.
+      - name: CLI smoke
+        run: uv run rqunit --help
+
+      # The valid fixture store is the product's own proof that a well-formed
+      # store passes. If it reddens, either a rule is wrong or the fixture is —
+      # and the answer belongs in the commit that caused it.
+      - name: Fixture store — lint
+        run: uv run rqunit lint --store fixtures/store/valid --format text
+
+      - name: Fixture store — check
+        run: uv run rqunit check --store fixtures/store/valid --format text
+
+      - name: Fixture store — doctor
+        run: uv run rqunit doctor --store fixtures/store/valid
+
+      # The demo is the only place the whole vocabulary is exercised together,
+      # and a showcase nothing runs is wrong within one revision.
+      - name: Demo store — lint
+        run: uv run rqunit lint --store demo/order-management --format text
+
+      - name: Demo store — check
+        run: uv run rqunit check --store demo/order-management --format text
+
+      - name: Demo store — conformance
+        run: uv run rqunit conformance --store demo/order-management --format text
+
+  adapter:
+    name: adapter (rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: adapters/rust
+
+      - name: Build
+        run: cargo check --manifest-path adapters/rust/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path adapters/rust/Cargo.toml --all-targets -- -D warnings
+
+      - name: Format
+        run: cargo fmt --manifest-path adapters/rust/Cargo.toml --check
+
+      # `--lib` only. The integration test asserts that a consumer's committed
+      # actual-surface.json is current against that consumer's code, so it has
+      # nothing to be current against in this repository — extraction runs in
+      # the stack's own build, which is the point of the adapter contract.
+      - name: Unit tests
+        run: cargo test --manifest-path adapters/rust/Cargo.toml --lib

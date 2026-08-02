@@ -4,14 +4,14 @@ syntax: ears
 status: active
 source_ref: INT-0001#L1-2
 verification:
-- type: contract
-  ref: TODO(CT - refund settlement contract)
+- type: test
+  ref: TODO(refund settlement census not yet declared)
 scope:
   owns:
   - service-orders/fulfilment
 tags:
 - orders
 gate1_stamp:
-  hash: sha256:c53e92665f3b194df598ea0f63c5cb991a55aa0e5bce95fdafa9448b02986501
+  hash: sha256:b1d10651c13fffd0fedbea1b808eddc78af503f9eee91ab8c09edb3737524cc0
   by: fixture-op
   at: '2026-07-25T10:00:00+00:00'

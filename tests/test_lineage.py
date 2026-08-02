@@ -33,7 +33,7 @@ def _store(tmp_path: Path) -> Path:
         source_ref: INT-0001#L1
         feature: FEAT-orders
         verification:
-        - { type: contract, ref: CT-base }
+        - { type: test, ref: "service-orders::shapes::base" }
         scope: { owns: [service-orders/fulfilment] }
         tags: [orders]
         gate1_stamp:
@@ -50,7 +50,7 @@ def _store(tmp_path: Path) -> Path:
         feature: FEAT-orders
         supersedes: RU-0100
         verification:
-        - { type: contract, ref: CT-base }
+        - { type: test, ref: "service-orders::shapes::base" }
         scope: { owns: [service-orders/fulfilment] }
         tags: [orders]
         gate1_stamp:

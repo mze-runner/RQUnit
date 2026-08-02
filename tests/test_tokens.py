@@ -35,3 +35,17 @@ def test_token_spans_point_into_the_text():
     assert not errors
     for t in tokens:
         assert text[t.start:t.start + len(t.raw)] == t.raw
+
+
+def test_artifact_tokens_address_an_artifact_or_one_of_its_claims():
+    """Two segments at most — an artifact is a flat claim set, not a nested
+    payload, so there is nothing deeper to address."""
+    from rqunit.parser.tokens import extract
+
+    for raw in ("{artifact:jwt-access-token}", "{artifact:jwt-access-token.iss}",
+                "{artifact:shared/jwt-access-token.sub}"):
+        tokens, errors = extract(raw)
+        assert not errors and tokens[0].kind == "artifact", raw
+    for raw in ("{artifact:JWT}", "{artifact:a.b.c}"):
+        _, errors = extract(raw)
+        assert errors, raw

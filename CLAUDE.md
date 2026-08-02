@@ -28,22 +28,6 @@ distinction is load-bearing and easy to violate:
 
 ## Layout
 
-```
-README.md                 what it is, install, quickstart
-HANDBOOK.md               the operator's guide — daily use + the full rule catalogue
-docs/                     the law: ru-framework-spec.md (normative), formats.md
-                          (every pinned format), plus dated design papers
-src/rqunit/               the toolchain (module map in the product paper)
-  pack/schemas/           schemas shipped in the wheel — what the tool needs at runtime
-  interfaces/             the pinned JSON contracts between core and adapters
-  lints/  checks/         one module per rule
-  parser/                 EARS parser + reference tokenizer
-  cli/                    one module per verb, plus the umbrella
-adapters/                 per-stack extractors/emitters, published to native registries
-fixtures/                 pass/fail stores per rule; the golden parser suite
-tests/
-```
-
 **Authority order** where documents disagree: `docs/ru-framework-spec.md` wins over
 `docs/formats.md`, which wins over `HANDBOOK.md`, which wins over this file. The
 handbook is a guide and says so; the spec is normative.
@@ -52,13 +36,6 @@ handbook is a guide and says so; the spec is normative.
 
 ## Commands
 
-```bash
-uv run pytest                    # the suite; fixtures are the acceptance surface
-uv run rqunit --help             # verbs, grouped by lifecycle stage
-uv run rqunit lint  --store fixtures/store/valid
-uv run rqunit check --store fixtures/store/valid
-```
-
 `/check` runs every gate at once (suite, CLI smoke, fixture-store health, adapter
 build). Exit codes everywhere: `0` pass, `1` violations, `2` tool error. `finding`
 severity never affects exit.
@@ -66,13 +43,7 @@ severity never affects exit.
 ## Working aids
 
 Load the skill that matches the task — each encodes the sequence and the failure
-mode that task actually has:
-
-| Skill | Load before |
-|---|---|
-| `adding-a-rule` | touching `lints/`, `checks/`, or a conformance divergence |
-| `framework-revision` | changing `docs/`, a schema, the grammar, or the canonical hash |
-| `adapter-contract` | adding a language, or touching `interfaces/` or `adapters/` |
+mode that task actually has.
 
 `@product-reviewer` reviews a change against the five failure modes this codebase
 actually suffers from. Use it before committing anything non-trivial.
@@ -80,6 +51,18 @@ actually suffers from. Use it before committing anything non-trivial.
 **Do not confuse `.claude/` with `src/rqunit/integrations/claude-code/`.** The first
 is how *this product is developed*; the second is templates the product *emits to
 consumers*. Editing one when you meant the other is the easiest mistake here.
+
+---
+
+## Behavioral rules
+
+- **Do exactly what is asked — nothing more.** Do not delete, rename, refactor, or "improve" anything not explicitly requested.
+- **Surface assumptions before acting.** If a request has multiple interpretations, state them and ask. Do not pick silently.
+- **Surgical changes only.** Every changed line must trace directly to the request. Mention unrelated issues; never fix them unilaterally.
+- **Confirm before destructive actions.** Deleting branches, force-pushing, dropping data — always state the action and wait for explicit approval.
+- **Debugging: logs before theories.** When investigating a runtime failure, read all available logs first. If logs are missing for any layer in the call chain, add instrumentation and ask the user to re-run — do not form hypotheses from silence. Never apply a fix before the failure point is isolated to a specific file and line. Follow the `debug-protocol` skill for the full procedure.
+- **New crate → explicit justification required before adding.** The allowed-crates tables are in the `cargo-features` skill.
+- **Config files (`Settings.toml`, `Settings.local.toml`, `.env`) are gitignored everywhere** — `Settings.example.toml` is the only committed config artifact; update it in the same commit whenever a field is added or removed.
 
 ---
 

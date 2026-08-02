@@ -4,14 +4,14 @@ syntax: ears
 status: active
 source_ref: INT-0001#L1-2
 verification:
-- type: contract
-  ref: CT-base
+- type: test
+  ref: TODO(base census not yet proved)
 scope:
   owns:
   - service-orders/fulfilment
 tags:
 - orders
 gate1_stamp:
-  hash: sha256:f241a87a0abfbf8030373cb5a7a5b60874a532f8d521f3f889b9a88e2524e6b3
+  hash: sha256:439ac9abd0c567a653f0089089af570a1953ea894aba8552aa45977f90279c33
   by: fixture-op
   at: '2026-07-25T10:00:00+00:00'

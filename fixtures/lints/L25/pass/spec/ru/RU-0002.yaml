@@ -1,0 +1,12 @@
+# `the system` claims no service, so neither assertion applies — that is what
+# makes the distinction between store-wide and service behaviour meaningful.
+id: RU-0002
+statement: >
+  The system shall record an audit event for every state-changing action.
+syntax: ears
+status: active
+tier: constitutional
+source_ref: INT-0001#L4-5
+verification:
+  - { type: test, ref: TODO(audit-on-mutation not yet proved) }
+tags: [audit]

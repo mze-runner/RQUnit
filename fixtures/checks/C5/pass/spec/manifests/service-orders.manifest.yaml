@@ -8,7 +8,7 @@ problem_types:
 audit_events:
 - code: orders.cancelled
   fields:
-  - order_id
+  - { name: order_id, presence: always }
   ru: FEAT-order-cancellation
 endpoints:
 - id: cancel_order

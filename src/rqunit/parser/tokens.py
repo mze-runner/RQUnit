@@ -11,17 +11,42 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-KINDS = ("value", "endpoint", "problem", "audit", "message", "channel", "frame", "vocab")
+KINDS = ("value", "endpoint", "problem", "audit", "message", "channel", "frame", "vocab",
+         "artifact")
 
 # Arity of the dotted key per kind (formats §2): single ident for most,
-# dotted for value/audit, exactly channel.frame for frame.
-_SINGLE = {"endpoint", "problem", "message", "channel", "vocab"}
+# dotted for value/audit/endpoint, exactly channel.frame for frame.
+_SINGLE = {"problem", "message", "channel", "vocab"}
 
 # v0.10.2: key idents admit hyphens (RFC 7807-style problem keys, service
 # slugs) — the qualifier/key split stays unambiguous because "/" delimits.
+# The body regex only splits qualifier from key; which key shapes are LEGAL is
+# decided per kind below, because the kinds no longer share one shape.
 _BODY = re.compile(
     r"^(?:(?P<qualifier>[a-z][a-z0-9-]*)/)?"
-    r"(?P<key>[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*)$"
+    r"(?P<key>[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)*)$"
+)
+
+# Every kind but `endpoint`: a dotted path of lowercase idents.
+_KEY_LOWER = re.compile(r"^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$")
+
+# v0.14 — an artifact key names the artifact, optionally one of its fields:
+#     <id>[.<field>]
+# Two segments at most: an artifact is a flat claim set, not a nested payload.
+_KEY_ARTIFACT = re.compile(r"^[a-z][a-z0-9-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)?$")
+
+# v0.13 — an endpoint key addresses a surface, optionally one of its two
+# directions, optionally a path INTO that direction's declared census:
+#     <id>[.<direction>[.<field>[.<field>...]]]
+# The direction set is closed BY THE GRAMMAR, so a misspelling is malformed
+# rather than merely unresolved — the mistake is in the reference, not in the
+# manifest. Field segments admit the naming-convention union, because
+# `conventions.field_names` decides which convention is legal in a given store
+# (C13) and the grammar must not pre-empt that. The id segment stays lowercase,
+# matching manifest `$defs/ident`, so every surface id remains addressable.
+_KEY_ENDPOINT = re.compile(
+    r"^[a-z][a-z0-9_-]*"
+    r"(?:\.(?:inbound|outbound)(?:\.[A-Za-z][A-Za-z0-9_-]*)*)?$"
 )
 
 
@@ -89,9 +114,25 @@ def _parse_body(raw: str, start: int) -> Token | TokenError:
     qualifier, key = m.group("qualifier"), m.group("key")
     if qualifier and kind == "value":
         return TokenError("qualified-value", raw, start)
+    pattern = {"endpoint": _KEY_ENDPOINT, "artifact": _KEY_ARTIFACT}.get(kind, _KEY_LOWER)
+    if not pattern.match(key):
+        return TokenError("malformed", raw, start)
     parts = key.count(".") + 1
     if kind in _SINGLE and parts != 1:
         return TokenError("malformed", raw, start)
     if kind == "frame" and parts != 2:
         return TokenError("malformed", raw, start)
     return Token(kind=kind, key=key, qualifier=qualifier, raw=raw, start=start)
+
+
+def parse_one(raw: str) -> Token | TokenError:
+    """Parse ONE complete token string, braces included.
+
+    The resolver calls this rather than carrying its own regex: two
+    implementations of a grammar kept "in lockstep" by hand is a drift class,
+    not a safeguard. One grammar, one implementation."""
+    if not (raw.startswith("{") and raw.endswith("}") and len(raw) > 2):
+        return TokenError("malformed", raw, 0)
+    if "{" in raw[1:-1] or "}" in raw[1:-1]:
+        return TokenError("nesting", raw, 0)
+    return _parse_body(raw, 0)

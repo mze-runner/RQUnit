@@ -1,0 +1,5 @@
+service: shared
+version: "1.0"
+conventions:
+  field_names: snake_case
+  path_segments: kebab-case

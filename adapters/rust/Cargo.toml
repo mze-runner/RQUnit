@@ -11,6 +11,15 @@ publish = false
 # interface — an adapter observes, and never judges.
 [dependencies]
 syn = { version = "2", features = ["full", "visit"] }
+# Reads the consumer's rqunit.toml. Justified rather than assumed: the router
+# composition and subject sources are facts about ONE repository, so they must
+# be configuration — and they previously lived as constants in this crate,
+# which put a consumer's file paths and service names inside the product. The
+# alternatives were worse: hand-parsing TOML is fragile, and generating a
+# side-file for the adapter to read adds a step and a staleness class. `serde`
+# is already present in any codebase this adapter inspects, so the marginal
+# cost is the parser itself.
+toml = { version = "1", default-features = false, features = ["parse", "std", "serde"] }
 
 [lib]
 name = "rqunit_adapter_rust"

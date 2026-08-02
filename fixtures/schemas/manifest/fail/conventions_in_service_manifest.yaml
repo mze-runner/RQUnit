@@ -1,0 +1,15 @@
+# Red for one reason: `conventions` declared outside the shared manifest.
+# Per-service tables would let the house naming standard diverge service by
+# service, which is the thing the table exists to prevent.
+service: service-orders
+version: "1.0"
+conventions:
+  field_names: snake_case
+endpoints:
+  - id: get_order
+    method: GET
+    path: "/api/v1/orders/{id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound: none
+    outbound: { status: 200, fields: none }

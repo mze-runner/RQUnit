@@ -9,7 +9,7 @@ from rqunit.cli.rqunit import main as rqunit
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 
-VERBS = ["lint", "check", "trace", "activate", "review", "impact",
+VERBS = ["init", "lint", "check", "trace", "activate", "review", "impact",
          "assemble", "generate", "index", "hooks"]
 
 

@@ -43,16 +43,17 @@ def link_fingerprint(store, target_id: str) -> str | None:
     if target_id.startswith("ADR-"):
         path = store.adr_path(target_id)
         return file_fingerprint(path) if path else None
-    if target_id.startswith("CT-"):
-        contract = store.contracts().get(target_id)
-        return contract.content_hash if contract else None
     return None
 
 
 def expected_fingerprints(store, ru_raw: dict) -> dict[str, str]:
-    """The link_fingerprints map an activation should record for this RU:
-    every cross-artifact edge it carries (supersedes + rationale_ref +
-    resolved contract verification refs)."""
+    """The link_fingerprints map an activation should record for this RU: every
+    cross-artifact edge it carries — `supersedes` and `rationale_ref`.
+
+    Contract refs used to be a third edge. v0.14 retired them: a shape lives in
+    a manifest now, manifests are fingerprinted at file level (§7.3), and an RU
+    binds to a shape through a statement token rather than a verification entry.
+    One edge, not two."""
     out: dict[str, str] = {}
     target = ru_raw.get("supersedes")
     if target:
@@ -64,11 +65,4 @@ def expected_fingerprints(store, ru_raw: dict) -> dict[str, str]:
         fp = link_fingerprint(store, adr)
         if fp:
             out[adr] = fp
-    for entry in ru_raw.get("verification") or []:
-        if entry.get("type") == "contract":
-            ref = str(entry.get("ref", ""))
-            if not ref.startswith("TODO("):
-                fp = link_fingerprint(store, ref)
-                if fp:
-                    out[ref] = fp
     return out

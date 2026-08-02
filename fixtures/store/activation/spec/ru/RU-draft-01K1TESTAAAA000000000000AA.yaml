@@ -6,8 +6,8 @@ feature: FEAT-pilot
 source_ref: INT-0001#L1-2
 supersedes: RU-0100
 verification:
-- type: contract
-  ref: CT-base
+- type: test
+  ref: TODO(base census not yet proved)
 scope:
   owns:
   - service-orders/fulfilment

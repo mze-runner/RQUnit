@@ -1,0 +1,11 @@
+id: RU-0004
+statement: >
+  When a user calls {endpoint:cancel_order}, the system shall notify the billing service.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - { type: test, ref: TODO(not yet proved) }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

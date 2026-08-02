@@ -43,13 +43,21 @@ Hard rules the linter enforces — write to them, don't fight them:
 - Never restate a fact the manifest owns (L17): no literal paths, subjects, wire types, or
   registered values in statements — reference them.
 
-## Reference tokens (formats §2, v0.10)
+## Reference tokens (formats §2)
 
 `{value:dotted.key}` `{endpoint:id}` `{problem:id}` `{audit:code}` `{message:id}`
 `{channel:id}` `{frame:channel.frame}` `{vocab:name}` — resolved against the RU's scope service
 manifest, then shared. Cross-service: `{endpoint:service-orders/cancel_order}` — qualified refs
 resolve ONLY in the named manifest, are allowed for surfaces + problem/audit only, and NEVER for
 values (a foreign scalar is the promotion-to-shared trigger). Literal braces escape as `{{ }}`.
+
+**Endpoint shapes.** `{endpoint:id.outbound.field}` / `{endpoint:id.inbound.field}` addresses a
+declared field of a surface; nesting rides in the field name
+(`{endpoint:get_order.outbound.cancellation.at}`), and a bare `{endpoint:id.outbound}`
+names the whole census. This is how a statement about a *shape* binds — an RU asserting a field
+never leaves, or that a client may not set it, cites the field rather than describing it. The
+direction set is closed: a misspelling is a malformed token, not an unresolved one. Summary only —
+the linter is the law (spec §5.9, formats §13).
 
 ## Compiling requirements (the analyst contract, spec §8.1)
 
@@ -63,12 +71,13 @@ values (a foreign scalar is the promotion-to-shared trigger). Literal braces esc
   BANNED — a conflict is a blocking GAP.
 - Never fabricate a `contract`/`test`/`model` ref — use `TODO(<description>)` (the RU honestly
   computes *blocked*). Real test refs use `<cargo-package>::<file-stem>::<fn>`.
-- Wire shapes get a contract: `spec/contracts/CT-<slug>.yaml` (formats §11) — one per artifact
-  TYPE, presence binary (`always`/`never`, absences checkable), `access_tier` binds to the
-  credential tier, field `vocab` constrains values to a manifest vocabulary. RUs reference from
-  `verification`, NEVER restate field lists in statements. Dangling ref = L5; memberships = C5;
-  editing a referenced contract flips dependents suspect (L20). Endpoint `scope` values register
-  in the `token_scopes` vocabulary first.
+- Wire shapes are MANIFEST facts, not a separate artifact: a surface declares its census inline
+  (`inbound`/`outbound`), and a structure hidden behind an encoding boundary — a JWT's claims
+  inside `access_token: string` — is a shared `artifacts` entry the field names via `artifact:`.
+  RUs never restate a census; they ADDRESS it with a token
+  (`{endpoint:get_order.outbound.cost_basis}`, `{artifact:jwt-access-token.iss}`) and prove it
+  with a test. Memberships = C5; census well-formedness = C11; editing a manifest flips
+  dependents suspect (L20).
 - Drafts are `spec/ru/RU-draft-<ULID>.yaml` (Crockford ULID, alphabet excludes I L O U);
   permanent ids arrive only at activation.
 - Non-obvious decisions get an ADR: `spec/rationale/ADR-<slug>.md` (headings per formats §10:
@@ -93,9 +102,8 @@ Manifest facts change differently: a mutating manifest edit passes Gate 1 WITH i
 (`spec-impact`), and every frozen RU referencing the fact keeps meaning through the reference.
 
 TODO refs resolve WITHOUT supersession: when the promised check exists, run
-`rqunit activate resolve --reviewer <handle> RU-XXXX=<CT-id or test id>` — same-type
-replacement only, target must exist (contracts: in-store; tests: in the trace scan),
-`--match <substring>` disambiguates multiple same-type TODOs. Strictly strengthening;
+`rqunit activate resolve --reviewer <handle> RU-XXXX=<test id>` — the target must exist in
+the trace scan, `--match <substring>` disambiguates multiple TODOs. Strictly strengthening;
 weakening stays supersession-only. Never hand-edit the ref (L19).
 
 Contracts change manifest-like: a CT edit is Gate-1-reviewed in place (no supersession

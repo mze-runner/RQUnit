@@ -5,5 +5,5 @@ status: active
 tier: constitutional
 source_ref: INT-0001#L10-12
 verification:
-  - { type: contract, ref: CT-audit-on-mutation }
+  - { type: test, ref: TODO(audit on mutation census not yet proved) }
 tags: [doctrine, audit]

@@ -1,0 +1,23 @@
+service: service-orders
+version: "1.0"
+defaults: { unknown_fields: reject }
+endpoints:
+  # both mutate and neither records anything — constitutional RU-0002 unmet
+  - id: cancel_order
+    method: DELETE
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: order_id, in: path, presence: required, type: string }
+    outbound: { status: 204, fields: none }
+  - id: place_order
+    method: POST
+    path: /api/v1/orders
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: sku, presence: required, type: string }
+    outbound: { status: 201, fields: none }
