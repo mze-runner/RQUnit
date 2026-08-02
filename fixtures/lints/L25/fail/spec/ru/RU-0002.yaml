@@ -1,0 +1,13 @@
+# Misfiled: the statement obliges one service, the scope owns another.
+# §5.3 already forbids this — referencing is read coupling, not governance.
+id: RU-0002
+statement: >
+  service-billing shall settle the refund within 30 seconds.
+syntax: ears
+status: active
+source_ref: INT-0001#L4-5
+verification:
+  - { type: test, ref: TODO(refund settlement not yet proved) }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

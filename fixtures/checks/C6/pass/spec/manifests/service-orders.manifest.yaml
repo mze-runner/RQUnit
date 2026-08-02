@@ -3,10 +3,24 @@ version: "1.0"
 problem_types:
   conflict: { uri: "urn:problem:conflict", status: 409, title: "Conflict" }
 audit_events:
-  - { code: orders.cancelled, fields: [order_id], ru: FEAT-order-cancellation }
-endpoints:
-  - { id: cancel_order, method: DELETE, path: "/api/v1/orders/{id}", access: protected,
-      ru: FEAT-order-cancellation, emits: [conflict, orders.cancelled] }
+  - code: orders.cancelled
+    ru: FEAT-order-cancellation
+    fields:
+      - { name: order_id, presence: always, type: string }
 messages:
   - { id: order_cancelled, subject: orders.cancelled, direction: outbound,
       payload: "wire::OrderCancelled", ru: FEAT-order-cancellation }
+  - { id: payment_refunded, subject: payments.refunded, direction: inbound,
+      payload: "wire::PaymentRefunded", ru: FEAT-order-cancellation,
+      audits: [orders.cancelled] }
+endpoints:
+  - id: cancel_order
+    method: DELETE
+    path: "/api/v1/orders/{id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    emits: [conflict]
+    audits: [orders.cancelled]
+    publishes: [order_cancelled]
+    inbound: none
+    outbound: { status: 204, fields: none }

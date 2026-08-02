@@ -16,6 +16,8 @@ Divergence classes:
   CF7 the route matches, but its declared shape and the code's disagree
   CF8 two routes serve the same type while declaring different censuses
   CF9 a declared surface family that no probe examined
+  CF10 a declared audit event the code never emits
+  CF11 an audit code the code emits that no manifest declares
 
 Ratified exceptions live in the STORE, at
 `spec/framework/conformance-exceptions.yaml`, and downgrade a divergence to a
@@ -67,9 +69,15 @@ _SUGGESTION = {
     "CF9": "Run a probe that covers this family and commit its artifact, or remove the "
            "declaration. A family nobody examined is not a passing family — it is an unasked "
            "question, and a green run that never asked it is the failure this rule exists for.",
+    "CF10": "Emit the event, mark the governing RU not-done, or delete the declaration at Gate 1. "
+            "An audit event nobody records is an evidence trail that does not exist — and "
+            "constitutional RU-0002 requires one for every state-changing action.",
+    "CF11": "Declare it in `audit_events` at Gate 1 with its census and retention, or stop "
+            "emitting it. An undeclared audit record is evidence with no retention rule and no "
+            "forbidden-field check — the two things that make it evidence.",
 }
 
-FAMILIES = ("endpoints", "messages", "channels")
+FAMILIES = ("endpoints", "messages", "channels", "audit_events")
 
 # Field-level proof classes (§5.6). A manifest may exceed what an extractor can
 # see — that is how it carries target state — so what is UNPROVEN has to be
@@ -219,6 +227,20 @@ def reconcile(store: Store, actual: dict, path: Path | None = None,
 
         _same_type_divergences(emit, service, declared, served)
 
+        # ---- audit events. A route exists in a table; an emission is a call
+        # site, so a probe proves the call site EXISTS and not that it runs.
+        # That limit is real and is reported through the proof classes, not
+        # papered over here.
+        if "audit_events" in covered:
+            emitted = {e["code"] for e in surface.get("audit_events") or []}
+            declared_codes = {e["code"] for e in manifest.raw.get("audit_events") or []}
+            for code in sorted(declared_codes - emitted):
+                emit("CF10", service, code,
+                     f"declared audit event '{code}' is never recorded by the code")
+            for code in sorted(emitted - declared_codes):
+                emit("CF11", service, code,
+                     f"the code records '{code}', which no manifest declares")
+
         # ---- messages (presence-based: adapters that cannot resolve direction omit it)
         if "messages" not in covered:
             continue
@@ -237,15 +259,39 @@ def reconcile(store: Store, actual: dict, path: Path | None = None,
     return out
 
 
+NEGATIVE_PRESENCE = {"never", "forbidden"}
+
+
 def _declared_names(slot) -> set[str] | None:
-    """Field names a manifest census declares, or None when the direction is
-    `none` or absent — nothing to compare against."""
+    """Every field name a census declares, positive or negative."""
     if not isinstance(slot, dict):
         return None
     fields = slot.get("fields")
     if not isinstance(fields, list):
         return None
     return {f.get("name") for f in fields if f.get("name")}
+
+
+def _split_by_presence(slot) -> tuple[set[str], set[str]] | None:
+    """(expected, must-be-absent).
+
+    A `never` or `forbidden` field is declared precisely so that it is NOT
+    there — treating its absence as a divergence inverts the claim, and
+    checking only for absence misses the case that matters: the field
+    appearing anyway, which is the leak the declaration exists to forbid.
+    """
+    if not isinstance(slot, dict):
+        return None
+    fields = slot.get("fields")
+    if not isinstance(fields, list):
+        return None
+    expected, forbidden = set(), set()
+    for field in fields:
+        name = field.get("name")
+        if not name:
+            continue
+        (forbidden if field.get("presence") in NEGATIVE_PRESENCE else expected).add(name)
+    return expected, forbidden
 
 
 def _reconcile_shapes(emit, service: str, target: str, entry: dict, observed: dict) -> None:
@@ -260,18 +306,26 @@ def _reconcile_shapes(emit, service: str, target: str, entry: dict, observed: di
         seen = observed.get(direction)
         if not isinstance(seen, dict) or not isinstance(seen.get("fields"), list):
             continue
-        declared = _declared_names(entry.get(direction))
-        if declared is None:
+        split = _split_by_presence(entry.get(direction))
+        if split is None:
             continue
+        expected, forbidden = split
         code_fields = set(seen["fields"])
-        for name in sorted(declared - code_fields):
+        type_name = seen.get("type_name") or "type"
+        for name in sorted(expected - code_fields):
             emit("CF7", service, target,
                  f"{target} declares `{direction}` field '{name}', which the code's "
-                 f"{seen.get('type_name') or 'type'} does not carry")
-        for name in sorted(code_fields - declared):
+                 f"{type_name} does not carry")
+        # The claim worth checking: a field declared never/forbidden that the
+        # code carries anyway. That is the leak, or the mass-assignment hole.
+        for name in sorted(forbidden & code_fields):
+            emit("CF7", service, target,
+                 f"{target} declares `{direction}` field '{name}' must not appear, but the "
+                 f"code's {type_name} carries it")
+        for name in sorted(code_fields - expected - forbidden):
             emit("CF7", service, target,
                  f"{target} carries `{direction}` field '{name}' in the code's "
-                 f"{seen.get('type_name') or 'type'}, which the manifest does not declare")
+                 f"{type_name}, which the manifest does not declare")
 
 
 def _same_type_divergences(emit, service: str, declared: dict, served: dict) -> None:

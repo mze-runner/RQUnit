@@ -6,7 +6,7 @@ loss from a badly resolved merge, artifacts nothing references, review records
 orphaned by a renumber, a branch stale enough that activation would collide.
 
 Findings are advisory by construction: none of them prove a violation, and
-several have legitimate explanations (a contract authored ahead of its RUs, a
+several have legitimate explanations (a model authored ahead of its RUs, a
 FEAT whose members are still drafts). Exit code stays 0 unless --strict, so
 doctor never becomes a gate that teaches people to ignore it.
 """
@@ -61,14 +61,6 @@ def orphan_artifacts(store: Store) -> list[Finding]:
     """Artifacts nothing references. Legitimate while authoring ahead of the
     RUs that will cite them — a standing entry means dead weight or a missing link."""
     out = []
-    contract_refs = _verification_refs(store, "contract")
-    for ct_id in store.contracts():
-        if ct_id not in contract_refs:
-            out.append(Finding(
-                kind="orphan-contract", severity="info",
-                message=f"{ct_id} is referenced by no RU verification.",
-                suggestion="Link it from the RUs it proves (resolve their TODO refs with "
-                           "`rqunit activate resolve`), or delete it."))
     model_refs = {r.removeprefix("MDL-") for r in _verification_refs(store, "model")}
     for model_id in store.models():
         if model_id not in model_refs:

@@ -97,6 +97,21 @@ $defs:
         type: string
         pattern: "^[a-z][a-z0-9_]*$"
         description: Manifest vocabulary constraining this field's values (C5).
+      artifact:
+        type: string
+        pattern: "^[a-z][a-z0-9-]*$"
+        description: >
+          This field's VALUE is a declared artifact (shared `artifacts`). The same
+          class of claim as `vocab` — one says which values are legal, the other
+          what structure the value has. It exists because a census stops at an
+          encoding boundary: a response says `access_token: string`, and the claims
+          are INSIDE that string, unreachable by any field list.
+      where:
+        enum: [claims, header]
+        description: >
+          Placement within a structured artifact (JWS vocabulary, and correct for
+          the population it describes). Meaningful on `artifacts` fields only; C11
+          rejects it on a surface census, where position is the field name.
       max_chars: { $ref: "#/$defs/bound" }
       min_chars: { $ref: "#/$defs/bound" }
       min:       { $ref: "#/$defs/bound" }
@@ -177,6 +192,43 @@ properties:
           What an inbound surface does with a field it does not declare — itself a
           security requirement, and one the store had no way to state before.
 
+  artifacts:
+    type: object
+    description: >
+      Structures that are minted somewhere, carried as a VALUE inside payloads, and
+      validated elsewhere — credentials above all. It is a table rather than a
+      separate artifact kind because a manifest already IS a contract, and
+      two words for one idea cost every consumer an explanation. Promotion by
+      demonstrated reuse applies (§5.5), so an artifact used by one service stays in
+      that service's manifest.
+    propertyNames: { pattern: "^[a-z][a-z0-9-]*$" }
+    additionalProperties:
+      type: object
+      additionalProperties: false
+      required: [fields]
+      properties:
+        description: { type: string }
+        access_tier:
+          type: string
+          description: >
+            The credential tier whose surfaces consume this artifact ("surfaces of
+            this tier consume artifacts of this shape"). Membership is C5's check.
+        fields:
+          type: array
+          minItems: 1
+          items: { $ref: "#/$defs/field" }
+
+  audit_forbidden:
+    type: array
+    description: >
+      Field names that must NEVER appear in any audit record, store-wide. Credential
+      material in an evidence trail is the audit equivalent of a mass-assignment hole,
+      and it is not an event-by-event judgment — declared once in the shared manifest,
+      where omitting it is visible rather than a per-event oversight. C6 rejects any
+      audit census that declares one of these `always`.
+    items: { type: string }
+    uniqueItems: true
+
   conventions:
     type: object
     additionalProperties: false
@@ -215,15 +267,28 @@ properties:
 
   audit_events:
     type: array
-    description: Referenced as {audit:<code>}. Common fields declared once in `audit_common`.
+    description: >
+      Referenced as {audit:<code>}. An audit record is EVIDENCE, not telemetry: it is
+      an interface surface (§5.4) with a retention window and mandatory absences, and
+      something downstream depends on its shape. Common fields are declared once in
+      `audit_common`; fields that must never appear, once in `audit_forbidden`.
     items:
       type: object
       additionalProperties: false
       required: [code, fields, ru]
       properties:
         code:   { type: string, pattern: "^[a-z]+(\\.[a-z_]+)+$" }
-        level:  { enum: [trace, debug, info, warn, error], default: info }
-        fields: { type: array, items: { type: string }, uniqueItems: true }
+        fields:
+          $ref: "#/$defs/field_census"
+          description: >
+            The record's own fields, beyond the common envelope — the same census
+            grammar every other surface uses, so one field vocabulary covers the store.
+            Presence is outbound (`always` | `never`): a record is minted, never accepted.
+        retention:
+          $ref: "#/$defs/bound"
+          description: >
+            Days the record must remain retrievable. A compliance fact about the record,
+            declared beside it rather than restated in every RU that mentions it.
         ru:     { $ref: "#/$defs/ru_link" }
 
   audit_common:
@@ -290,8 +355,25 @@ properties:
         ru:     { $ref: "#/$defs/ru_link" }
         emits:
           type: array
-          description: problem_type ids and audit codes this endpoint can produce (C6).
+          description: >
+            problem_type ids this endpoint can return — what a CALLER can be told (C6).
+            Audit codes and messages are separate keys: they are different claims with
+            different audiences, and one list disambiguated only by which registry a
+            string lands in is ambiguous the day the two share a name.
           items: { type: string }
+          uniqueItems: true
+        audits:
+          type: array
+          description: audit codes this endpoint records — evidence, invisible to the caller (C6).
+          items: { type: string }
+          uniqueItems: true
+        publishes:
+          type: array
+          description: >
+            message ids this endpoint puts on the bus (C6). Until now the manifest could
+            not say that an endpoint publishes a message: both existed, and nothing
+            joined them.
+          items: { $ref: "#/$defs/ident" }
           uniqueItems: true
 
   messages:
@@ -313,9 +395,22 @@ properties:
         external:
           type: boolean
           description: Producer outside the spec store (§5.8); exempt from C9. Inbound only.
+        audits:
+          type: array
+          description: >
+            audit codes recorded while HANDLING this message (C6). Inbound only — on an
+            outbound entry you are producing the message, not handling one. This is the
+            fix for the largest hole in the old model: an async consumer that mutated
+            state had no way to declare what it recorded.
+          items: { type: string }
+          uniqueItems: true
         planned:
           type: boolean
       allOf:
+        - if:
+            required: [audits]
+          then:
+            properties: { direction: { const: inbound } }
         - if:
             required: [external]
             properties: { external: { const: true } }
@@ -375,7 +470,9 @@ allOf:
       not:
         properties: { service: { const: shared } }
     then:
-      properties: { conventions: false }
+      properties:
+        conventions: false
+        audit_forbidden: false
   # Non-shared boundary manifests: at least one surface. Pure-internal
   # services with no surface set service kind via absence — the anyOf below
   # is enforced only when any surface key is expected; operator may relax by

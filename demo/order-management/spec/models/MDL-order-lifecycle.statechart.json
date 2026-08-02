@@ -1,0 +1,20 @@
+{
+  "id": "order-lifecycle",
+  "kind": "statechart",
+  "initial": "placed",
+  "undeclared_event_policy": "error",
+  "vocabulary": {
+    "CANCEL": "{endpoint:cancel_order}",
+    "REFUND_SETTLED": "{message:refund_settled}",
+    "SHIP": "internal"
+  },
+  "states": {
+    "placed": { "on": { "CANCEL": "cancelling", "SHIP": "shipped" } },
+    "cancelling": {
+      "invariant": "no_new_picks_dispatched",
+      "on": { "REFUND_SETTLED": "cancelled" }
+    },
+    "shipped": { "type": "final" },
+    "cancelled": { "type": "final" }
+  }
+}

@@ -5,6 +5,8 @@ is clean under the FULL lint suite — is asserted here too."""
 
 from pathlib import Path
 
+import shutil
+
 import pytest
 
 from rqunit.errors import StoreError
@@ -14,7 +16,7 @@ from rqunit.store import Store
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 LINTS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9",
          "L10", "L11", "L12", "L13", "L15", "L16", "L17", "L18",
-         "L19", "L20", "L21", "L22", "L24"]
+         "L19", "L20", "L21", "L22", "L24", "L25"]
 # L23 is deliberately absent and never to be issued: the shape-reference case it
 # was reserved for is already L15's ("every manifest reference resolves"), and a
 # field of a declared census IS a manifest reference. L15 carries the sharper
@@ -86,7 +88,11 @@ def test_l21_active_warns_draft_errors():
     severities = {v.severity for v in _run("L21", "fail")}
     assert severities == {"warning", "error"}
     draft_error = next(v for v in _run("L21", "fail") if v.severity == "error")
-    assert "test" in draft_error.message and "contract" in draft_error.message  # missing type named
+    # The message names what would satisfy the rule. Since v0.14 a security RU
+    # must BIND a shape, not merely carry two verification types, so the naming
+    # is of token forms rather than of missing types.
+    assert "bind a declared shape" in draft_error.message
+    assert "{audit:<code>}" in draft_error.message
 
 
 def test_l22_names_both_sides_of_the_contradiction():
@@ -146,3 +152,86 @@ def test_l15_diagnoses_an_unresolved_shape_reference_specifically():
     assert "declares no `inbound`" in message
     assert _shape_diagnosis(parse_one("{endpoint:get_order}")) is None
     assert _shape_diagnosis(parse_one("{problem:conflict}")) is None
+
+
+def test_l21_binds_shape_reads_the_statement_not_the_verification_block():
+    """Shape-binding moved: an RU used to prove it by carrying
+    `verification: contract`, and now does so by addressing a field. Without
+    this the policy could demand depth but not relevance."""
+    from rqunit.lints.l21 import binds_shape
+
+    store = Store.load(FIXTURES / "store" / "valid")
+    ru = next(iter(store.rus()))
+
+    def with_statement(text):
+        # scope drives resolution: a constitutional RU has none, and would search
+        # `shared` only. Give the clone a service so the tokens can land.
+        raw = {**ru.raw, "statement": text, "scope": {"owns": ["service-orders/domain"]}}
+        clone = type(ru)(path=ru.path, raw=raw, id=ru.id, status=ru.status, tier=ru.tier)
+        return binds_shape(store, clone)
+
+    # naming a surface is not describing what it carries
+    assert not with_statement("When a user calls {endpoint:cancel_order}, the system shall halt.")
+    # addressing a direction, or a field within it, is
+    assert with_statement("The system shall not populate {endpoint:cancel_order.inbound.reason}.")
+    assert with_statement("The system shall record {audit:orders.cancelled}.")
+    # an unresolved ref is L15's business, not this rule's
+    assert not with_statement("The system shall record {audit:no.such.code}.")
+
+
+def test_l21_shape_requirement_names_the_forms_that_satisfy_it():
+    from rqunit.lints.l21 import violation_reason
+
+    rule = {"require": {"binds_shape": True}}
+    assert violation_reason(rule, [{"type": "test", "ref": "x"}], shape_bound=True) is None
+    reason = violation_reason(rule, [{"type": "test", "ref": "x"}], shape_bound=False)
+    assert "{endpoint:<id>.<direction>" in reason and "{audit:<code>}" in reason
+
+
+def test_l25_catches_a_subject_naming_nothing():
+    """The EARS parser admits `the system` or any hyphenated lowercase word, by
+    shape alone — so a typo in the subject was silent until now."""
+    violations = _run("L25", "fail")
+    typo = next(v for v in violations if v.artifact == "RU-0001")
+    assert "has no manifest" in typo.message and "typo" in typo.suggestion
+
+
+def test_l25_catches_the_misfiled_ru():
+    """Two claims about which service governs an RU — the subject and
+    scope.owns — coexisted with nothing reconciling them. §5.3 forbade this
+    already; it had no teeth."""
+    misfiled = next(v for v in _run("L25", "fail") if v.artifact == "RU-0002")
+    assert "does not govern" in misfiled.message
+    assert "read coupling, not governance" in misfiled.suggestion
+
+
+def test_l25_leaves_the_system_alone():
+    """`the system` claims no service, which is what makes the distinction
+    between store-wide and service-scoped behaviour mean anything."""
+    assert _run("L25", "pass") == []
+
+
+def test_l17_scans_prose_never_token_interiors(tmp_path):
+    """Regression, end to end: L17 read the RAW statement, so an RU that
+    referenced a fact CORRECTLY was told to reference it. An audit code and a
+    message subject sharing a string is ordinary, and the demo store surfaced
+    it. L2 got this fix in v0.10.4; L17 did not."""
+    root = tmp_path / "store"
+    shutil.copytree(FIXTURES / "store" / "valid", root)
+    ru = root / "spec" / "ru" / "RU-0142.yaml"
+    ru.write_text(
+        "id: RU-0142\n"
+        "statement: >\n"
+        "  The system shall record {audit:orders.cancelled} for every cancellation.\n"
+        "syntax: ears\nstatus: active\nsource_ref: INT-0057#L1-2\n"
+        "verification:\n  - { type: test, ref: TODO(pending) }\n"
+        "scope:\n  owns: [service-orders/fulfilment]\ntags: [orders]\n")
+    hits = [v for v in run_lints(Store.load(root), only="L17")
+            if v.rule == "L17" and v.artifact == "RU-0142"]
+    assert hits == [], [h.message for h in hits]
+
+    # a BARE identifier in prose is still restatement, and still caught
+    ru.write_text(ru.read_text().replace(
+        "record {audit:orders.cancelled} for", "publish orders.cancelled for"))
+    assert [v for v in run_lints(Store.load(root), only="L17")
+            if v.rule == "L17" and v.artifact == "RU-0142"]

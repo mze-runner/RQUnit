@@ -1,0 +1,4 @@
+service: shared
+version: "1.0"
+vocabularies:
+  access_tiers: [public, internal, partner, protected]

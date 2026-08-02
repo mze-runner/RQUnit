@@ -1,0 +1,24 @@
+id: RU-0003
+statement: 'When a customer cancels an order through {endpoint:cancel_order}, the
+  system shall record exactly one {audit:orders.cancelled} entry.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-cancellation
+source_ref: INT-0001#L12-15
+verification:
+- type: test
+  ref: TODO(cancellation records one audit entry)
+scope:
+  owns:
+  - service-orders/fulfilment
+  must_not_touch:
+  - service-billing
+tags:
+- orders
+- audit
+gate1_stamp:
+  hash: sha256:9d4b82a57effb6a4dfc2e1f0b39af024933ab91273df7af71bff83bd9a7a9417
+  by: demo-operator
+  at: '2026-08-02T05:41:17+00:00'

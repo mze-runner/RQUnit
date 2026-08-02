@@ -38,7 +38,6 @@ _MANIFEST_FILE = re.compile(r"^[a-z][a-z0-9-]*\.manifest\.yaml$")
 _MODEL_FILE = re.compile(r"^MDL-[a-z][a-z0-9-]*\.statechart\.json$")
 _INT_FILE = re.compile(r"^INT-[0-9]{4}\.[a-z0-9]+$")
 _ADR_FILE = re.compile(r"^ADR-[A-Za-z0-9-]+\.md$")
-_CT_FILE = re.compile(r"^CT-[a-z0-9-]+\.yaml$")
 
 # Reference token grammar (formats §2): parser.tokens owns it outright. This
 # module used to carry a second regex "kept in lockstep" by hand; v0.13 retires
@@ -81,11 +80,6 @@ class Model(Artifact):
     id: str = ""  # bare id; the MDL- prefix lives in filename/refs
     content_hash: str = ""
 
-
-@dataclass(frozen=True)
-class Contract(Artifact):
-    id: str = ""
-    content_hash: str = ""  # dependents fingerprint this (§7.3, manifest-like governance)
 
 
 @dataclass(frozen=True)
@@ -145,7 +139,6 @@ class Store:
     _intents: list[str] = field(default_factory=list)
     _intent_paths: dict[str, Path] = field(default_factory=dict)
     _adrs: dict[str, Path] = field(default_factory=dict)
-    _contracts: dict[str, Contract] = field(default_factory=dict)
     # Framework vocabularies (L10/L12) come from the STORE's spec/framework/ —
     # fixture stores carry their own; JSON Schemas stay repo-level (D-P1.6).
     _tags: list[str] = field(default_factory=list)
@@ -164,8 +157,7 @@ class Store:
             files = sorted(Path(p).resolve() for p in changed)
         else:
             files = sorted(
-                p for d in ("ru", "features", "gaps", "manifests", "models", "intent", "rationale",
-                            "contracts")
+                p for d in ("ru", "features", "gaps", "manifests", "models", "intent", "rationale")
                 if (spec / d).is_dir()
                 for p in (spec / d).iterdir()
                 if p.is_file() and p.name not in _IGNORED
@@ -243,16 +235,6 @@ class Store:
                 raise UnknownArtifact(str(path), "not an INT filename (INT-XXXX.<ext>)")
             self._intents.append(path.stem)
             self._intent_paths[path.stem] = path
-        elif kind == "contracts":
-            if not _CT_FILE.match(name):
-                raise UnknownArtifact(str(path), "not a contract filename (CT-<slug>.yaml)")
-            data = _load_yaml(path)
-            _validate("contract", data, path)
-            if data["id"] != path.stem:
-                raise FilenameIdMismatch(str(path), f"id {data['id']!r} != filename {path.stem!r}")
-            self._contracts[data["id"]] = Contract(
-                path=path, raw=data, id=data["id"], content_hash=_sha256(path),
-            )
         elif kind == "rationale":
             # ADRs are prose, not schema-validated YAML — the store tracks
             # identity and bytes (link fingerprints, §7.3), never structure.
@@ -287,9 +269,6 @@ class Store:
 
     def adrs(self) -> dict[str, Path]:
         return dict(sorted(self._adrs.items()))
-
-    def contracts(self) -> dict[str, Contract]:
-        return dict(sorted(self._contracts.items()))
 
     def adr_path(self, adr_id: str) -> Path | None:
         return self._adrs.get(adr_id)
@@ -365,6 +344,13 @@ def _lookup(manifest: dict, kind: str, key: str) -> object | None:
         return next((e for e in manifest.get("audit_events", []) if e.get("code") == key), None)
     if kind == "vocab":
         return manifest.get("vocabularies", {}).get(key)
+    if kind == "artifact":
+        artifact_id, _, field = key.partition(".")
+        artifact = (manifest.get("artifacts") or {}).get(artifact_id)
+        if artifact is None or not field:
+            return artifact
+        return next((f for f in artifact.get("fields") or []
+                     if f.get("name") == field), None)
     if kind == "endpoint":
         return _lookup_endpoint(manifest, key)
     if kind in ("message", "channel"):

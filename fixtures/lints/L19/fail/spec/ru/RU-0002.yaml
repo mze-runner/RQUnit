@@ -4,8 +4,8 @@ syntax: ears
 status: active
 source_ref: INT-0001#L1-2
 verification:
-- type: contract
-  ref: CT-base
+- type: test
+  ref: TODO(base census not yet proved)
 scope:
   owns:
   - service-orders/fulfilment

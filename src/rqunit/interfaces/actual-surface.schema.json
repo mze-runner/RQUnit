@@ -91,6 +91,24 @@
                 }
               }
             }
+          },
+          "audit_events": {
+            "type": "array",
+            "description": "Audit codes the code actually emits. An audit record is an interface surface with a retention window and mandatory absences, and until now nothing reconciled it: a service could declare twenty events, emit none, and pass every gate. Observation only \u2014 whether a missing emission is a defect is the framework's judgment (CF10/CF11).",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The code as the emitting call site names it. A probe proves the call site EXISTS; it cannot prove the line ever runs \u2014 dead code and never-taken branches both pass, which is why the report distinguishes proof classes."
+                }
+              }
+            }
           }
         }
       }
@@ -102,7 +120,8 @@
         "enum": [
           "endpoints",
           "messages",
-          "channels"
+          "channels",
+          "audit_events"
         ]
       },
       "description": "Which surface families this artifact EXAMINED. A probe reads one framework and finds one family, so an artifact from a NATS probe makes no claim about routes \u2014 and without this key the reconciler reads that silence as 'the code serves no endpoints' and reports every declared route as unserved. Omit to mean 'everything', which is what a single whole-stack extractor asserts and what every pre-existing artifact meant."

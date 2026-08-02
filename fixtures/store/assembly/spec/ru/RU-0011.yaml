@@ -6,8 +6,8 @@ status: active
 feature: FEAT-hot
 source_ref: INT-0001#L1-2
 verification:
-- type: contract
-  ref: CT-base
+- type: test
+  ref: TODO(base census not yet proved)
 scope:
   owns:
   - service-orders/fulfilment
@@ -15,6 +15,6 @@ tags:
 - orders
 - audit
 gate1_stamp:
-  hash: sha256:2d531a53087f8618d450b15b642f91c8e77f66fb9f038cde3ad4e27a792effde
+  hash: sha256:2045035d85e8c1ce4f4b6f0a0ab97b07f6cc7273cdf8e14c3f1ddc1ae7b0c74d
   by: fixture-op
   at: '2026-07-25T10:00:00+00:00'

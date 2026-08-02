@@ -1,6 +1,6 @@
 """`rqunit doctor` — structural health. Invariants: a healthy store reports
 nothing; each detector fires on its own defect (lost RU leaves an id gap,
-unreferenced artifacts surface as notes, orphaned review records warn, a
+unreferenced ADRs surface as notes, orphaned review records warn, a
 branch behind upstream warns); findings never fail the run unless --strict;
 and the activation pre-flight refuses a stale branch (the no-ceiling answer
 to parallel-allocation collisions)."""
@@ -56,14 +56,9 @@ def test_id_gap_detects_a_lost_ru(tmp_path):
 
 def test_orphan_artifacts_surface_as_notes(tmp_path):
     root = _copy(tmp_path)
-    (root / "spec" / "contracts" / "CT-unused.yaml").write_text(
-        "id: CT-unused\nkind: claim-set\ndescription: Referenced by nothing at all.\n"
-        "fields:\n- { name: sub, presence: always }\n")
     (root / "spec" / "rationale").mkdir(exist_ok=True)
     (root / "spec" / "rationale" / "ADR-unlinked.md").write_text("# ADR-unlinked\n")
     findings = {f.kind: f for f in run_doctor(Store.load(root), root)}
-    assert findings["orphan-contract"].severity == "info"
-    assert "CT-unused" in findings["orphan-contract"].message
     assert "ADR-unlinked" in findings["orphan-adr"].message
 
 

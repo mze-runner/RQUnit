@@ -1,0 +1,5 @@
+actors:
+  - id: customer
+    aliases: [buyer, purchaser]
+  - id: warehouse-operator
+    aliases: [picker]

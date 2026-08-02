@@ -5,7 +5,7 @@ problem_types:
 values:
   retention: { decision_log_days: 90 }
 audit_events:
-  - { code: orders.cancelled, fields: [order_id], ru: FEAT-hot }
+  - { code: orders.cancelled, fields: [{ name: order_id, presence: always }], ru: FEAT-hot }
 endpoints:
   - id: cancel_order
     method: DELETE

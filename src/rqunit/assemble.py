@@ -162,7 +162,7 @@ def render_endpoint_shapes(endpoint: dict, default_policy: str | None) -> list[s
     """Both directions of one surface (§5.9).
 
     Packets exist so an implementing agent never has to read the store. Once a
-    shape lives on the endpoint rather than in a contract file, a packet that
+    shape lives on the endpoint rather than in a separate file, a packet that
     renders only the route table hides the very census the RU depends on — so
     the shapes follow the edge. `none` renders explicitly, because "carries
     nothing" is a claim and silence is not.
@@ -189,29 +189,6 @@ def render_endpoint_shapes(endpoint: dict, default_policy: str | None) -> list[s
         out += [header, ""]
         out += [render_field(f) for f in fields]
         out.append("")
-    return out
-
-
-def render_contract(contract) -> list[str]:
-    """A contract render (formats §11): the packet-only implementer must know
-    the wire shape without reading the store — including the absences."""
-    raw = contract.raw
-    out = [f"### {contract.id} (contract hash {contract.content_hash[:19]}…)", ""]
-    header = " ".join(raw["description"].split())
-    if raw.get("access_tier"):
-        header += f" — consumed by `{raw['access_tier']}`-tier surfaces"
-    out += [header, ""]
-    for field in raw.get("fields") or []:
-        parts = [field.get("where", "claims"), field["presence"]]
-        if field.get("type"):
-            parts.append(field["type"])
-        if field.get("vocab"):
-            parts.append(f"values ∈ {field['vocab']}")
-        line = f"- `{field['name']}` ({', '.join(parts)})"
-        if field.get("note"):
-            line += f" — {field['note']}"
-        out.append(line)
-    out.append("")
     return out
 
 
@@ -302,16 +279,6 @@ def render_packet(store: Store, root: Path, task: str, ru_ids: list[str],
     out += ["# 2. Interface star map", ""]
     for service in touched:
         out += render_surface_sheet(store, service)
-    ct_ids = sorted({str(e.get("ref")) for ru in task_rus
-                     for e in ru.raw.get("verification") or []
-                     if e.get("type") == "contract"
-                     and not str(e.get("ref", "")).startswith("TODO(")})
-    for ct_id in ct_ids:
-        contract = store.contracts().get(ct_id)
-        if contract is None:
-            out += [f"- {ct_id} (missing from spec/contracts/ — an L5 error)", ""]
-            continue
-        out += render_contract(contract)
     out += ["# 3. Rationale", ""]
     adrs = sorted({ru.raw["rationale_ref"] for ru in task_rus if ru.raw.get("rationale_ref")})
     for adr_id in adrs:

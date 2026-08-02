@@ -4,5 +4,5 @@ syntax: ears
 status: active
 source_ref: INT-0102#L70-73
 verification:
-  - { type: contract, ref: CT-decision-record-retention }
+  - { type: test, ref: TODO(decision record retention census not yet proved) }
 tags: [screening]

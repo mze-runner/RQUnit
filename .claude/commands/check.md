@@ -17,6 +17,11 @@ uv run rqunit lint  --store fixtures/store/valid --format text
 uv run rqunit check --store fixtures/store/valid --format text
 uv run rqunit doctor --store fixtures/store/valid
 
+# The demo store: the only place the whole vocabulary runs together.
+uv run rqunit lint        --store demo/order-management --format text
+uv run rqunit check       --store demo/order-management --format text
+uv run rqunit conformance --store demo/order-management --format text
+
 # Adapters build independently of the core.
 cargo check --manifest-path adapters/rust/Cargo.toml
 cargo clippy --manifest-path adapters/rust/Cargo.toml --all-targets -- -D warnings

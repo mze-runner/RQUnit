@@ -2,16 +2,48 @@
 rule in coverage.policy.yaml. Active violators → warning (burn-down after a
 tightening, never a mass red build); draft violators → error (they cannot
 activate under-covered — spec-activate enforces the blocking half too).
-Policy is data; extending it is a PR to the policy file, never a lint change."""
+Policy is data; extending it is a PR to the policy file, never a lint change.
+
+`binds_shape` (v0.14) is the one requirement that reads the STATEMENT rather
+than `verification`. It exists because shape-binding moved: an RU used to prove
+it was bound to a declared shape by carrying `verification: contract`, and now
+it does so by addressing a field in its statement. Without this the policy could
+still say "two mechanical checks" but had lost the ability to say "and it must
+actually be bound to a declared shape" — a weaker guarantee wearing the same
+name."""
 
 from pathlib import Path
 
 import yaml
 
+from ..errors import MalformedRef, UnresolvedRef
+from ..parser.tokens import extract
 from ..violations import Violation
 from .base import lint, rel
 
-MECHANICAL = ("contract", "test", "model")
+MECHANICAL = ("test", "model")
+
+# Kinds whose referents carry a declared field census. A bare `{endpoint:id}`
+# does NOT bind a shape — naming a surface is not describing what it carries —
+# so an endpoint token must address a direction.
+_CENSUS_KINDS = {"audit", "artifact"}
+
+
+def binds_shape(store, ru) -> bool:
+    """Does this statement address something with a declared census?"""
+    tokens, _ = extract(ru.raw.get("statement") or "")
+    scope = store.scope_service(ru)
+    for token in tokens:
+        if token.kind == "endpoint" and "." not in token.key:
+            continue                      # names the surface, not its shape
+        if token.kind not in _CENSUS_KINDS and token.kind != "endpoint":
+            continue
+        try:
+            store.resolve_ref(token.raw, scope)
+        except (MalformedRef, UnresolvedRef):
+            continue                      # L15 owns unresolved refs; not this rule's business
+        return True
+    return False
 
 
 def load_policy(store) -> dict | None:
@@ -33,13 +65,18 @@ def first_matching_rule(policy: dict, ru) -> dict:
     return policy.get("default") or {"require": {"min_verifications": 1}}
 
 
-def violation_reason(rule: dict, entries: list) -> str | None:
+def violation_reason(rule: dict, entries: list, shape_bound: bool = True) -> str | None:
     require = rule.get("require") or {}
+    if require.get("binds_shape") and not shape_bound:
+        return ("requires the statement to bind a declared shape — an {endpoint:<id>.<direction>"
+                "[.<field>]}, {audit:<code>} or {artifact:<id>} reference. Naming a surface is "
+                "not describing what it carries")
     types = [e.get("type") for e in entries]
     mechanical = [t for t in types if t in MECHANICAL]
     if "min_mechanical" in require and len(mechanical) < require["min_mechanical"]:
         return (f"requires ≥{require['min_mechanical']} mechanical verifications "
-                f"(contract|test|model), found {len(mechanical)} — human never satisfies a mechanical minimum")
+                f"(test|model), found {len(mechanical)} — human never satisfies a "
+                "mechanical minimum")
     if "types_all" in require:
         missing = [t for t in require["types_all"] if t not in types]
         if missing:
@@ -60,7 +97,10 @@ def run(store):
     for ru in store.rus():
         if ru.status not in ("active", "draft"):
             continue
-        reason = violation_reason(first_matching_rule(policy, ru), ru.raw.get("verification") or [])
+        rule = first_matching_rule(policy, ru)
+        needs_shape = (rule.get("require") or {}).get("binds_shape")
+        reason = violation_reason(rule, ru.raw.get("verification") or [],
+                                  shape_bound=binds_shape(store, ru) if needs_shape else True)
         if reason:
             severity = "warning" if ru.status == "active" else "error"
             out.append(Violation(

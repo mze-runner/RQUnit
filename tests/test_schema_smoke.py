@@ -91,8 +91,16 @@ def test_ru_manual_conformance_with_justification_ok():
 
 def test_ru_todo_ref_ok():                                # spec §6.5
     r = copy.deepcopy(RU_BASE)
-    r["verification"].append({"type": "contract", "ref": "TODO(CT: prices pinned at confirmation)"})
+    r["verification"].append({"type": "test", "ref": "TODO(price-pinning census not yet proved)"})
     ok(r, RU)
+
+
+def test_ru_contract_verification_type_is_retired():      # v0.14
+    """A shape is a manifest fact now, and an RU binds to one through a
+    statement token. Two mechanisms for one binding was the duplication."""
+    r = copy.deepcopy(RU_BASE)
+    r["verification"].append({"type": "contract", "ref": "CT-anything"})
+    bad(r, RU)
 
 CONST_RU = yaml.safe_load("""
 id: RU-0002
@@ -102,7 +110,7 @@ status: active
 tier: constitutional
 source_ref: INT-0001#L10-12
 verification:
-  - { type: contract, ref: CT-audit-on-mutation }
+  - { type: test, ref: "arch-tests::audit::every_mutating_route_records" }
 tags: [doctrine, audit]
 """)
 
@@ -139,10 +147,11 @@ values:
   retention: { decision_log_days: 90 }
 audit_common: [event, timestamp, actor]
 audit_events:
-  - { code: orders.cancelled, fields: [order_id, reason], ru: FEAT-order-cancellation }
+  - { code: orders.cancelled, ru: FEAT-order-cancellation,
+      fields: [{ name: order_id, presence: always }, { name: reason, presence: always }] }
 endpoints:
   - { id: cancel_order, method: DELETE, path: "/api/v1/orders/{id}", access: protected,
-      ru: FEAT-order-cancellation, emits: [conflict, orders.cancelled] }
+      ru: FEAT-order-cancellation, emits: [conflict], audits: [orders.cancelled] }
 """)
 
 SHARED = yaml.safe_load("""
@@ -314,3 +323,32 @@ def test_conventions_shared_only_and_defaults_service_only():
     bad(m, MANIFEST)
     m2 = copy.deepcopy(MAN); m2["defaults"] = {"unknown_fields": "reject"}
     ok(m2, MANIFEST)
+
+
+# ---------------------------------------------------------------- v0.14
+def test_shared_artifacts_carry_a_claim_set_with_placement():
+    s = copy.deepcopy(SHARED)
+    s["artifacts"] = {"jwt-access-token": {
+        "access_tier": "protected",
+        "fields": [{"name": "sub", "where": "claims", "presence": "always", "type": "string"},
+                   {"name": "kid", "where": "header", "presence": "always"},
+                   {"name": "iss", "presence": "never"}]}}
+    ok(s, MANIFEST)
+
+
+def test_where_is_the_jws_vocabulary_it_always_was():
+    """`where` was a retrofit while contracts held response bodies. Narrowed to
+    encoded artifacts, `claims | header` is simply correct."""
+    s = copy.deepcopy(SHARED)
+    s["artifacts"] = {"t": {"fields": [{"name": "sub", "where": "body", "presence": "always"}]}}
+    bad(s, MANIFEST)
+
+
+def test_a_field_can_name_the_artifact_its_value_carries():
+    """The edge credentials never had: a census stops at an encoding boundary,
+    so the claims inside `access_token` need somewhere to be declared."""
+    m = copy.deepcopy(MAN)
+    m["endpoints"][0]["outbound"] = {"status": 200, "fields": [
+        {"name": "access_token", "presence": "always", "type": "string",
+         "artifact": "jwt-access-token"}]}
+    ok(m, MANIFEST)

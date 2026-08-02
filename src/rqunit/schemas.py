@@ -28,7 +28,6 @@ SCHEMA_FILES = {
     "model": "model.statechart.schema.yaml",
     "feat": "feat.schema.yaml",
     "gap": "gap.schema.yaml",
-    "contract": "contract.schema.yaml",
 }
 
 PACK_DIR = Path(__file__).parent / "pack"

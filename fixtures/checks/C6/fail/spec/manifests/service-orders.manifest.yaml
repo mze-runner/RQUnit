@@ -2,8 +2,32 @@ service: service-orders
 version: "1.0"
 problem_types:
   conflict: { uri: "urn:problem:conflict", status: 409, title: "Conflict" }
+audit_events:
+  - code: orders.cancelled
+    ru: FEAT-x
+    fields:
+      - { name: order_id, presence: always, type: string }
+messages:
+  - { id: order_cancelled, subject: orders.cancelled, direction: outbound,
+      payload: "wire::OrderCancelled", ru: FEAT-x }
 endpoints:
-  - { id: cancel_order, method: DELETE, path: "/api/v1/orders/{id}", access: protected,
-      ru: FEAT-x, emits: [ghost-problem, conflict] }
-  - { id: place_order, method: POST, path: /api/v1/orders, access: protected,
-      ru: FEAT-x, emits: [unknown.audit_code] }
+  # an audit code left in `emits` — the union that v0.14 split apart
+  - id: cancel_order
+    method: DELETE
+    path: "/api/v1/orders/{id}"
+    access: protected
+    ru: FEAT-x
+    emits: [orders.cancelled]
+    inbound: none
+    outbound: { status: 204, fields: none }
+  # nothing declares these
+  - id: place_order
+    method: POST
+    path: /api/v1/orders
+    access: protected
+    ru: FEAT-x
+    emits: [ghost-problem]
+    audits: [unknown.audit_code]
+    publishes: [no_such_message]
+    inbound: none
+    outbound: { status: 201, fields: none }

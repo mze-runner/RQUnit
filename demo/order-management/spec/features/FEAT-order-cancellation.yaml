@@ -1,0 +1,4 @@
+id: FEAT-order-cancellation
+goal: A customer can cancel an unshipped order and see the refund settled.
+source_ref: INT-0001#L3-6
+status: active

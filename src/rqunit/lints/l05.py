@@ -1,7 +1,8 @@
 """L5 — verification non-empty; all non-TODO refs resolve (spec §10.1).
-`model` refs must resolve to a store model; `contract` refs to a store
-contract (spec/contracts/, v0.11); `test` resolution is spec-trace's job —
-format only here."""
+`model` refs must resolve to a store model; `test` resolution is spec-trace's
+job — format only here. Contract refs were the third case until v0.14 retired
+them: a shape is a manifest fact now, and an RU binds to one through a
+statement token, which L15 resolves."""
 
 from ..violations import Violation
 from .base import lint, rel
@@ -27,10 +28,4 @@ def run(store):
                         rule="L5", severity="error", artifact=ru.id, path=rel(store, ru.path),
                         message=f"verification references {entry['ref']}, but no such model exists in spec/models/.",
                         suggestion=f"Add spec/models/{entry['ref']}.statechart.json or fix the ref."))
-            elif entry["type"] == "contract" and not entry["ref"].startswith("TODO("):
-                if entry["ref"] not in store.contracts():
-                    out.append(Violation(
-                        rule="L5", severity="error", artifact=ru.id, path=rel(store, ru.path),
-                        message=f"verification references {entry['ref']}, but no such contract exists in spec/contracts/.",
-                        suggestion=f"Add spec/contracts/{entry['ref']}.yaml (formats §11) or fix the ref."))
     return out

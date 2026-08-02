@@ -18,4 +18,6 @@ endpoints:
       status: 201
       fields:
         - { name: charge_id, presence: always, type: string }
+        - { name: session_token, presence: always, type: string,
+            artifact: session-token }
         - { name: card_pan,  presence: never, note: never leaves the payment adapter }

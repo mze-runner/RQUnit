@@ -5,7 +5,7 @@ syntax: ears
 status: active
 source_ref: INT-9999#L1-2
 verification:
-  - { type: contract, ref: CT-base }
+  - { type: test, ref: TODO(base census not yet proved) }
 scope:
   owns: [service-orders/fulfilment]
 tags: [orders]

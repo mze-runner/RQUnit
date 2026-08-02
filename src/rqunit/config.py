@@ -47,6 +47,18 @@ class Messages:
 
 
 @dataclass(frozen=True)
+class Audit:
+    """Where audit codes are declared, and which sources record them.
+
+    Same shape as `Messages` because it is the same question: naming a code is
+    not emitting one, so declaration sources and emission sources are separate
+    inputs."""
+
+    code_sources: tuple[str, ...] = ()
+    emitter_sources: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class RustStack:
     # Globs (repo-root-relative) to the Cargo.toml of every crate whose
     # tests/ directory participates in verifies-tracing (`rqunit trace`).
@@ -69,6 +81,8 @@ class RustStack:
     routers: tuple[Router, ...] = ()
     # Async surface discovery.
     messages: Messages = Messages()
+    # Audit emission discovery.
+    audit: Audit = Audit()
 
 
 @dataclass(frozen=True)
@@ -105,6 +119,8 @@ def load(root: Path) -> Config:
             kwargs[name] = _routers(path, value)
         elif name == "messages":
             kwargs[name] = _messages(path, value)
+        elif name == "audit":
+            kwargs[name] = _audit(path, value)
         elif name in ("conformance_crate", "service"):
             if not isinstance(value, str) or (name == "conformance_crate" and not value):
                 raise BadConfig(str(path), f"{name} must be a non-empty string")
@@ -155,3 +171,18 @@ def _messages(path: Path, value: object) -> Messages:
         subject_sources=tuple(value.get("subject_sources", [])),
         publisher_sources=tuple(value.get("publisher_sources", [])),
     )
+
+
+def _audit(path: Path, value: object) -> Audit:
+    if not isinstance(value, dict):
+        raise BadConfig(str(path), "audit must be a [stacks.rust.audit] table")
+    unknown = set(value) - {"code_sources", "emitter_sources"}
+    if unknown:
+        raise BadConfig(str(path), f"unknown audit key(s): {', '.join(sorted(unknown))} "
+                                   "(supported: code_sources, emitter_sources)")
+    for key in ("code_sources", "emitter_sources"):
+        entries = value.get(key, [])
+        if not isinstance(entries, list) or not all(isinstance(v, str) for v in entries):
+            raise BadConfig(str(path), f"{key} must be a list of path strings")
+    return Audit(code_sources=tuple(value.get("code_sources", [])),
+                 emitter_sources=tuple(value.get("emitter_sources", [])))

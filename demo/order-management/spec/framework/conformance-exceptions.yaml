@@ -1,0 +1,24 @@
+# Ratified conformance divergences (spec §5.6).
+#
+# A difference between the manifests and the code that Gate 1 has examined and
+# accepted. It is REPORTED as a finding with its reason attached, never
+# silenced: an exception nobody can defend in prose is a defect wearing a
+# waiver, and one that outlives its reason becomes camouflage.
+#
+# These live in the STORE, not in the adapter artifact, because a waiver is a
+# reviewed human decision. An extractor observes; it does not get to excuse
+# what it observed — and once probes can be written by anyone, a probe that
+# could author its own waivers could turn its own mistakes green.
+#
+# Seeded empty. Each entry needs a rule, the service, the target, and a
+# justification someone would defend out loud.
+exceptions: []
+# Example — delete this comment block when you add a real entry:
+#
+# exceptions:
+#   - rule: CF4
+#     service: service-orders
+#     target: "GET /api/v1/healthz"
+#     justification: >
+#       `internal` is a network-policy tier enforced at the ingress rather than
+#       by route middleware, so the route is structurally public by design.

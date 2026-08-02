@@ -160,7 +160,6 @@ def build_data(store: Store, root: Path, now: str | None = None) -> dict:
         "totals": {
             "rus": dict(Counter(ru.status for ru in rus)),
             "features": len(store.features()),
-            "contracts": len(store.contracts()),
             "models": len(store.models()),
             "adrs": len(store.adrs()),
             "manifests": len(store.manifests()),
@@ -271,7 +270,7 @@ def render_html(data: dict) -> str:
     verified_pct = round(100 * status["reviewed"] / active_total)
     depth = data["verification"]["depth"]
     todos = data["verification"]["todo_refs"]
-    mechanical = sum(depth.get(k, 0) for k in ("contract", "test", "model"))
+    mechanical = sum(depth.get(k, 0) for k in ("test", "model"))
     sittings = data["gates"]["sittings"]
     peak = max((s["activated"] for s in sittings), default=1)
     warn_health = [h for h in data["health"] if h["severity"] == "warning"]
@@ -307,7 +306,7 @@ def render_html(data: dict) -> str:
     depth_rows = "".join(
         f'<tr><td>{_esc(k)}</td><td class="num">{depth.get(k, 0)}</td>'
         f'<td class="num">{todos.get(k, 0)}</td></tr>'
-        for k in ("contract", "test", "model", "human") if depth.get(k) or todos.get(k))
+        for k in ("test", "model", "human") if depth.get(k) or todos.get(k))
 
     sitting_bars = "".join(
         f'<div class="tick" title="{_esc(s["at"])} · {_esc(s["by"])} · {s["activated"]} RUs">'
@@ -418,7 +417,7 @@ footer{{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);color:
   <div class="card"><div class="donutwrap">{_donut(labels)}<ul class="legend">{legend}</ul></div>
     <p class="note"><b>How to read this.</b> Status is <em>computed</em>, never asserted: a
     requirement counts as <b>done</b> only when every one of its checks provably passes.
-    Mechanical pass-states (contract, test and model results) are not yet wired into the
+    Mechanical pass-states (test and model results) are not yet wired into the
     computation, so requirements whose checks exist and run still show as
     <b>pending</b> rather than done — the tooling refuses to claim a green it cannot prove.
     <b>Blocked</b> means a check has been promised but not yet written, which is tracked

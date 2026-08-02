@@ -35,6 +35,10 @@ pub struct StackConfig {
     pub publisher_sources: Vec<String>,
     /// Where the artifact is written.
     pub actual_surface: String,
+    /// Files or directories declaring audit-code constants.
+    pub audit_code_sources: Vec<String>,
+    /// Sources whose code references those constants — what is really recorded.
+    pub audit_emitter_sources: Vec<String>,
 }
 
 fn strings(value: Option<&toml::Value>) -> Vec<String> {
@@ -92,6 +96,7 @@ pub fn load_config(root: &Path) -> Result<StackConfig> {
         }
     }
     let messages = rust.get("messages");
+    let audit = rust.get("audit");
     Ok(StackConfig {
         service: rust
             .get("service")
@@ -106,6 +111,8 @@ pub fn load_config(root: &Path) -> Result<StackConfig> {
             .and_then(|v| v.as_str())
             .unwrap_or("spec-conformance-tests/actual-surface.json")
             .to_string(),
+        audit_code_sources: strings(audit.and_then(|a| a.get("code_sources"))),
+        audit_emitter_sources: strings(audit.and_then(|a| a.get("emitter_sources"))),
     })
 }
 
@@ -204,12 +211,12 @@ fn lit_str(expr: &syn::Expr) -> Option<String> {
 
 // ---------------------------------------------------------------- NATS subjects
 
-/// `pub const NAME: &str = "subject";` items across the configured sources.
+/// `pub const NAME: &str = "value";` items across the configured sources.
 ///
-/// No family list: walking whatever the consumer points at finds every subject
-/// constant, and a per-family path table was one more consumer fact living in
-/// product source.
-fn subject_constants(root: &Path, sources: &[String]) -> Result<BTreeMap<String, String>> {
+/// Serves both async subjects and audit codes: they are the same shape of fact
+/// — a string constant declared in one place and referenced where it is used —
+/// so one scan answers both.
+fn string_constants(root: &Path, sources: &[String]) -> Result<BTreeMap<String, String>> {
     let mut out = BTreeMap::new();
     for file in expand(root, sources) {
         let Ok(source) = fs::read_to_string(&file) else {
@@ -250,7 +257,7 @@ fn expand(root: &Path, sources: &[String]) -> Vec<PathBuf> {
 /// A subject is PUBLISHED when publisher code references its constant —
 /// naming a subject is not the same as emitting one.
 fn published_subjects(root: &Path, config: &StackConfig) -> Result<BTreeSet<String>> {
-    let constants = subject_constants(root, &config.subject_sources)?;
+    let constants = string_constants(root, &config.subject_sources)?;
     let mut publisher_source = String::new();
     for file in expand(root, &config.publisher_sources) {
         publisher_source.push_str(
@@ -261,6 +268,26 @@ fn published_subjects(root: &Path, config: &StackConfig) -> Result<BTreeSet<Stri
         .into_iter()
         .filter(|(name, _)| publisher_source.contains(name.as_str()))
         .map(|(_, subject)| subject)
+        .collect())
+}
+
+/// Audit codes the code actually records.
+///
+/// A route exists in a table; an emission is a call site. This proves the call
+/// site EXISTS — it cannot prove the line ever runs, and saying otherwise would
+/// turn a green run into a claim nobody checked.
+fn recorded_audit_codes(root: &Path, config: &StackConfig) -> Result<BTreeSet<String>> {
+    let constants = string_constants(root, &config.audit_code_sources)?;
+    let mut emitter_source = String::new();
+    for file in expand(root, &config.audit_emitter_sources) {
+        emitter_source.push_str(
+            &fs::read_to_string(&file).map_err(|e| format!("read {}: {e}", file.display()))?,
+        );
+    }
+    Ok(constants
+        .into_iter()
+        .filter(|(name, _)| emitter_source.contains(name.as_str()))
+        .map(|(_, code)| code)
         .collect())
 }
 
@@ -323,6 +350,10 @@ pub fn render(root: &Path) -> Result<String> {
             line
         })
         .collect();
+    let audit_events: Vec<String> = recorded_audit_codes(root, &config)?
+        .iter()
+        .map(|code| format!("        {{ \"code\": \"{code}\" }}"))
+        .collect();
     let messages: Vec<String> = published_subjects(root, &config)?
         .iter()
         .map(|subject| {
@@ -336,13 +367,15 @@ pub fn render(root: &Path) -> Result<String> {
     // family is never read as a denial.
     Ok(format!(
         "{{\n  \"contract_version\": 1,\n  \"generated_by\": \"rqunit-adapter-rust {}\",\n  \
-         \"covers\": [\"endpoints\", \"messages\"],\n  \
+         \"covers\": [\"endpoints\", \"messages\", \"audit_events\"],\n  \
          \"services\": {{\n    \"{}\": {{\n      \"endpoints\": [\n{}\n      ],\n      \
-         \"messages\": [\n{}\n      ]\n    }}\n  }}\n}}\n",
+         \"messages\": [\n{}\n      ],\n      \
+         \"audit_events\": [\n{}\n      ]\n    }}\n  }}\n}}\n",
         env!("CARGO_PKG_VERSION"),
         config.service,
         endpoints.join(",\n"),
         messages.join(",\n"),
+        audit_events.join(",\n"),
     ))
 }
 
@@ -784,6 +817,48 @@ mod tests {
             err.to_string()
                 .contains("cannot find a router it cannot name"),
             "{err}"
+        );
+    }
+
+    #[test]
+    fn an_audit_code_counts_as_recorded_only_where_a_call_site_names_it() {
+        // Declaring a code is not recording one. The whole point of CF10 is that
+        // a service could declare twenty events and emit none.
+        let files = tree(
+            "audit",
+            &[
+                (
+                    "codes/src/lib.rs",
+                    r#"
+                pub const ORDER_CANCELLED: &str = "orders.cancelled";
+                pub const ORDER_REFUNDED: &str = "orders.refunded";
+            "#,
+                ),
+                (
+                    "app/src/cancel.rs",
+                    r#"
+                fn cancel() { audit(ORDER_CANCELLED, &ctx); }
+            "#,
+                ),
+            ],
+        );
+        let root = files[0]
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let config = StackConfig {
+            audit_code_sources: vec!["codes/src".into()],
+            audit_emitter_sources: vec!["app/src".into()],
+            ..Default::default()
+        };
+        let recorded = recorded_audit_codes(root, &config).expect("scan");
+        assert!(recorded.contains("orders.cancelled"));
+        assert!(
+            !recorded.contains("orders.refunded"),
+            "declared but never emitted: {recorded:?}"
         );
     }
 

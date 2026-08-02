@@ -1,0 +1,28 @@
+id: RU-0006
+statement: 'When a cancellation is accepted, the system shall halt fulfilment activity
+  within {value:fulfilment.halt_seconds} seconds.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-cancellation
+source_ref: INT-0001#L8-10
+verification:
+- type: test
+  ref: TODO(fulfilment halt latency bound)
+- type: model
+  ref: MDL-order-lifecycle
+  model_hash: sha256:8d9f1f8a86f4c04fae5fd8c9f07259005c247caf0fe19e2f119c56d6cb507d1b
+  conformance: generated
+scope:
+  owns:
+  - service-orders/fulfilment
+  must_not_touch:
+  - service-billing
+tags:
+- orders
+- cancellation
+gate1_stamp:
+  hash: sha256:0a8ba646421b68a5e13c65d5d0e4897bda21b946189adf972eea3736427726f8
+  by: demo-operator
+  at: '2026-08-02T05:41:17+00:00'

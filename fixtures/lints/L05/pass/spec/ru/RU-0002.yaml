@@ -5,7 +5,7 @@ syntax: ears
 status: active
 source_ref: INT-0001#L1-2
 verification:
-  - { type: contract, ref: 'TODO(CT: decision retention)' }
+  - { type: test, ref: TODO(decision retention census not yet proved) }
 scope:
   owns: [service-orders/fulfilment]
 tags: [orders]
