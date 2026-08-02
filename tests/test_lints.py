@@ -5,6 +5,8 @@ is clean under the FULL lint suite — is asserted here too."""
 
 from pathlib import Path
 
+import shutil
+
 import pytest
 
 from rqunit.errors import StoreError
@@ -207,3 +209,29 @@ def test_l25_leaves_the_system_alone():
     """`the system` claims no service, which is what makes the distinction
     between store-wide and service-scoped behaviour mean anything."""
     assert _run("L25", "pass") == []
+
+
+def test_l17_scans_prose_never_token_interiors(tmp_path):
+    """Regression, end to end: L17 read the RAW statement, so an RU that
+    referenced a fact CORRECTLY was told to reference it. An audit code and a
+    message subject sharing a string is ordinary, and the demo store surfaced
+    it. L2 got this fix in v0.10.4; L17 did not."""
+    root = tmp_path / "store"
+    shutil.copytree(FIXTURES / "store" / "valid", root)
+    ru = root / "spec" / "ru" / "RU-0142.yaml"
+    ru.write_text(
+        "id: RU-0142\n"
+        "statement: >\n"
+        "  The system shall record {audit:orders.cancelled} for every cancellation.\n"
+        "syntax: ears\nstatus: active\nsource_ref: INT-0057#L1-2\n"
+        "verification:\n  - { type: test, ref: TODO(pending) }\n"
+        "scope:\n  owns: [service-orders/fulfilment]\ntags: [orders]\n")
+    hits = [v for v in run_lints(Store.load(root), only="L17")
+            if v.rule == "L17" and v.artifact == "RU-0142"]
+    assert hits == [], [h.message for h in hits]
+
+    # a BARE identifier in prose is still restatement, and still caught
+    ru.write_text(ru.read_text().replace(
+        "record {audit:orders.cancelled} for", "publish orders.cancelled for"))
+    assert [v for v in run_lints(Store.load(root), only="L17")
+            if v.rule == "L17" and v.artifact == "RU-0142"]

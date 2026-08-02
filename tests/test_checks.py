@@ -223,3 +223,19 @@ def test_c11_rejects_placement_on_a_surface_census(tmp_path):
         "      - { name: order_id, presence: always, type: string, where: claims }"))
     violations = [v for v in run_checks(Store.load(root), only="C11") if v.rule == "C11"]
     assert violations and "on a surface census" in violations[0].message
+
+
+def test_c13_survives_a_none_census(tmp_path):
+    """Regression: C13 iterated `fields: none` as a STRING, walking its
+    characters. No fixture store had both a `conventions` table and a `none`
+    census, so the path was never taken until the demo store had both."""
+    root = tmp_path / "s"
+    shutil.copytree(FIXTURES / "C13" / "pass", root)
+    manifest = root / "spec" / "manifests" / "service-orders.manifest.yaml"
+    manifest.write_text(manifest.read_text().replace(
+        "    outbound:\n      status: 200\n      fields:\n"
+        "        - { name: items,          presence: always, type: array, items: object }\n"
+        "        - { name: items.unit_price, presence: always, type: integer }",
+        "    outbound: { status: 204, fields: none }"))
+    violations = [v for v in run_checks(Store.load(root), only="C13") if v.rule == "C13"]
+    assert violations == []          # nothing to name, and nothing to crash on
