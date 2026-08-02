@@ -1,6 +1,26 @@
 # Requirement Unit (RU) Framework — Specification Management for Agentic Development
 
-**Status:** v0.13.0-draft (v0.13.0: the HTTP surface becomes bidirectional —
+**Status:** v0.14.0-draft (v0.14.0: one vocabulary — the manifest IS the
+contract. `spec/contracts/` and the `contract` verification type retire; a shape
+is a manifest fact and an RU binds to one by addressing it in the statement.
+What the layer genuinely held — structure behind an ENCODING boundary, where a
+census cannot reach — becomes `artifacts` in the shared manifest, referenced by
+a field's `artifact:` and addressable as `{artifact:<id>[.<field>]}`; §6.1.
+Audit becomes a full surface family: a census in the shared field grammar,
+`retention` on the event, store-wide `audit_forbidden`, and `level` retired
+because logging severity is the vocabulary of the thing audit is not; §5.10.
+`emits` splits into `emits`/`audits`/`publishes` — three claims with three
+audiences, where one list was ambiguous the day two registries shared a name —
+and `publishes` closes an edge that never existed: an endpoint could not say
+which message it published. Audit emission is reconciled at last (CF10/CF11);
+C14 makes constitutional RU-0002 checkable as a finding; L25 checks the
+statement subject, which the parser had only ever validated by shape; the
+coverage policy gains `binds_shape`, which reads the STATEMENT so that
+retiring `contract` strengthens rather than weakens what the policy can
+require. **Consumers MUST act:** move every `CT-` file into shared `artifacts`,
+convert `verification: contract` entries to a statement token plus a test, move
+audit codes out of `emits` into `audits`, and drop `audit_events[].level`;
+v0.13.0: the HTTP surface becomes bidirectional —
 endpoints declare `inbound` and `outbound` field censuses inline, both
 mandatory with `none` as an explicit declaration (C10); `success_status`
 retires into `outbound.status`; presence is direction-keyed (`always|never`
@@ -56,12 +76,11 @@ The framework compiles human intent into machine-verifiable requirement units an
 | Requirement Unit | `RU-XXXX` | YAML | Append-only + supersession | Atomic normative **behaviour** statement |
 | Manifest | `<service>.manifest.yaml` | YAML (schema-validated) | Gate-1-gated edits (§5.5) | Interface surfaces + shared **facts**, declared once |
 | Model | `MDL-*` | Statechart JSON / decision table | Versioned, content-hashed | Formal **structure/logic** (dynamics) |
-| Contract | `CT-*` | YAML, `spec/contracts/` (schema-validated; formats §11) | Gate-1-gated edits — dependents fingerprint content (§7.3) | Checkable **shape** an artifact must conform to |
 | ADR | `ADR-*` | Markdown, `spec/rationale/` (formats §10) | Editable prose — an edit flips every dependent RU suspect (§7.3) | Rationale, decisions |
 | Gap | `GAP-XXXX` | YAML | Open → resolved | Analyst-surfaced ambiguity or conflict |
 | Feature | `FEAT-*` | YAML | Versioned | Metadata-only grouping + one goal sentence |
 
-The four knowledge classes and their division of labour: **RU = behaviour** (what the system shall do), **Manifest = facts** (what exists: surfaces, values, vocabularies), **MDL = dynamics** (when and how states and decisions move), **CT/test = proof**. `actors.yaml` and `tags.yaml` are framework-level manifests — the same declare-once/reference-everywhere pattern applied to the framework's own vocabularies.
+The four knowledge classes and their division of labour: **RU = behaviour** (what the system shall do), **Manifest = facts** (what exists: surfaces, their shapes, values, vocabularies), **MDL = dynamics** (when and how states and decisions move), **test = proof**. `actors.yaml` and `tags.yaml` are framework-level manifests — the same declare-once/reference-everywhere pattern applied to the framework's own vocabularies.
 
 ### 2.1 FEAT nodes and the fate of user stories / ACs
 
@@ -99,8 +118,8 @@ source_ref: INT-0102#L70-73     # REQUIRED. Intent artifact + location anchor
 supersedes: RU-0089             # optional; MUST be set if replacing an active RU
 rationale_ref: ADR-0031         # optional but SHOULD be present for non-obvious constraints
 verification:                   # REQUIRED, min 1 entry
-  - type: contract
-    ref: CT-decision-record-retention
+  - type: test
+    ref: "service-orders::retention::decision_records_survive_the_window"
   - type: test
     ref: itest::screening::decision_log_retention
 scope:
@@ -159,7 +178,7 @@ actors:
 
 Rules: the parsed EARS actor of every statement MUST be a canonical registry id (L12); aliases are never valid in statements; new actors enter the registry first; role-variant behaviour = separate RUs per actor (a two-role statement is compound, L3).
 
-**Default-deny root RU (constitutional).** Exactly one ubiquitous root closes the world: *"The system shall deny any action that is not explicitly granted to the requesting actor's role."* (RU-0001, verified by `CT-authz-default-deny`.) Absence of a grant RU mechanically means denial; per-role denial RUs are written only where the denial itself has observable requirements.
+**Default-deny root RU (constitutional).** Exactly one ubiquitous root closes the world: *"The system shall deny any action that is not explicitly granted to the requesting actor's role."* (RU-0001, verified by an architecture test over the router composition.) Absence of a grant RU mechanically means denial; per-role denial RUs are written only where the denial itself has observable requirements.
 
 **Permission matrices.** Role×capability grids are decision tables → `model` verification (§6.3), never per-cell RU explosions. A small RU set states the invariants (resolution through the model; default-deny; denial audit); conformance tests are generated per cell. Capability and role identifiers used by the matrix MUST be manifest/registry vocabulary — the model consumes them, it does not define them (§5.7).
 
@@ -193,12 +212,14 @@ One file per service at `spec/manifests/<service>.manifest.yaml`, validated agai
 - `service`, `version` — identity and manifest schema revision.
 - `problem_types` — RFC 7807-style error registry, keyed by short id: `{uri, status, title}`.
 - `values` — nested map of cross-cutting scalar facts (TTLs, limits, windows, hash parameters). Leaves are scalars.
-- `audit_events` — catalog of `{code, level, fields}`; common fields declared once at catalog level.
+- `audit_events` — catalog of `{code, fields, retention?, ru}`. `fields` is a census in the same grammar every other surface uses; the envelope is declared once in `audit_common`, and fields no record may ever carry once in the shared `audit_forbidden` (§5.10).
 - `vocabularies` — named controlled value sets (e.g., rate-limit key types), referenced by consistency checks.
-- `endpoints` — HTTP surface: `{id, method, path, access, ru, emits[], inbound, outbound, planned?}`. Authoritative for method+path+access and for both directions of the shape (§5.9).
+- `endpoints` — HTTP surface: `{id, method, path, access, ru, emits[], audits[], publishes[], inbound, outbound, planned?}`. Authoritative for method+path+access and for both directions of the shape (§5.9). The three side-effect keys are separate because they are different claims with different audiences: `emits` is what a CALLER can be told (problem types), `audits` is evidence nobody outside sees, `publishes` is what subscribers receive. One list resolved by trying each registry is ambiguous the day two share a name.
 - `defaults` — service-wide defaults overridable at the point of use; currently `unknown_fields` (§5.9). Forbidden in the shared manifest: it shapes surfaces, and the shared manifest carries none.
+- `artifacts` — structures minted somewhere, carried as a VALUE inside payloads, and validated elsewhere; shared manifest only (§5.5, §6.1). A field names one with `artifact:`.
+- `audit_forbidden` — field names no audit record may ever carry; shared manifest only (§5.10).
 - `conventions` — store-wide naming standards for **wire-visible** names (`field_names`, `path_segments`), declared in the shared manifest **only** and enforced by C13. Per-service tables would let a house standard diverge service by service, which is what the table exists to prevent. Spec identifiers are not governed here: the schema fixes those, so every id stays addressable by the token grammar. An absent table means unenforced.
-- `messages` — async surface: `{id, subject, direction, payload, ru, external?, planned?}`. `payload` is a **type name only**, owned by the shared wire-contracts crate/package — the compiler owns the shape; the manifest never duplicates it. `external: true` marks an inbound subject produced outside the spec store (§5.8).
+- `messages` — async surface: `{id, subject, direction, payload, ru, audits[], external?, planned?}`. `audits` is inbound-only — on an outbound entry you are producing the message, not handling one — and it closes the largest gap in the old model, where an async consumer that mutated state had nowhere to declare what it recorded. `payload` is a **type name only**, owned by the shared wire-contracts crate/package — the compiler owns the shape; the manifest never duplicates it. `external: true` marks an inbound subject produced outside the spec store (§5.8).
 - `channels` — WebSocket surface: `{id, upgrade_path, access, ru, connection_close_codes[], frames[]}` with frames as `{id, direction, payload}` (type names only).
 
 Every surface entry carries an `ru:` link (the governing RU or FEAT id) — the manifest-side half of bidirectional traceability (§6.6). Conflicts discovered while building a manifest are NEVER recorded as inline comments; they compile to `GAP-` items with `severity: blocking` (§8.1), holding activation of every RU referencing the disputed fact.
@@ -210,7 +231,7 @@ Inside RU statements (and only there — not scope, not verification refs):
 ```
 {value:<dotted.key>}   {endpoint:<id>}   {problem:<id>}   {audit:<code>}
 {message:<id>}         {channel:<id>}    {frame:<channel_id>.<frame_id>}
-{vocab:<name>}
+{vocab:<name>}            {artifact:<id>}       {artifact:<id>.<field>}
 
 {endpoint:<id>.<direction>}            {endpoint:<id>.<direction>.<field>}
 ```
@@ -298,20 +319,31 @@ An HTTP surface has two directions, and the manifest declares both. An endpoint 
 
 `messages` and `channels.frames` continue to carry a type name rather than a census. Bringing them onto the same shape grammar is additive and follows.
 
+### 5.10 Audit records are evidence
+
+An audit event is an interface surface (§5.4) and always has been. What it was missing was everything that makes it *evidence* rather than a log line.
+
+**It carries a census, in the same grammar as every other surface** — presence, type, vocabulary, nesting. Presence is the OUTBOUND vocabulary (`always | never`): a record is minted, never accepted, so `forbidden` is the wrong claim to make about one, and C11 says so.
+
+**`retention` is declared on the event**, not restated in every RU that mentions it. Before this, one clause was repeated per event; now the fact has a home and a single constitutional RU can require it of every record.
+
+**`audit_forbidden` is store-wide.** Credential material in an evidence trail is the audit equivalent of a mass-assignment hole, and it is not an event-by-event judgment — declaring it once in the shared manifest makes an omission visible instead of a per-event oversight. An audit census declaring a forbidden field as `always` is a C6 error.
+
+**`level` is retired.** Trace/debug/info/warn/error is *logging severity* — the vocabulary of the thing audit is not. A record either happened and must be kept, or it did not.
+
+**Emission is reconciled** (§5.6): a declared event the code never records, and a recorded code no manifest declares, are both divergences. Observability proper — metrics, spans, ordinary logs — is deliberately not modelled: a metric is not a boundary anyone contracts on.
+
 ---
 
 ## 6. Verification Types
 
-### 6.1 `contract`
-References a contract (`CT-`) — a declared, checkable shape at `spec/contracts/CT-<slug>.yaml` (format: formats §11). One contract per artifact TYPE (a full token and a challenge token are two contracts), which keeps field presence binary: `always` or `never` — absences are part of the shape and mechanically assertable. Contracts are store-wide: any service's RU may reference one (the consumer verifying an artifact references the same contract its producer mints under).
+### 6.1 Shape binding (the retired `contract` type)
 
-Statements never restate a contract's content — behaviour lives in the statement, the shape lives in the contract, the link lives in `verification` (the model pattern applied to wire shapes). A non-TODO ref that resolves to no store contract is an L5 error.
+There is no `contract` verification type. A shape is a manifest fact — an endpoint's `inbound`/`outbound` census, an audit event's field list, a shared `artifacts` entry — and an RU binds to one by **addressing it in the statement** (`{endpoint:get_order.outbound.cost_basis}`, `{artifact:jwt-access-token.iss}`), then proving it with a `test`.
 
-**Bindings into the manifest layer:** a contract MAY declare `access_tier`, binding it to the credential tier its artifact authenticates ("endpoints of this tier consume artifacts of this shape"); endpoints MAY declare `scope`, naming a value from the `token_scopes` vocabulary (a reserved vocabulary name, like `access_tiers` — formats §8). C5 checks all memberships; a contract field MAY constrain its values to any manifest vocabulary via `vocab` — contracts never introduce vocabulary (§5.7 discipline).
+Until v0.14 the same binding could be expressed two ways: a `verification: contract` entry *and*, from v0.13, a statement token. Two mechanisms for one relationship is the duplication this framework exists to remove, and the artifact layer it required could not be explained to a consumer — a manifest already *is* a contract, with callers, subscribers and error handlers. What that layer genuinely held was one thing: structure behind an **encoding boundary**, where a census cannot reach. A response declares `access_token: string`; the claims live inside that string. Those are `artifacts` in the shared manifest (§5.5), referenced from a field by `artifact:` and addressable as `{artifact:<id>[.<field>]}`.
 
-**Governance is manifest-like (ruled at adoption):** contract edits are Gate-1-reviewed; referencing RUs keep meaning through the reference; every resolved contract ref is content-fingerprinted at activation (§7.3), so an edit flips dependents suspect (L20) for re-affirmation or supersession at the next sitting.
-
-Mechanical pass/fail arrives with generated contract conformance (the statechart diagram-as-oracle pattern applied to shapes: mint, decode, assert); until then a resolved ref documents the shape and the RU computes honestly.
+The coverage policy can still require shape binding: `binds_shape` (§6.7) reads the statement, so "a security RU must be bound to a declared shape" survives the change rather than degrading to "must have two mechanical checks".
 
 ### 6.2 `test`
 References an executable test by stable identifier; CI resolves refs and fails on dangling ones. Tests asserting manifest-referenced bounds read them from the manifest (§5.3).
@@ -339,11 +371,11 @@ Explicitly deferred judgment. Allowed, but: human-only verification is a standin
 ### 6.5 Missing checks
 Implied-but-absent checks get `ref: TODO(<description>)`, which auto-generates a work item. A TODO'd RU may be `active` but computes *blocked*, never *pass*.
 
-**Resolving a TODO (v0.11.1):** once the check exists, conversion is a Gate 1 act, not a supersession — `resolve` replaces the TODO entry with a real, resolvable ref of the SAME type (a store contract, or a scanned test id) and re-stamps under the reviewer's id. The path is strictly strengthening: statement/scope/tier untouched, entries never removed, real refs never replaced — anything else remains supersession-only. Selection is by entry type; multiple same-type TODOs must be disambiguated by description substring, and indistinguishable duplicates refuse outright (an authoring bug, cleaned by supersession). Re-stamping moves `gate1_stamp.at`, so prior Gate 2 records stop counting; hand-editing a ref without the ceremony is an L19 error.
+**Resolving a TODO (v0.11.1):** once the check exists, conversion is a Gate 1 act, not a supersession — `resolve` replaces the TODO entry with a real, resolvable ref (a scanned test id) and re-stamps under the reviewer's id. The path is strictly strengthening: statement/scope/tier untouched, entries never removed, real refs never replaced — anything else remains supersession-only. Multiple TODOs must be disambiguated by description substring, and indistinguishable duplicates refuse outright (an authoring bug, cleaned by supersession). Re-stamping moves `gate1_stamp.at`, so prior Gate 2 records stop counting; hand-editing a ref without the ceremony is an L19 error.
 
 ### 6.6 Bidirectional traceability
 
-Every test/contract declares which RU(s) it verifies (`verifies(RU-XXXX)` annotation, contract metadata, or inherited from a model's RU links for generated suites); every manifest surface entry carries its `ru:` link. CI computes the orphan reports:
+Every test declares which RU(s) it verifies (`verifies(RU-XXXX)` annotation, or inherited from a model's RU links for generated suites); every manifest surface entry carries its `ru:` link. CI computes the orphan reports:
 
 - **Unverified RUs** — covered by computed status.
 - **Untraced checks** — behaviour no requirement governs: compile the missing RU (via new INT acknowledgment), delete the check and its behaviour, or mark `trace: infrastructure` (audited — a growing infrastructure bucket is the escape hatch rotting).
@@ -360,17 +392,17 @@ L14 blocks new untraced checks; pre-existing ones burn down. A requirement witho
 # it is a PR to this file, never a lint code change.
 rules:
   - match: { tier: constitutional }
-    require: { min_mechanical: 2 }            # ≥2 of contract|test|model
+    require: { min_mechanical: 2 }            # ≥2 of test|model
   - match: { tags_any: [safety, authz] }
-    require: { types_all: [contract, test] }  # both, not either
+    require: { types_all: [test], binds_shape: true }   # proved AND bound
   - match: { tags_any: [audit] }
-    require: { types_any: [contract] }
+    require: { binds_shape: true }
 default:
   require: { min_verifications: 1 }
 ```
 
 Rules:
-- `mechanical` = contract | test | model; `human` never satisfies a mechanical minimum.
+- `mechanical` = test | model; `human` never satisfies a mechanical minimum. `binds_shape` reads the STATEMENT, not `verification`: it is satisfied by a token addressing a declared census or artifact, and a bare `{endpoint:<id>}` does not satisfy it — naming a surface is not describing what it carries.
 - Policy violations are blocking at activation (a draft cannot activate under-covered) and warnings on already-active RUs after a policy tightening — tightening generates a burn-down list, never a mass red build.
 - The policy file itself is Gate-1-governed (it changes what "adequately verified" means store-wide — that is a human decision with an impact report, same discipline as a shared-manifest edit).
 
@@ -417,8 +449,8 @@ Models and manifests are already hash-guarded; v0.9 closes the remaining unhashe
 
 1. Compile only what is unambiguous. Unstated bounds, actors, triggers, or responses become `GAP-` items with `severity: blocking | clarify-later`; blocking gaps hold activation of affected RUs. Never default an ambiguity.
 2. Zero gaps from a substantial INT artifact is a red flag, flagged for closer review — it signals guessing, not completeness.
-3. Fabricating any `contract`/`test`/`model` ref is FORBIDDEN — use TODO refs.
-4. The analyst MUST NOT modify code, contracts, or models. RUs, manifest drafts, gaps, TODO work items only.
+3. Fabricating any `test`/`model` ref is FORBIDDEN — use TODO refs.
+4. The analyst MUST NOT modify code or models. RUs, manifest drafts, gaps, TODO work items only.
 5. Dedupe duty: before emitting drafts, query `ru-index.json` for matching normalized triggers or overlapping scope; list candidate duplicates alongside drafts.
 6. Registration duty (§5.4): on compiling the second RU that would restate a fact, propose a manifest entry and rewrite both statements to reference it. Conflicting facts across sources compile to blocking GAPs, never to silently chosen winners or inline comments.
 
@@ -443,7 +475,7 @@ For a task referencing RU IDs `{R}`:
 0. All `tier: constitutional` RUs, always, first.
 1. Every RU in `{R}` (statement + scope + verification refs) with **manifest references resolved inline**, plus each RU's FEAT `goal` sentence.
 2. **Manifest star map**: the manifest entries referenced by in-scope RUs, plus a one-screen surface summary (endpoint table, subjects, channels) of every service the task's scope touches — complete interface awareness without reading code.
-3. Linked `rationale_ref` ADRs; linked models and contract descriptions.
+3. Linked `rationale_ref` ADRs; linked models; the censuses the task's surfaces declare.
 4. RUs one hop out via supersession-siblings and shared `scope.owns` overlap, read-only, **capped at k=8**, ranked by shared feature then tags; beyond the cap, IDs only.
 5. Never: drafts, retired RUs, whole features as work orders, unrelated tag groups, the full store.
 
@@ -469,7 +501,7 @@ This section is the framework. Without it, the rest of this document is prose.
 - L2: bounds are literal or resolvable `{value:...}` refs; unbounded quantifiers ("quickly", "soon", "many") → error. Scans authored prose only — reference-token spans are excluded (a manifest identifier like `{problem:too-many-requests}` is not chosen words); bare, un-braced identifiers still scan.
 - L3: compound-statement detection → error.
 - L4: `source_ref` resolves to existing INT with valid anchor.
-- L5: `verification` non-empty; all non-TODO refs resolve (`model` → spec/models/, `contract` → spec/contracts/).
+- L5: `verification` non-empty; all non-TODO refs resolve (`model` → spec/models/; `test` resolution is `rqunit trace`'s).
 - L6: `model_hash` / manifest hash current (staleness → dependent RUs failing). Active and draft RUs only — superseded/retired hashes are provenance (§6.3 model evolution).
 - L7: cross-artifact link integrity — supersession chains acyclic; superseded targets not retired; `supersedes` and `rationale_ref` targets exist.
 - L8: forbidden fields absent (priority, estimate, assignee, role/permission).
@@ -494,7 +526,7 @@ This section is the framework. Without it, the rest of this document is prose.
 - C2: overlapping `scope.owns` across unrelated domains → warning at Gate 1.
 - C3: `must_not_touch` intersecting a co-assigned RU's `owns` → warning.
 - C4: method+path uniqueness per service, upgrade paths included → error.
-- C5: vocabulary membership — every constrained field value (e.g., a limit-type on an audit event) ∈ its declared `vocabularies` set → error. v0.11: endpoint `scope` ∈ `token_scopes` (shared or owning manifest); contract `access_tier` ∈ `access_tiers`; contract field `vocab` names an existing manifest vocabulary; contract field names unique.
+- C5: vocabulary membership — every constrained field value (e.g., a limit-type on an audit event) ∈ its declared `vocabularies` set → error. Endpoint `scope` ∈ `token_scopes` (shared or owning manifest); a shared artifact's `access_tier` ∈ `access_tiers`; an audit or artifact field's `vocab` names an existing manifest vocabulary; a field's `artifact:` names a declared shared artifact.
 - C6: `emits` entries resolve to declared `problem_types` / `audit_events` → error.
 - C7: orphan manifest facts — surfaces or shared values referenced by no active RU → report (dead interface or missing requirement; a finding either way).
 - C8: every model event, frame, emission, or close code resolves to a manifest entry → error (manifests own vocabulary; models own dynamics).
@@ -547,7 +579,6 @@ spec/
   manifests/<service>.manifest.yaml    # one manifest per service
   manifests/shared.manifest.yaml       # cross-service facts (§5.5)
   models/MDL-*.json                    # formal models, one file per model
-  contracts/CT-<slug>.yaml             # checkable shapes (§6.1; formats §11)
   gaps/GAP-XXXX.yaml                   # open ambiguities & conflicts
   rationale/ADR-<slug>.md              # decision records behind rationale_ref (§7.3; formats §10)
   reviews/RU-XXXX/*.yaml               # append-only Gate 2 records (§7.2)
@@ -675,23 +706,22 @@ tags: [orders, cancellation, shipping]
 ```yaml
 id: RU-0204
 statement: >
-  The system shall record every screening decision as {audit:orders.screening.decided},
-  retrievable for {value:retention.decision_log_days} days.
+  The system shall record every screening decision as {audit:orders.screening.decided}.
 syntax: ears
 status: active
 feature: FEAT-fraud-screening
 source_ref: INT-0102#L70-73
 verification:
-  - type: contract
-    ref: CT-decision-record-retention   # reads retention.decision_log_days from the manifest
   - type: test
-    ref: itest::screening::decision_log_retention
+    ref: itest::screening::records_one_decision_entry
 scope:
   owns: [orders/screening]
 tags: [screening, audit]
 ```
 
-What Example A demonstrates: timing lives in `test`, structure in `model`, facts in the manifest; the retention value is registered (≥2 RUs reference it) while the cancel bound stays literal; the audit event and endpoint are referenced by id; C8 binds the model's `CANCEL` to the manifest's surface; a later change of `decision_log_days` is a Gate-1 mutating edit whose impact report lists RU-0204 and RU-0301, and whose checks re-read the manifest rather than asserting a stale 90.
+What Example A demonstrates: timing lives in `test`, structure in `model`, facts in the manifest; the retention value is registered (≥2 RUs reference it) while the cancel bound stays literal; the audit event and endpoint are referenced by id; C8 binds the model's `CANCEL` to the manifest's surface; a later change of `decision_log_days` is a Gate-1 mutating edit whose impact report lists its dependents, and whose checks re-read the manifest rather than asserting a stale 90.
+
+Note what RU-0204 no longer says. Retention is declared on the audit event itself (§5.4), so the statement asserts only the obligation that is this RU's: the record happens, exactly once. Before v0.14 every audit RU carried its own "retrievable for … days" clause, and the same fact was restated once per event; now one constitutional RU covers retention for every record, and moving the fact to its proper home removed a clause rather than relocating it.
 
 ### 13.2 Example B — Story → RU compilation (where ACs went)
 

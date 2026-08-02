@@ -17,7 +17,6 @@ for tooling; changes are schema-revision events, not edits.
 | Manifest | `spec/manifests/<service>.manifest.yaml` | service slug; `shared` reserved |
 | Model | `spec/models/MDL-<id>.statechart.json` | `MDL-<id>` |
 | ADR | `spec/rationale/ADR-<slug>.md` | `ADR-<slug>` (pattern `ADR-[A-Za-z0-9-]+`) |
-| Contract | `spec/contracts/CT-<slug>.yaml` | `CT-<slug>` (pattern `CT-[a-z0-9-]+`) |
 | Packet | `spec/packets/TASK-<id>.packet.md` (re-runs: `.v2`, `.v3` suffix before `.packet.md`) | task id from the operator's task system |
 
 Filename ↔ `id` field mismatch is an L9 error. IDs beyond 9999: widen padding
@@ -129,7 +128,6 @@ derived from the JSON, never a separate code path.
 |---|---|
 | Python tests | `@pytest.mark.verifies("RU-0142")` (repeatable) |
 | Rust tests | doc-comment line `/// verifies: RU-0142[, RU-0143]` directly above `#[test]`/`#[tokio::test]` |
-| Contracts (CT) | manifest-style metadata field `verifies: [RU-0142]` in the contract definition |
 | Generated conformance suites | no per-test annotations — a sidecar `spec/projections/trace-map.json` `{ "check_id": ["RU-…"] }` emitted by the generator from the model's RU links |
 | Infrastructure tests | `verifies: infrastructure` (audited bucket, §6.6) |
 
@@ -272,24 +270,13 @@ HANDLE (e.g. a VCS username), never contact information — the store is
 published with the repository. Emails are schema-rejected (`by` pattern) and
 CLI-rejected (`--reviewer`); the handle→person mapping lives outside the repo.
 
-## 11. Contract (CT) format
+## 11. (retired — the contract layer)
 
-One checkable shape per file at `spec/contracts/CT-<slug>.yaml`, validated
-against `contract.schema.yaml`. One contract per artifact TYPE — presence is
-binary (`always` | `never`), and a field that appears "sometimes" belongs to
-a different artifact type with its own contract. `where` records placement
-(`claims` | `header`); `presence: never` makes absences checkable; `vocab`
-constrains a field's values to a manifest vocabulary (contracts never
-introduce vocabulary); `access_tier` binds the contract to the credential
-tier whose surfaces consume the artifact. `token_scopes` is a reserved
-vocabulary name (like `access_tiers`, §8) for endpoint `scope` values.
-
-Rules that are enforced: dangling non-TODO `contract` refs are L5 errors;
-all memberships (access_tier, scope, vocab) and field-name uniqueness are C5
-errors; resolved refs are content-fingerprinted at activation (§9), so
-editing a referenced contract flips dependents suspect (L20) — governance is
-manifest-like (Gate-1-reviewed edits), never freeze-and-supersede. Task
-packets render referenced contract shapes in section 2 (§6).
+`spec/contracts/CT-<slug>.yaml` and the `contract` verification type were
+retired in v0.14. A shape is a manifest fact: a surface declares its census
+inline (§13), and structure behind an encoding boundary is a shared `artifacts`
+entry (§16). The section number stays spent — references in the wild point
+here rather than at something else.
 
 ## 12. Open decisions ratified by this document (flag to operator, defaults active)
 
@@ -404,3 +391,70 @@ router it cannot name. Unknown keys are errors: a typo silently ignored would
 read as configured. A missing `[stacks.rust]` table is an error for the
 extractor rather than a default, because a guessed composition produces a
 surface nobody declared and the reconciler would believe it.
+
+## 16. Shared artifacts
+
+`artifacts` in `spec/manifests/shared.manifest.yaml` — structures minted
+somewhere, carried as a VALUE inside payloads, and validated elsewhere.
+Credentials are the population; the test is whether a field census can reach
+the structure, and for anything base64'd or signed it cannot.
+
+```yaml
+artifacts:
+  jwt-access-token:
+    access_tier: protected            # the tier whose surfaces consume it (C5)
+    fields:
+      - { name: sub, where: claims, presence: always, type: string }
+      - { name: kid, where: header, presence: always }
+      - { name: iss, presence: never }
+```
+
+Fields use the same grammar as every surface census (§13), plus `where`
+(`claims | header`) — JWS vocabulary, and correct for the population it
+describes. C11 rejects `where` on a surface census, where the position IS the
+field name.
+
+A field declares that its value is one of these with `artifact:`:
+
+```yaml
+- { name: access_token, presence: always, type: string, artifact: jwt-access-token }
+```
+
+That key sits beside `vocab:` and makes the same class of claim — one says which
+values are legal, the other what structure the value has. A dangling reference
+is a C5 error.
+
+Promotion by demonstrated reuse applies (spec §5.5): an artifact used by one
+service stays in that service's manifest, and only reaches `shared` when a
+second needs it.
+
+## 17. Audit records
+
+```yaml
+audit_common: [event, timestamp, actor, ip_address]   # every record carries these
+
+audit_events:
+  - code: orders.cancelled
+    ru: FEAT-order-cancellation
+    retention: "{value:retention.audit_days}"
+    fields:
+      - { name: order_id, presence: always, type: string }
+      - { name: reason,   presence: always, type: string, vocab: cancellation_reasons }
+```
+
+Presence is the OUTBOUND vocabulary (`always | never`) — a record is minted,
+never accepted. `retention` is a literal or a `{value:…}` reference.
+
+Fields no record may EVER carry are declared once, store-wide:
+
+```yaml
+# shared.manifest.yaml
+audit_forbidden: [password, raw_token, card_pan]
+```
+
+A census declaring one of those as `always` is a C6 error. There is no `level`:
+trace/debug/info/warn/error is logging severity, and an audit record either
+happened and must be kept or it did not.
+
+Surfaces declare what they record with `audits:` — endpoints, and inbound
+messages (an outbound entry produces a message rather than handling one).

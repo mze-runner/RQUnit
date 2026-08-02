@@ -23,9 +23,6 @@ spec/
   manifests/     per-service interface facts + shared.manifest.yaml
   framework/     vocabularies, coverage policy, ratified conformance divergences
   models/        MDL-* statecharts (dynamics; conformance suites are generated)
-  contracts/     CT-* checkable shapes (claim sets etc.) — what a minted
-                 artifact must contain, including absences; referenced from
-                 RU verification, never restated in statements (formats §11)
   gaps/          GAP-* open ambiguities/conflicts (blocking ones hold activation)
   rationale/     ADR-<slug>.md decision records — the WHY behind requirements,
                  linked from RUs via rationale_ref (format: formats §10)
@@ -74,7 +71,7 @@ at the repo root — the tools carry no consumer paths in code.
 | `rqunit activate batch --feature F --reviewer H` | Gate 1 activation (atomic, refuses on red, commits) | end of a Gate 1 sitting |
 | `rqunit activate restamp --reviewer H` | stamps for manual activations; suspect-link re-affirmation | rare |
 | `rqunit activate reaffirm --model MDL-x --reviewer H` | the lawful model-evolution path: re-stamp active dependents of an edited model (new hash, new stamp, regenerated conformance) | after any edit to a referenced model |
-| `rqunit activate resolve --reviewer H RU-XXXX=CT-… [--match S]` | debt conversion: replace a TODO verification entry with a real same-type ref (store contract / scanned test id) and re-stamp — strictly strengthening, never a removal or swap | when a check a TODO promised comes into existence |
+| `rqunit activate resolve --reviewer H RU-XXXX=<test id> [--match S]` | debt conversion: replace a TODO verification entry with a real, scanned test id and re-stamp — strictly strengthening, never a removal or swap | when a check a TODO promised comes into existence |
 | `rqunit impact --against REF` | additive vs mutating manifest diff + affected RUs | before approving manifest edits |
 | `rqunit review record RU-XXXX --verdict … --criterion … --reviewer H` | append-only Gate 2 verdict | human verifications |
 | `rqunit review guard --against REF` | append-only guard (reviews + packets) | CI, PRs |
@@ -145,22 +142,22 @@ lost in the resolution rather than reallocated.
 
 **Resolve a TODO ref.** When the check a `TODO(…)` promised now exists, run
 `rqunit activate resolve --reviewer <handle> RU-XXXX=<ref> …` — batch pairs,
-one ceremony. The target must exist (a store contract or a scanned test id)
+one ceremony. The target must exist (a scanned test id)
 and replaces only a TODO entry of ITS type; with several same-type TODOs,
 `--match <substring>` selects by description. The verb refuses weakening in
 every form — removing entries, swapping real refs, unresolvable targets —
 those remain supersession territory. Prior Gate 2 records stop counting
 (the new stamp postdates them).
 
-**Contract a wire shape.** When several components must agree on exactly what
-an artifact contains (a token's claims, an event envelope), author
-`spec/contracts/CT-<slug>.yaml` — one contract per artifact TYPE, presence
-binary, absences declared (`presence: never`), values constrained to manifest
-vocabularies. RUs reference it from `verification`
-(`{type: contract, ref: CT-…}`) and never restate the field list in
-statements. Converting a `TODO(CT-…)` ref to a resolved contract is an
-ordinary Gate-1-reviewed edit; editing a referenced contract flips its
-dependents suspect (L20) for the next sitting.
+**Declare a wire shape.** A shape is a MANIFEST fact — there is no separate
+contract artifact, because a manifest already is one. A surface declares its
+census inline (`inbound`/`outbound`, formats §13); a structure hidden behind an
+encoding boundary — a token's claims inside `access_token: string` — is a
+shared `artifacts` entry (formats §16) that a field names with `artifact:`.
+RUs never restate a census: they ADDRESS it with a token
+(`{endpoint:get_order.outbound.cost_basis}`, `{artifact:jwt-access-token.iss}`)
+and prove it with a test. Editing a manifest flips its dependents suspect (L20)
+for the next sitting.
 
 **Record the *why* behind a requirement.** Write
 `spec/rationale/ADR-<slug>.md` (headings per formats §10: Context, Decision,
@@ -200,9 +197,7 @@ or supersede the RU whose rationale died.
 
 ## 4. Verification & computed status
 
-Verification types: `contract` (CT-*, a declared checkable shape at
-spec/contracts/ — formats §11; generated mechanical pass-states pending),
-`test` (a language-specific stable id per formats §5, e.g.
+Verification types: `test` (a language-specific stable id per formats §5, e.g.
 `<package>::<file-stem>::<fn>`), `model` (MDL-* with a
 content hash; conformance suites are generated, never hand-written),
 `human` (explicit deferred judgment → Gate 2 records). A missing check is
@@ -265,7 +260,7 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | L2 | error | Scope: the bound slot only (quantities, e.g. "within __", "for __ days"). A bound must be a literal `number unit` or a `{value:…}` reference; vague quantifiers are errors (wordlist is data: `vague_terms.yaml`). Scans authored prose only: reference-token spans are masked first — `{problem:too-many-requests}` never trips `many` — while bare, un-braced identifiers still scan. Token resolution is L15, restatement is L17 |
 | L3 | error | compound statements: >1 shall-clause, semicolon-joined, or an "and <verb>" conjunct (verb lexicon is data) — split into one RU each |
 | L4 | error | `source_ref` targets an existing INT and the line anchor fits the file |
-| L5 | error | verification non-empty; `model` refs resolve to a store model, non-TODO `contract` refs to a store contract (test depth belongs to `rqunit trace`) |
+| L5 | error | verification non-empty; non-TODO `model` refs resolve to a store model (test depth belongs to `rqunit trace`) |
 | L6 | error | recorded `model_hash` matches the current model file — stale hash = the RU is FAILING until conformance regenerates ("green against a stale model is red"). Active and draft RUs only: superseded/retired hashes are provenance, and the lawful refresh is `rqunit activate reaffirm` |
 | L7 | error | cross-artifact links: supersession chains acyclic, targets exist and aren't retired; `rationale_ref` resolves to a `spec/rationale/` file |
 | L8 | error | forbidden workflow fields (priority, estimate, assignee, role, permission, sprint, iteration) absent |
@@ -281,7 +276,7 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | L18 | error | every manifest surface entry's `ru:` link resolves to an existing RU/FEAT |
 | L19 | error | every active RU has a `gate1_stamp` whose hash matches its current normative fields — the freeze made mechanical; mismatch = edited after review |
 | L20 | finding | a `link_fingerprints` target changed → the RU enters the suspect queue (re-affirm or supersede at Gate 1) |
-| L21 | draft: error · active: warning | coverage policy (`coverage.policy.yaml`, first match wins): constitutional needs ≥2 mechanical verifications, `security` needs contract+test, `audit` needs a contract, default ≥1. Under-covered drafts cannot activate; actives are burn-down |
+| L21 | draft: error · active: warning | coverage policy (`coverage.policy.yaml`, first match wins): constitutional needs ≥2 mechanical verifications; `security` and `audit` need `binds_shape` — a statement token addressing a declared census or artifact, which reads the STATEMENT rather than `verification`. Under-covered drafts cannot activate; actives are burn-down |
 | L22 | error | a `planned: true` surface must be governed by a not-done RU (FEAT link = no member done) — either it shipped without its Gate 1 flip, or its verifications lie |
 | L24 | finding | a bound literal that restates a registered `values` entry — reference it instead; `finding` because two numbers can coincide innocently |
 | L25 | error | the shall-clause subject names a declared service, and the same one the RU's scope owns. `the system` claims no service and is exempt |
@@ -294,7 +289,7 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | C2 | warning | `scope.owns` overlap between RUs of different features with disjoint tags — unrelated domains sharing ownership; aggregated as ONE warning per unordered feature pair (with the RU-pair count), since the feature is Gate 1's attention unit |
 | C3 | warning | one RU's `must_not_touch` intersects another's `owns` — the pair can't be co-assigned without H1 blocking the work |
 | C4 | error | method+path unique per service (templates normalized: `{id}`≡`{uid}`); WS upgrade paths included |
-| C5 | error | endpoint/channel `access` ∈ shared `access_tiers`; endpoint `scope` ∈ `token_scopes` (shared or owning manifest); contract `access_tier` ∈ `access_tiers`; contract field `vocab` names an existing vocabulary; contract field names unique |
+| C5 | error | endpoint/channel `access` ∈ shared `access_tiers`; endpoint `scope` ∈ `token_scopes` (shared or owning manifest); a shared artifact's `access_tier` ∈ `access_tiers`; an audit or artifact field's `vocab` names an existing vocabulary; a field's `artifact:` names a declared shared artifact |
 | C6 | error | every `emits` entry is a declared problem type or audit event |
 | C7 | finding | orphan facts: surfaces/shared values referenced by no active RU (statement tokens or model vocabulary) — dead interface or missing requirement either way; during migration this list enumerates legacy-governed surfaces (see §6) |
 | C8 | error | every model vocabulary binding resolves to a manifest entry — manifests own vocabulary, models own dynamics |
