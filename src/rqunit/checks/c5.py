@@ -55,6 +55,24 @@ def run(store):
 
     all_vocabs = {name for m in manifests.values()
                   for name in (m.raw.get("vocabularies") or {})}
+
+    # An audit field constrained to a vocabulary — a `reason` drawn from a
+    # controlled set — is the same membership claim a surface field makes, so it
+    # is checked in the same place.
+    for service, manifest in manifests.items():
+        for event in manifest.raw.get("audit_events") or []:
+            fields = event.get("fields")
+            for field in fields if isinstance(fields, list) else []:
+                vocab = field.get("vocab")
+                if vocab is not None and vocab not in all_vocabs:
+                    out.append(Violation(
+                        rule="C5", severity="error",
+                        artifact=f"{service}:audit_events.{event['code']}",
+                        path=rel(store, manifest.path),
+                        message=f"field '{field.get('name')}' constrains its values to "
+                                f"'{vocab}', which is no declared vocabulary.",
+                        suggestion="Declare the vocabulary in this manifest or shared — an audit "
+                                   "record never introduces vocabulary (§5.7)."))
     for ct_id, ct in store.contracts().items():
         tier = ct.raw.get("access_tier")
         if tier is not None and tier not in tiers:

@@ -146,3 +146,37 @@ def test_l15_diagnoses_an_unresolved_shape_reference_specifically():
     assert "declares no `inbound`" in message
     assert _shape_diagnosis(parse_one("{endpoint:get_order}")) is None
     assert _shape_diagnosis(parse_one("{problem:conflict}")) is None
+
+
+def test_l21_binds_shape_reads_the_statement_not_the_verification_block():
+    """Shape-binding moved: an RU used to prove it by carrying
+    `verification: contract`, and now does so by addressing a field. Without
+    this the policy could demand depth but not relevance."""
+    from rqunit.lints.l21 import binds_shape
+
+    store = Store.load(FIXTURES / "store" / "valid")
+    ru = next(iter(store.rus()))
+
+    def with_statement(text):
+        # scope drives resolution: a constitutional RU has none, and would search
+        # `shared` only. Give the clone a service so the tokens can land.
+        raw = {**ru.raw, "statement": text, "scope": {"owns": ["service-orders/domain"]}}
+        clone = type(ru)(path=ru.path, raw=raw, id=ru.id, status=ru.status, tier=ru.tier)
+        return binds_shape(store, clone)
+
+    # naming a surface is not describing what it carries
+    assert not with_statement("When a user calls {endpoint:cancel_order}, the system shall halt.")
+    # addressing a direction, or a field within it, is
+    assert with_statement("The system shall not populate {endpoint:cancel_order.inbound.reason}.")
+    assert with_statement("The system shall record {audit:orders.cancelled}.")
+    # an unresolved ref is L15's business, not this rule's
+    assert not with_statement("The system shall record {audit:no.such.code}.")
+
+
+def test_l21_shape_requirement_names_the_forms_that_satisfy_it():
+    from rqunit.lints.l21 import violation_reason
+
+    rule = {"require": {"binds_shape": True}}
+    assert violation_reason(rule, [{"type": "test", "ref": "x"}], shape_bound=True) is None
+    reason = violation_reason(rule, [{"type": "test", "ref": "x"}], shape_bound=False)
+    assert "{endpoint:<id>.<direction>" in reason and "{audit:<code>}" in reason

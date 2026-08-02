@@ -4,12 +4,19 @@
 #
 # Shipped as a starting point; tune the thresholds and tag families to the
 # consumer's risk model at adoption.
+#
+# `binds_shape` reads the STATEMENT, not `verification`: since v0.14 an RU
+# proves it is bound to a declared shape by addressing a field
+# ({endpoint:get_order.outbound.cost_basis}, {audit:orders.cancelled},
+# {artifact:jwt-access-token.iss}) rather than by carrying a contract ref.
+# Without it the policy could still demand depth but not relevance — two
+# mechanical checks that prove nothing about the shape in question.
 rules:
   - match: { tier: constitutional }
     require: { min_mechanical: 2 }
   - match: { tags_any: [security] }
-    require: { types_all: [contract, test] }
+    require: { types_all: [test], min_mechanical: 2, binds_shape: true }
   - match: { tags_any: [audit] }
-    require: { types_any: [contract] }
+    require: { binds_shape: true }
 default:
   require: { min_verifications: 1 }

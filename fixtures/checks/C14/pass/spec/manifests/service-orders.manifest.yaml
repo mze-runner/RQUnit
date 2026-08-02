@@ -1,0 +1,39 @@
+service: service-orders
+version: "1.0"
+defaults: { unknown_fields: reject }
+audit_events:
+  - code: orders.cancelled
+    ru: FEAT-order-cancellation
+    fields:
+      - { name: order_id, presence: always, type: string }
+endpoints:
+  # mutating, and it records what it did
+  - id: cancel_order
+    method: DELETE
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    audits: [orders.cancelled]
+    inbound:
+      fields:
+        - { name: order_id, in: path, presence: required, type: string }
+    outbound: { status: 204, fields: none }
+  # a read changes nothing, so it owes no evidence
+  - id: get_order
+    method: GET
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    inbound:
+      fields:
+        - { name: order_id, in: path, presence: required, type: string }
+    outbound: { status: 200, fields: none }
+  # designed but unbuilt: the obligation arrives with the surface
+  - id: bulk_cancel
+    method: POST
+    path: /api/v1/cancellations
+    access: protected
+    ru: FEAT-order-cancellation
+    planned: true
+    inbound: none
+    outbound: { status: 202, fields: none }

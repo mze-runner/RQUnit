@@ -5,7 +5,7 @@ problem_types:
 values:
   retention: { decision_log_days: 90 }
 audit_events:
-  - { code: orders.cancelled, fields: [order_id, reason], ru: FEAT-order-cancellation }
+  - { code: orders.cancelled, fields: [{ name: order_id, presence: always }, { name: reason, presence: always }], ru: FEAT-order-cancellation }
 # Red for one reason: an error code declared as the SUCCESS status. Problem
 # responses are owned by `emits` -> `problem_types`, never by `outbound`.
 endpoints:
@@ -14,6 +14,7 @@ endpoints:
     path: "/api/v1/orders/{id}"
     access: protected
     ru: FEAT-order-cancellation
-    emits: [conflict, orders.cancelled]
+    emits: [conflict]
+    audits: [orders.cancelled]
     inbound: none
     outbound: { status: 409, fields: none }

@@ -139,10 +139,11 @@ values:
   retention: { decision_log_days: 90 }
 audit_common: [event, timestamp, actor]
 audit_events:
-  - { code: orders.cancelled, fields: [order_id, reason], ru: FEAT-order-cancellation }
+  - { code: orders.cancelled, ru: FEAT-order-cancellation,
+      fields: [{ name: order_id, presence: always }, { name: reason, presence: always }] }
 endpoints:
   - { id: cancel_order, method: DELETE, path: "/api/v1/orders/{id}", access: protected,
-      ru: FEAT-order-cancellation, emits: [conflict, orders.cancelled] }
+      ru: FEAT-order-cancellation, emits: [conflict], audits: [orders.cancelled] }
 """)
 
 SHARED = yaml.safe_load("""
