@@ -19,7 +19,7 @@ from pathlib import Path
 
 import click
 
-from ..schemas import SEED_DIR, installed_version
+from ..schemas import SEED_DIR, SPEC_VERSION
 
 # Every directory the loader reads, plus the ones the gates write into.
 # Empty ones carry a .gitkeep: an absent directory and an empty one mean the
@@ -98,8 +98,10 @@ BARE_CONFIG = """\
 """
 
 PACK_PIN = """\
-# The RQUnit pack version this store was authored against. Tooling reports it;
-# the store is not rewritten when the tool moves ahead of it.
+# The RQUnit SPECIFICATION version this store was authored against — the
+# vocabulary its manifests and RUs are written in. Not the tool version: a tool
+# fix changes no vocabulary, and the two move independently on purpose.
+# Tooling reports this; the store is not rewritten when the tool moves ahead.
 pack: "{version}"
 """
 
@@ -136,7 +138,7 @@ def main(store_path: Path | None, stack_override: str | None) -> None:
         for name, destination in SEEDS.items():
             shutil.copyfile(SEED_DIR / name, spec / destination / name)
         (spec / "framework" / "pack.yaml").write_text(
-            PACK_PIN.format(version=installed_version()))
+            PACK_PIN.format(version=SPEC_VERSION))
         for name in STORE_DIRS:
             directory = spec / name
             if not any(directory.iterdir()):

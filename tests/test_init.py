@@ -10,7 +10,7 @@ from click.testing import CliRunner
 from rqunit import config
 from rqunit.cli.init import main as init_main
 from rqunit.cli.rqunit import main as rqunit
-from rqunit.schemas import installed_version, store_pack_version
+from rqunit.schemas import SPEC_VERSION, installed_version, store_pack_version
 from rqunit.store import Store
 
 
@@ -36,15 +36,28 @@ def test_seeded_vocabularies_are_the_packs_own(tmp_path):
     assert (spec / "framework" / "tags.yaml").read_text() == (SEED_DIR / "tags.yaml").read_text()
 
 
-def test_pack_pin_records_the_enforcing_version(tmp_path):
+def test_pack_pin_records_the_spec_version_not_the_tool_version(tmp_path):
+    """The pin names the VOCABULARY a store was authored in. It recorded the
+    package version until v0.14, and the two had drifted a minor apart — so a
+    store was pinned to a specification version that was never published."""
     _init(tmp_path)
-    assert store_pack_version(tmp_path) == installed_version()
+    assert store_pack_version(tmp_path) == SPEC_VERSION
 
 
-def test_unpinned_store_falls_back_to_the_installed_version(tmp_path):
+def test_unpinned_store_falls_back_to_this_build_s_spec_version(tmp_path):
+    """A store predating the pin is unpinned, not broken: reporting the
+    enforcing vocabulary beats reporting nothing."""
     _init(tmp_path)
     (tmp_path / "spec" / "framework" / "pack.yaml").unlink()
-    assert store_pack_version(tmp_path) == installed_version()
+    assert store_pack_version(tmp_path) == SPEC_VERSION
+
+
+def test_the_two_versions_are_reported_separately(tmp_path):
+    """Not a discrepancy to reconcile — a tool fix changes no vocabulary, so
+    `tool_version` and `framework_version` are different questions."""
+    _init(tmp_path)
+    assert installed_version()                    # the package doing the enforcing
+    assert store_pack_version(tmp_path)           # the vocabulary being enforced
 
 
 def test_rust_detection_writes_config_the_strict_reader_accepts(tmp_path):

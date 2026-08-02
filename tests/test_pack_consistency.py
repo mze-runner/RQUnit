@@ -84,3 +84,31 @@ def test_field_segment_charset_matches_the_schema():
 def test_grammar_extension_did_not_loosen_the_malformed_classes(token):
     _, errors = extract(token)
     assert errors, f"{token} must remain malformed"
+
+
+def test_spec_version_matches_the_specification_status_line():
+    """The pack pin records the SPEC version, so that constant must be the one
+    the specification actually announces. Two version numbers for one thing is
+    how a store ends up pinned to a vocabulary that was never published — which
+    is exactly what happened while the pin recorded the PACKAGE version and the
+    two had silently drifted apart by one minor."""
+    import re
+
+    from rqunit.schemas import SPEC_VERSION
+
+    spec = (Path(__file__).parent.parent / "docs" / "ru-framework-spec.md").read_text()
+    status = spec.split("\n", 3)[2]                     # the **Status:** line
+    announced = re.search(r"v(\d+\.\d+\.\d+)", status)
+    assert announced, f"no version in the status line: {status[:80]}"
+    assert announced.group(1) == SPEC_VERSION, (
+        f"specification announces v{announced.group(1)}, schemas.SPEC_VERSION is "
+        f"{SPEC_VERSION} — bump both in the same change")
+
+
+def test_tool_and_spec_versions_are_allowed_to_differ():
+    """Not an accident to be corrected: a tool fix changes no vocabulary, and
+    forcing a spec revision for one would make consumers re-read a document
+    that did not change."""
+    from rqunit.schemas import SPEC_VERSION, installed_version
+
+    assert SPEC_VERSION and installed_version()          # both exist, independently

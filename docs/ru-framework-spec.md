@@ -32,7 +32,7 @@ reference-token grammar gains `{endpoint:<id>.<direction>[.<field>]}`; §5.9,
 formats §2 and §13. **Consumers MUST act:** every endpoint declares both
 directions, and any `success_status` key moves into `outbound.status`;
 v0.12.0: the store carries a pack pin —
-`spec/framework/pack.yaml` records the pack version a store was authored
+`spec/framework/pack.yaml` records the specification version a store was authored
 against, and JSON Schemas move out of `spec/framework/` into the tool, so a
 store is validated by the schemas of the version enforcing it; §12.1, formats
 §8. Consumers scaffolded by an earlier version: nothing to do — an unpinned
@@ -569,7 +569,7 @@ Dashboards render computed status only. No manual status field exists — includ
 
 ```
 spec/
-  framework/pack.yaml                  # pack version this store was authored against
+  framework/pack.yaml                  # SPEC version this store was authored against
   framework/coverage.policy.yaml       # verification-depth policy (L21, §6.7)
   framework/tags.yaml                  # controlled tag vocabulary (L10)
   framework/actors.yaml                # controlled actor registry (L12)

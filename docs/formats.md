@@ -203,8 +203,16 @@ vocabularies:
 scaffolded and thereafter edited only by a deliberate upgrade:
 
 ```yaml
-pack: "0.13.0"
+pack: "0.14.0"
 ```
+
+It records the **specification** version — the vocabulary the store's manifests
+and RUs are written in — not the tool version. The two move independently on
+purpose: a tool fix (a crash, a message) changes no vocabulary, and forcing a
+spec revision for one would make every consumer re-read a document that did not
+change. `rqunit` reports both, as `framework_version` (this pin) and
+`tool_version` (the package doing the enforcing), and they are expected to
+differ.
 
 It records the pack version the store was **authored against**, which is not
 necessarily the version enforcing it today; the pin is reported, never

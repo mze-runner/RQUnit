@@ -52,8 +52,19 @@ def store_root(start: Path | None = None) -> Path:
 repo_root = store_root
 
 
+# The SPECIFICATION version this build implements — the vocabulary a store is
+# authored against. Deliberately NOT the package version: a tool fix (a crash,
+# a message) changes no vocabulary, and forcing a spec revision for one would
+# make consumers re-read a document that did not change. The adapter contract
+# already works this way (`contract_version`), for the same reason.
+#
+# A meta-test ties this to the status line in docs/ru-framework-spec.md; the two
+# move together or the build says so.
+SPEC_VERSION = "0.14.0"
+
+
 def installed_version() -> str:
-    """The pack version of the tool doing the enforcing."""
+    """The version of the TOOL doing the enforcing (the installed package)."""
     try:
         return importlib.metadata.version("rqunit")
     except importlib.metadata.PackageNotFoundError:
@@ -61,18 +72,18 @@ def installed_version() -> str:
 
 
 def store_pack_version(root: Path) -> str:
-    """The pack version a store was authored against, from
+    """The SPEC version a store was authored against, from
     ``spec/framework/pack.yaml`` (written by ``rqunit init``).
 
-    Falls back to the installed version: a store predating the pin is not
-    broken, it is merely unpinned, and reporting the enforcing version is a
+    Falls back to this build's ``SPEC_VERSION``: a store predating the pin is
+    not broken, it is merely unpinned, and reporting the enforcing version is a
     better answer than reporting nothing."""
     path = Path(root) / "spec" / "framework" / "pack.yaml"
     if path.is_file():
         pinned = (yaml.safe_load(path.read_text()) or {}).get("pack")
         if isinstance(pinned, str) and pinned:
             return pinned
-    return installed_version()
+    return SPEC_VERSION
 
 
 @functools.lru_cache(maxsize=None)
