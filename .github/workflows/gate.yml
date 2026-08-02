@@ -59,6 +59,17 @@ jobs:
       - name: Fixture store — doctor
         run: uv run rqunit doctor --store fixtures/store/valid
 
+      # The demo is the only place the whole vocabulary is exercised together,
+      # and a showcase nothing runs is wrong within one revision.
+      - name: Demo store — lint
+        run: uv run rqunit lint --store demo/order-management --format text
+
+      - name: Demo store — check
+        run: uv run rqunit check --store demo/order-management --format text
+
+      - name: Demo store — conformance
+        run: uv run rqunit conformance --store demo/order-management --format text
+
   adapter:
     name: adapter (rust)
     runs-on: ubuntu-latest

@@ -1,0 +1,91 @@
+service: service-orders
+version: "1.0"
+
+defaults:
+  unknown_fields: reject
+
+problem_types:
+  conflict:   { uri: "urn:problem:conflict",   status: 409, title: "Conflict" }
+  not-found:  { uri: "urn:problem:not-found",  status: 404, title: "Not Found" }
+  validation: { uri: "urn:problem:validation", status: 400, title: "Validation failed" }
+
+audit_common: [event, timestamp, actor, ip_address]
+
+audit_events:
+  - code: orders.cancelled
+    ru: FEAT-order-cancellation
+    retention: "{value:retention.audit_days}"
+    fields:
+      - { name: order_id, presence: always, type: string }
+      - { name: reason,   presence: always, type: string, vocab: cancellation_reasons }
+  - code: orders.refund_settled
+    ru: FEAT-order-cancellation
+    retention: "{value:retention.audit_days}"
+    fields:
+      - { name: order_id,      presence: always, type: string }
+      - { name: settled_cents, presence: always, type: integer }
+
+endpoints:
+  - id: cancel_order
+    method: DELETE
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    emits:     [conflict, not-found, validation]   # what the caller can be told
+    audits:    [orders.cancelled]                  # what is written down
+    publishes: [order_cancelled]                   # what subscribers receive
+    inbound:
+      fields:
+        - { name: order_id, in: path, presence: required, type: string }
+        - { name: reason,   in: body, presence: required, type: string,
+            vocab: cancellation_reasons }
+        - { name: refund_cents, presence: forbidden,
+            note: the client sent this once; we work it out }
+    outbound: { status: 204, fields: none }
+
+  - id: get_order
+    method: GET
+    path: "/api/v1/orders/{order_id}"
+    access: protected
+    ru: FEAT-order-cancellation
+    emits: [not-found]
+    inbound:
+      fields:
+        - { name: order_id, in: path, presence: required, type: string }
+    outbound:
+      status: 200
+      fields:
+        - { name: order_id,        presence: always, type: string }
+        - { name: state,           presence: always, type: string }
+        - { name: cancellation,    presence: always, type: object, nullable: true }
+        - { name: cancellation.at, presence: always, type: string }
+        - { name: cost_basis,      presence: never, note: internal pricing never leaves }
+
+  - id: issue_session
+    method: POST
+    path: /api/v1/sessions
+    access: public
+    ru: FEAT-order-cancellation
+    emits: [validation]
+    inbound:
+      fields:
+        - { name: email, presence: required, type: string, max_chars: 254 }
+    outbound:
+      status: 201
+      fields:
+        # the census stops at the string; `artifact:` says what is inside it
+        - { name: access_token, presence: always, type: string, artifact: access-token }
+
+messages:
+  - id: order_cancelled
+    subject: orders.cancelled
+    direction: outbound
+    payload: "wire-contracts::OrderCancelled"
+    ru: FEAT-order-cancellation
+  - id: refund_settled
+    subject: billing.refund_settled
+    direction: inbound
+    payload: "wire-contracts::RefundSettled"
+    ru: FEAT-order-cancellation
+    external: true                                 # billing lives outside this store
+    audits: [orders.refund_settled]                # handling it records evidence

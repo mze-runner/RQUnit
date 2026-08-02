@@ -14,6 +14,7 @@ from pathlib import Path
 import yaml
 
 from ..parser.ears import EarsParseError, Statement, parse
+from ..parser.tokens import extract
 from ..store import Ru, Store
 from ..violations import Violation
 
@@ -90,3 +91,16 @@ def reachable_manifests(store: Store, ru: Ru) -> list:
     if "shared" in manifests:
         out.append(manifests["shared"])
     return out
+
+
+def prose(text: str) -> str:
+    """The statement with every valid reference-token span blanked.
+
+    A token is a manifest identifier the author REFERENCED, not words they
+    chose, so prose-scanning lints must not read inside one. Malformed tokens
+    stay visible: they are L15's class, and hiding them would hide the defect.
+    """
+    tokens, _ = extract(text)
+    for token in sorted(tokens, key=lambda t: -t.start):
+        text = text[:token.start] + " " * len(token.raw) + text[token.start + len(token.raw):]
+    return text

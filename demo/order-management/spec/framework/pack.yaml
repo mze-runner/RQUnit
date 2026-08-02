@@ -1,0 +1,3 @@
+# The RQUnit pack version this store was authored against. Tooling reports it;
+# the store is not rewritten when the tool moves ahead of it.
+pack: "0.15.0"

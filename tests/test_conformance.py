@@ -460,3 +460,21 @@ def test_an_unexamined_audit_family_is_reported(store):
                      "services": {"service-orders": {"endpoints": []}}}])
     families = {v.artifact.split(":")[1] for v in uncovered_families(store, merged)}
     assert "audit_events" in families
+
+
+def test_cf7_reads_negative_presence_the_right_way_round(store):
+    """A `never`/`forbidden` field is declared precisely so it is NOT there.
+    Reporting its absence inverts the claim — and checking only for absence
+    misses the case that matters: the field appearing anyway."""
+    from rqunit.conformance import merge
+
+    # the valid store's cancel_order inbound declares `reason` (required)
+    absent_negative = _artifact(endpoints=[_endpoint(
+        inbound={"type_name": "CancelParams", "fields": ["id", "reason"]})])
+    assert "CF7" not in _rules(reconcile(store, merge([absent_negative])))
+
+    # now the code carries something the census forbids
+    leaking = _artifact(endpoints=[_endpoint(
+        inbound={"type_name": "CancelParams", "fields": ["id", "reason", "password"]})])
+    cf7 = [v for v in reconcile(store, merge([leaking])) if v.rule == "CF7"]
+    assert cf7 and "does not declare" in cf7[0].message

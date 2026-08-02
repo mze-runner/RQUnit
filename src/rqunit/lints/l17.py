@@ -2,19 +2,25 @@
 containing a literal HTTP path, subject, wire-type name, or a scalar equal to
 a reachable manifest value gets an error WITH the reference suggestion.
 Exact-match only in v1 (donor note): fuzzy matching destroys trust; numeric
-matches are word-bounded."""
+matches are word-bounded.
+
+Scanning covers authored PROSE only — reference-token spans are masked first,
+the same fix L2 received in v0.10.4. Without it, an RU that referenced a fact
+CORRECTLY was told to reference it: `{audit:orders.cancelled}` tripped the
+literal-subject scan whenever an audit code and a message subject shared a
+string, which is an ordinary thing for them to do."""
 
 import re
 
 from ..violations import Violation
-from .base import lint, manifest_value_leaves, reachable_manifests, rel
+from .base import lint, manifest_value_leaves, prose, reachable_manifests, rel
 
 
 @lint("L17")
 def run(store):
     out = []
     for ru in store.rus():
-        statement = ru.raw["statement"]
+        statement = prose(ru.raw["statement"])
         for manifest in reachable_manifests(store, ru):
             raw = manifest.raw
             for e in raw.get("endpoints") or []:

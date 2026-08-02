@@ -1,0 +1,26 @@
+{
+  "contract_version": 1,
+  "generated_by": "demo-probe 0.1.0 (hand-written: the artifact is a committed file by design, so a demo can ship one without a toolchain)",
+  "covers": ["endpoints", "messages", "audit_events"],
+  "services": {
+    "service-orders": {
+      "endpoints": [
+        { "method": "DELETE", "path": "/api/v1/orders/:order_id", "access": "protected",
+          "inbound": { "type_name": "CancelRequest", "fields": ["order_id", "reason"] } },
+        { "method": "GET", "path": "/api/v1/orders/:order_id", "access": "protected",
+          "outbound": { "type_name": "OrderView",
+                        "fields": ["order_id", "state", "cancellation", "cancellation.at"] } },
+        { "method": "POST", "path": "/api/v1/sessions", "access": "public",
+          "inbound": { "type_name": "SessionRequest", "fields": ["email"] },
+          "outbound": { "type_name": "SessionResponse", "fields": ["access_token"] } }
+      ],
+      "messages": [
+        { "subject": "orders.cancelled", "direction": "outbound" }
+      ],
+      "audit_events": [
+        { "code": "orders.cancelled" },
+        { "code": "orders.refund_settled" }
+      ]
+    }
+  }
+}

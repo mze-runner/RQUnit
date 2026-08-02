@@ -21,7 +21,7 @@ from ..parser.tokens import extract
 from ..violations import Violation
 from .base import lint, rel
 
-MECHANICAL = ("contract", "test", "model")
+MECHANICAL = ("test", "model")
 
 # Kinds whose referents carry a declared field census. A bare `{endpoint:id}`
 # does NOT bind a shape — naming a surface is not describing what it carries —
@@ -75,7 +75,8 @@ def violation_reason(rule: dict, entries: list, shape_bound: bool = True) -> str
     mechanical = [t for t in types if t in MECHANICAL]
     if "min_mechanical" in require and len(mechanical) < require["min_mechanical"]:
         return (f"requires ≥{require['min_mechanical']} mechanical verifications "
-                f"(contract|test|model), found {len(mechanical)} — human never satisfies a mechanical minimum")
+                f"(test|model), found {len(mechanical)} — human never satisfies a "
+                "mechanical minimum")
     if "types_all" in require:
         missing = [t for t in require["types_all"] if t not in types]
         if missing:

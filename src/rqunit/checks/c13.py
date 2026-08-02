@@ -54,7 +54,10 @@ def run(store):
                     slot = e.get(direction)
                     if not isinstance(slot, dict):
                         continue
-                    for f in slot.get("fields") or []:
+                    fields = slot.get("fields")
+                    # `fields: none` is a declaration, not a list — iterating the
+                    # string would walk its characters.
+                    for f in fields if isinstance(fields, list) else []:
                         name = f.get("name") or ""
                         # Each dotted segment is a wire name in its own right.
                         for segment in name.split("."):

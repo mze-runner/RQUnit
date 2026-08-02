@@ -1,0 +1,29 @@
+id: RU-0004
+statement: 'If a request supplies {endpoint:cancel_order.inbound.refund_cents}, then
+  the system shall reject it with {problem:validation}.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-cancellation
+source_ref: INT-0001#L20-21
+rationale_ref: ADR-refund-amount-is-server-derived
+verification:
+- type: test
+  ref: TODO(client-supplied refund amount is rejected)
+- type: test
+  ref: 'TODO(architecture test: no handler reads a client refund field)'
+scope:
+  owns:
+  - service-orders/fulfilment
+  must_not_touch:
+  - service-billing
+tags:
+- orders
+- security
+link_fingerprints:
+  ADR-refund-amount-is-server-derived: sha256:0372b69b4c43c1eacff00bc315fbff3be15a8e603f2e1b303539e209c14b84c5
+gate1_stamp:
+  hash: sha256:ee29ac0beb06c0bc0e3fb83e65dc90145b1fa4d48f9681b69c760b050e7b273c
+  by: demo-operator
+  at: '2026-08-02T05:41:17+00:00'

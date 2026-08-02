@@ -259,15 +259,39 @@ def reconcile(store: Store, actual: dict, path: Path | None = None,
     return out
 
 
+NEGATIVE_PRESENCE = {"never", "forbidden"}
+
+
 def _declared_names(slot) -> set[str] | None:
-    """Field names a manifest census declares, or None when the direction is
-    `none` or absent — nothing to compare against."""
+    """Every field name a census declares, positive or negative."""
     if not isinstance(slot, dict):
         return None
     fields = slot.get("fields")
     if not isinstance(fields, list):
         return None
     return {f.get("name") for f in fields if f.get("name")}
+
+
+def _split_by_presence(slot) -> tuple[set[str], set[str]] | None:
+    """(expected, must-be-absent).
+
+    A `never` or `forbidden` field is declared precisely so that it is NOT
+    there — treating its absence as a divergence inverts the claim, and
+    checking only for absence misses the case that matters: the field
+    appearing anyway, which is the leak the declaration exists to forbid.
+    """
+    if not isinstance(slot, dict):
+        return None
+    fields = slot.get("fields")
+    if not isinstance(fields, list):
+        return None
+    expected, forbidden = set(), set()
+    for field in fields:
+        name = field.get("name")
+        if not name:
+            continue
+        (forbidden if field.get("presence") in NEGATIVE_PRESENCE else expected).add(name)
+    return expected, forbidden
 
 
 def _reconcile_shapes(emit, service: str, target: str, entry: dict, observed: dict) -> None:
@@ -282,18 +306,26 @@ def _reconcile_shapes(emit, service: str, target: str, entry: dict, observed: di
         seen = observed.get(direction)
         if not isinstance(seen, dict) or not isinstance(seen.get("fields"), list):
             continue
-        declared = _declared_names(entry.get(direction))
-        if declared is None:
+        split = _split_by_presence(entry.get(direction))
+        if split is None:
             continue
+        expected, forbidden = split
         code_fields = set(seen["fields"])
-        for name in sorted(declared - code_fields):
+        type_name = seen.get("type_name") or "type"
+        for name in sorted(expected - code_fields):
             emit("CF7", service, target,
                  f"{target} declares `{direction}` field '{name}', which the code's "
-                 f"{seen.get('type_name') or 'type'} does not carry")
-        for name in sorted(code_fields - declared):
+                 f"{type_name} does not carry")
+        # The claim worth checking: a field declared never/forbidden that the
+        # code carries anyway. That is the leak, or the mass-assignment hole.
+        for name in sorted(forbidden & code_fields):
+            emit("CF7", service, target,
+                 f"{target} declares `{direction}` field '{name}' must not appear, but the "
+                 f"code's {type_name} carries it")
+        for name in sorted(code_fields - expected - forbidden):
             emit("CF7", service, target,
                  f"{target} carries `{direction}` field '{name}' in the code's "
-                 f"{seen.get('type_name') or 'type'}, which the manifest does not declare")
+                 f"{type_name}, which the manifest does not declare")
 
 
 def _same_type_divergences(emit, service: str, declared: dict, served: dict) -> None:
