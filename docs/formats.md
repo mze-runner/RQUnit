@@ -382,7 +382,7 @@ prefix = "/api/v1/orders"
 access = "protected"
 
 [stacks.rust.messages]
-subject_sources = ["wire-contracts/src"]    # where subject constants are declared
+subject_sources = ["wire/src"]              # where subject constants are declared
 publisher_sources = ["adapters/nats/src"]   # code that references them
 ```
 

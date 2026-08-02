@@ -83,7 +83,7 @@ service = ""
 # Async surface: where subject constants are declared, and which sources
 # publish them. Naming a subject is not the same as emitting one.
 # [stacks.rust.messages]
-# subject_sources = ["wire-contracts/src"]
+# subject_sources = ["wire/src"]
 # publisher_sources = ["adapters/nats/src"]
 """
 
