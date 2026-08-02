@@ -1,11 +1,12 @@
+# Verbatim duplicate of RU-0001 -> warning, not error.
 id: RU-0003
 statement: >
-  When a user calls {endpoint:cancel_order}, the system shall halt fulfilment for the order.
+  When a user calls {endpoint:cancel_order}, the system shall halt fulfilment for the order within 5 seconds.
 syntax: ears
 status: active
 source_ref: INT-0001#L1-2
 verification:
-  - { type: test, ref: TODO(base census not yet proved) }
+  - { type: test, ref: TODO(not yet proved) }
 scope:
   owns: [service-orders/fulfilment]
 tags: [orders]

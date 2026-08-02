@@ -1,0 +1,14 @@
+# DECOMPOSITION, and it must pass. A dozen RUs may hang off one endpoint:
+# §2.1 makes each acceptance criterion exactly one RU, so sharing a trigger
+# is what a well-decomposed feature looks like — not a smell.
+id: RU-0003
+statement: >
+  When a user calls {endpoint:cancel_order}, the system shall record one audit entry.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - { type: test, ref: TODO(not yet proved) }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

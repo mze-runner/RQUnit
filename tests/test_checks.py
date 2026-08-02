@@ -44,6 +44,21 @@ def test_c1_distinguishes_conflict_from_duplicate():
     assert severities == {"error", "warning"}  # reordered conflict + verbatim duplicate
 
 
+def test_c1_lets_decomposition_through():
+    """Sharing a trigger is the normal case, not a smell: §2.1 makes each
+    acceptance criterion exactly one RU, so a dozen may hang off one endpoint.
+    Until v0.14 C1 read "different response" as "conflict" and reported every
+    one of them."""
+    assert _run("C1", "pass") == []
+
+
+def test_c1_names_the_two_things_that_actually_contradict():
+    messages = {v.artifact: v.message for v in _run("C1", "fail")}
+    assert "two bounds" in messages["RU-0002"]        # one obligation, two numbers
+    assert "denies" in messages["RU-0004"]            # negation
+    assert "duplicate" in messages["RU-0003"]
+
+
 def test_c1_documented_paraphrase_miss_stays_a_miss():
     # The pass store IS the donor-mandated paraphrase pair — asserting the known
     # limitation keeps the check honest. If this ever fails, C1 got smarter:

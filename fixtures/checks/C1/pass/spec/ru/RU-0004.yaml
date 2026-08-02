@@ -1,6 +1,6 @@
-id: RU-0001
+id: RU-0004
 statement: >
-  When a user calls {endpoint:cancel_order}, the system shall halt fulfilment for the order within 5 seconds.
+  When a user calls {endpoint:cancel_order}, the system shall notify the billing service.
 syntax: ears
 status: active
 source_ref: INT-0001#L1-2

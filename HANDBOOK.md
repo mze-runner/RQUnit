@@ -285,7 +285,7 @@ with `--strict`) · **finding** (report-only, never affects exit).
 
 | Code | Severity | What it enforces |
 |---|---|---|
-| C1 | error / warning | two active RUs with the same normalized trigger (lemmatized word-set — catches reorderings, documented to miss paraphrases): different responses = conflict (error), identical = duplicate (warning) |
+| C1 | error / warning | two active RUs on one normalized trigger that CONTRADICT: same obligation with two bounds, or one denying what the other asserts (error); identical responses = duplicate (warning). Sharing a trigger is decomposition, not a smell — a dozen RUs may hang off one endpoint. Semantic contradictions with neither signal are a documented miss |
 | C2 | warning | `scope.owns` overlap between RUs of different features with disjoint tags — unrelated domains sharing ownership; aggregated as ONE warning per unordered feature pair (with the RU-pair count), since the feature is Gate 1's attention unit |
 | C3 | warning | one RU's `must_not_touch` intersects another's `owns` — the pair can't be co-assigned without H1 blocking the work |
 | C4 | error | method+path unique per service (templates normalized: `{id}`≡`{uid}`); WS upgrade paths included |
