@@ -55,6 +55,9 @@ RUST_CONFIG = """\
 # because a typo silently ignored would read as configured.
 
 [stacks.rust]
+
+# ---- tracing and lint sweeps -------------------------------------------------
+
 # Cargo.toml of every crate whose tests/ participate in verifies-tracing.
 trace_scan = ["**/Cargo.toml"]
 # Git pathspecs for the L14 new-test diff gate.
@@ -63,16 +66,23 @@ trace_diff = ["*/tests/*.rs"]
 literal_scan = ["**/tests"]
 # Crate receiving generated constants and statechart conformance suites.
 conformance_crate = "spec-conformance-tests"
+
+# ---- conformance: what the extractor reads, and what it reports on -----------
+#
+# Everything below is a fact about THIS repository — not about Rust, and not
+# about any framework. That is why it is configuration: an extractor that
+# guessed would report a surface nobody declared, and the reconciler would
+# believe it. Leave a section out and that family is simply not examined, which
+# the report says out loud rather than passing quietly.
+
+# Manifest service slug the extractor reports on. It does not guess this.
+service = ""
 # Where this stack's extractor writes actual-surface.json ("" disables
 # conformance reconciliation until an extractor is wired).
 actual_surface = "spec-conformance-tests/actual-surface.json"
-# Manifest service slug the extractor reports on. It does not guess this.
-service = ""
 
 # HTTP composition: which router function, in which file, mounts at what prefix
-# under which access tier. This is a fact about THIS repository — not about
-# Rust and not about a web framework — which is why it is configuration and not
-# adapter code. Add one table per mounted router.
+# under which access tier. One table per mounted router.
 #
 # [[stacks.rust.routers]]
 # file = "http/src/routes/mod.rs"
@@ -82,9 +92,18 @@ service = ""
 
 # Async surface: where subject constants are declared, and which sources
 # publish them. Naming a subject is not the same as emitting one.
+#
 # [stacks.rust.messages]
 # subject_sources = ["wire/src"]
 # publisher_sources = ["adapters/nats/src"]
+
+# Audit: where audit-code constants are declared, and which sources record
+# them. Declaring a code is not recording one — which is exactly what CF10
+# checks, and it can only check it if you point it at both.
+#
+# [stacks.rust.audit]
+# code_sources = ["telemetry/src"]
+# emitter_sources = ["application/src"]
 """
 
 BARE_CONFIG = """\

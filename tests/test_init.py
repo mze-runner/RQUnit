@@ -102,3 +102,33 @@ def test_existing_config_is_never_overwritten(tmp_path):
     (tmp_path / "rqunit.toml").write_text(original)
     assert _init(tmp_path).exit_code == 0
     assert (tmp_path / "rqunit.toml").read_text() == original
+
+
+def test_the_scaffold_mentions_every_key_the_reader_accepts(tmp_path):
+    """`audit` was accepted by config.py, read by the Rust probe, and depended
+    on by CF10/CF11 — and absent from the scaffold, so a consumer had no way to
+    discover it existed. A key you cannot find in the file you configure is a
+    capability that silently does nothing."""
+    from dataclasses import fields
+
+    from rqunit.config import RustStack
+
+    (tmp_path / "Cargo.toml").write_text('[package]\nname = "app"\n')
+    _init(tmp_path)
+    scaffold = (tmp_path / "rqunit.toml").read_text()
+    # The TOML forms, not a bare substring: "audit" appears in the prose that
+    # explains the block, so a substring check passes with the key deleted —
+    # a test that looks like proof and is not.
+    missing = [f.name for f in fields(RustStack)
+               if f"{f.name} =" not in scaffold
+               and f"[stacks.rust.{f.name}]" not in scaffold]
+    assert missing == [], f"accepted but undiscoverable: {', '.join(missing)}"
+
+
+def test_the_scaffold_it_writes_is_one_the_strict_reader_accepts(tmp_path):
+    """Unknown keys are errors, so a scaffold with a typo would make `init`
+    produce a store its own loader rejects."""
+    (tmp_path / "Cargo.toml").write_text('[package]\nname = "app"\n')
+    _init(tmp_path)
+    loaded = config.load(tmp_path)
+    assert loaded.rust.trace_scan and loaded.rust.conformance_crate
