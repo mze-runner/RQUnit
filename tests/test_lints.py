@@ -14,7 +14,7 @@ from rqunit.store import Store
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 LINTS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9",
          "L10", "L11", "L12", "L13", "L15", "L16", "L17", "L18",
-         "L19", "L20", "L21", "L22", "L24"]
+         "L19", "L20", "L21", "L22", "L24", "L25"]
 # L23 is deliberately absent and never to be issued: the shape-reference case it
 # was reserved for is already L15's ("every manifest reference resolves"), and a
 # field of a declared census IS a manifest reference. L15 carries the sharper
@@ -184,3 +184,26 @@ def test_l21_shape_requirement_names_the_forms_that_satisfy_it():
     assert violation_reason(rule, [{"type": "test", "ref": "x"}], shape_bound=True) is None
     reason = violation_reason(rule, [{"type": "test", "ref": "x"}], shape_bound=False)
     assert "{endpoint:<id>.<direction>" in reason and "{audit:<code>}" in reason
+
+
+def test_l25_catches_a_subject_naming_nothing():
+    """The EARS parser admits `the system` or any hyphenated lowercase word, by
+    shape alone — so a typo in the subject was silent until now."""
+    violations = _run("L25", "fail")
+    typo = next(v for v in violations if v.artifact == "RU-0001")
+    assert "has no manifest" in typo.message and "typo" in typo.suggestion
+
+
+def test_l25_catches_the_misfiled_ru():
+    """Two claims about which service governs an RU — the subject and
+    scope.owns — coexisted with nothing reconciling them. §5.3 forbade this
+    already; it had no teeth."""
+    misfiled = next(v for v in _run("L25", "fail") if v.artifact == "RU-0002")
+    assert "does not govern" in misfiled.message
+    assert "read coupling, not governance" in misfiled.suggestion
+
+
+def test_l25_leaves_the_system_alone():
+    """`the system` claims no service, which is what makes the distinction
+    between store-wide and service-scoped behaviour mean anything."""
+    assert _run("L25", "pass") == []

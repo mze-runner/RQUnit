@@ -487,6 +487,7 @@ This section is the framework. Without it, the rest of this document is prose.
 - L20: every `link_fingerprints` entry matches the current fingerprint of its target (§7.3); mismatch → link suspect, RU enters the suspect queue (finding-class, surfaced at Gate 1, not a red build).
 - L21: every RU satisfies the first matching rule in `coverage.policy.yaml` (§6.7); blocking at activation, warning + burn-down for actives after policy tightening.
 - L22: every `planned: true` surface entry's `ru:` link is not-done — for an RU link, computed status ≠ done; for a FEAT link, no member RU computes done (§5.8). Violation → blocking: either the surface shipped without its Gate 1 flip, or verifications pass against a surface that supposedly does not exist.
+- L25: the shall-clause subject resolves to a declared service manifest, and agrees with the service the RU's `scope` owns. `the system` claims no service and is exempt, which is what keeps store-wide and service-scoped behaviour distinguishable. Two claims about which service governs an RU — the subject and `scope.owns` — previously coexisted with nothing reconciling them, so a misfiled RU passed every gate; §5.3's rule that referencing is read coupling rather than governance had no enforcement until this.
 
 ### 10.2 Consistency checks (CI, blocking)
 - C1: two active RUs, same normalized trigger (actor–verb–object), conflicting responses → error; resolve via supersession. Catches reorderings, not paraphrases — analyst dedupe (§8.1) mitigates; supersession repairs the rest.

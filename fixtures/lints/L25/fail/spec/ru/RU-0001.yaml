@@ -1,0 +1,13 @@
+# A typo in the subject has been silent since the parser was written: the EARS
+# grammar admits any hyphenated lowercase word, by shape alone.
+id: RU-0001
+statement: >
+  servcie-orders shall halt fulfilment activity within 5 seconds.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+  - { type: test, ref: TODO(halt latency not yet proved) }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

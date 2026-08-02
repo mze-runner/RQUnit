@@ -64,7 +64,7 @@ at the repo root — the tools carry no consumer paths in code.
 | Command | Purpose | Typical moment |
 |---|---|---|
 | `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`. Reports the stack it detected; refuses a non-empty store | once, at adoption |
-| `rqunit lint [--only L3]` | lints L1–L24 | after any spec/ edit |
+| `rqunit lint [--only L3]` | lints L1–L25 | after any spec/ edit |
 | `rqunit check [--only C4]` | consistency C1–C13 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
@@ -284,6 +284,7 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | L21 | draft: error · active: warning | coverage policy (`coverage.policy.yaml`, first match wins): constitutional needs ≥2 mechanical verifications, `security` needs contract+test, `audit` needs a contract, default ≥1. Under-covered drafts cannot activate; actives are burn-down |
 | L22 | error | a `planned: true` surface must be governed by a not-done RU (FEAT link = no member done) — either it shipped without its Gate 1 flip, or its verifications lie |
 | L24 | finding | a bound literal that restates a registered `values` entry — reference it instead; `finding` because two numbers can coincide innocently |
+| L25 | error | the shall-clause subject names a declared service, and the same one the RU's scope owns. `the system` claims no service and is exempt |
 
 ### Consistency checks (`rqunit check`)
 
