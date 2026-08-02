@@ -23,11 +23,19 @@ FIXTURES = Path(__file__).parent.parent / "fixtures"
 VALID = FIXTURES / "store" / "valid"
 
 
-def _artifact(endpoints=None, messages=None, service="service-orders") -> dict:
+def _artifact(endpoints=None, messages=None, audit=None, service="service-orders") -> dict:
+    """A whole-stack artifact: no `covers`, so it claims to have examined
+    everything — which means it must report the audit events too, or its
+    silence reads as 'the code records nothing' (CF10)."""
     return {
         "contract_version": 1,
         "generated_by": "test-adapter 0.0.0",
-        "services": {service: {"endpoints": endpoints or [], "messages": messages or []}},
+        "services": {service: {
+            "endpoints": endpoints or [],
+            "messages": messages or [],
+            "audit_events": [{"code": c} for c in (audit if audit is not None
+                                                   else ["orders.cancelled"])],
+        }},
     }
 
 
@@ -383,11 +391,12 @@ def test_the_report_says_how_much_of_the_boundary_extraction_reached(tmp_path):
     artifact = tmp_path / "a.json"
     artifact.write_text(json.dumps({
         "contract_version": 1, "generated_by": "probe 0.1",
-        "covers": ["endpoints", "messages", "channels"],
+        "covers": ["endpoints", "messages", "channels", "audit_events"],
         "services": {"service-orders": {"endpoints": [
             {"method": "DELETE", "path": "/api/v1/orders/:id", "access": "protected",
              "inbound": {"type_name": "CancelParams", "fields": ["id", "reason"]}}],
-            "messages": [{"subject": "orders.cancelled", "direction": "outbound"}]}}}))
+            "messages": [{"subject": "orders.cancelled", "direction": "outbound"}],
+            "audit_events": [{"code": "orders.cancelled"}]}}}))
     runner = CliRunner()
     out = runner.invoke(conformance_main, ["--store", str(VALID), "--artifact", str(artifact)])
     assert out.exit_code == 0, out.output
@@ -398,3 +407,56 @@ def test_the_report_says_how_much_of_the_boundary_extraction_reached(tmp_path):
     text = runner.invoke(conformance_main, ["--store", str(VALID), "--artifact", str(artifact),
                                             "--format", "text"])
     assert "extractor-confirmed" in text.output
+
+
+# ------------------------------------------------- audit conformance (CF10/11)
+
+def _audit_artifact(codes, service="service-orders"):
+    return {"contract_version": 1, "generated_by": "audit-probe 0.1",
+            "covers": ["audit_events"],
+            "services": {service: {"audit_events": [{"code": c} for c in codes]}}}
+
+
+def test_cf10_catches_the_audit_event_nobody_records(store):
+    """Until v0.14 a service could declare twenty audit events, emit none, and
+    pass every gate: `emits` was checked for resolvability, never for existence
+    in code."""
+    from rqunit.conformance import merge
+
+    out = reconcile(store, merge([_audit_artifact([])]))
+    cf10 = [v for v in out if v.rule == "CF10"]
+    assert cf10 and "never recorded by the code" in cf10[0].message
+    assert "RU-0002" in cf10[0].suggestion          # names the constitutional requirement
+
+
+def test_cf11_catches_evidence_nobody_declared(store):
+    """An undeclared audit record has no retention rule and no forbidden-field
+    check — the two things that make it evidence rather than a log line."""
+    from rqunit.conformance import merge
+
+    out = reconcile(store, merge([_audit_artifact(["orders.cancelled", "orders.ghost"])]))
+    cf11 = [v for v in out if v.rule == "CF11"]
+    assert cf11 and "orders.ghost" in cf11[0].message
+    assert not [v for v in out if v.rule == "CF10"]  # the declared one WAS recorded
+
+
+def test_audit_reconciliation_respects_coverage(store):
+    """A probe that never looked at audit must not have its silence read as
+    'the code records nothing' — the same rule that protects every family."""
+    from rqunit.conformance import merge
+
+    http_only = {"contract_version": 1, "generated_by": "http-probe 0.1",
+                 "covers": ["endpoints"], "services": {"service-orders": {"endpoints": []}}}
+    assert "CF10" not in _rules(reconcile(store, merge([http_only])))
+
+
+def test_an_unexamined_audit_family_is_reported(store):
+    """`covers` alone would trade a false error for silence. CF9 is the half
+    that keeps the unasked question visible."""
+    from rqunit.conformance import merge, uncovered_families
+
+    merged = merge([{"contract_version": 1, "generated_by": "http 0.1",
+                     "covers": ["endpoints", "messages", "channels"],
+                     "services": {"service-orders": {"endpoints": []}}}])
+    families = {v.artifact.split(":")[1] for v in uncovered_families(store, merged)}
+    assert "audit_events" in families

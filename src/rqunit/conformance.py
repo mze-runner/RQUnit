@@ -16,6 +16,8 @@ Divergence classes:
   CF7 the route matches, but its declared shape and the code's disagree
   CF8 two routes serve the same type while declaring different censuses
   CF9 a declared surface family that no probe examined
+  CF10 a declared audit event the code never emits
+  CF11 an audit code the code emits that no manifest declares
 
 Ratified exceptions live in the STORE, at
 `spec/framework/conformance-exceptions.yaml`, and downgrade a divergence to a
@@ -67,9 +69,15 @@ _SUGGESTION = {
     "CF9": "Run a probe that covers this family and commit its artifact, or remove the "
            "declaration. A family nobody examined is not a passing family — it is an unasked "
            "question, and a green run that never asked it is the failure this rule exists for.",
+    "CF10": "Emit the event, mark the governing RU not-done, or delete the declaration at Gate 1. "
+            "An audit event nobody records is an evidence trail that does not exist — and "
+            "constitutional RU-0002 requires one for every state-changing action.",
+    "CF11": "Declare it in `audit_events` at Gate 1 with its census and retention, or stop "
+            "emitting it. An undeclared audit record is evidence with no retention rule and no "
+            "forbidden-field check — the two things that make it evidence.",
 }
 
-FAMILIES = ("endpoints", "messages", "channels")
+FAMILIES = ("endpoints", "messages", "channels", "audit_events")
 
 # Field-level proof classes (§5.6). A manifest may exceed what an extractor can
 # see — that is how it carries target state — so what is UNPROVEN has to be
@@ -218,6 +226,20 @@ def reconcile(store: Store, actual: dict, path: Path | None = None,
                      f"endpoint {key[0]} {entry['path']} is served but no manifest declares it")
 
         _same_type_divergences(emit, service, declared, served)
+
+        # ---- audit events. A route exists in a table; an emission is a call
+        # site, so a probe proves the call site EXISTS and not that it runs.
+        # That limit is real and is reported through the proof classes, not
+        # papered over here.
+        if "audit_events" in covered:
+            emitted = {e["code"] for e in surface.get("audit_events") or []}
+            declared_codes = {e["code"] for e in manifest.raw.get("audit_events") or []}
+            for code in sorted(declared_codes - emitted):
+                emit("CF10", service, code,
+                     f"declared audit event '{code}' is never recorded by the code")
+            for code in sorted(emitted - declared_codes):
+                emit("CF11", service, code,
+                     f"the code records '{code}', which no manifest declares")
 
         # ---- messages (presence-based: adapters that cannot resolve direction omit it)
         if "messages" not in covered:

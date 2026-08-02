@@ -68,7 +68,7 @@ at the repo root — the tools carry no consumer paths in code.
 | `rqunit check [--only C4]` | consistency C1–C13 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
-| `rqunit conformance` | manifest ↔ code surfaces (CF1–CF9) — reads each stack's `actual-surface.json`; never runs an extractor | after changing routes/messages; every gate |
+| `rqunit conformance` | manifest ↔ code surfaces (CF1–CF11) — reads each stack's `actual-surface.json`; never runs an extractor | after changing routes/messages; every gate |
 | `rqunit doctor [--strict]` | structural health: lost RUs (id gaps), orphaned artifacts, dangling review records, a branch stale enough to make activation collide. Advisory — exit 0 unless `--strict` | after merges; before a Gate 1 sitting |
 | `rqunit report [--out F] [--format html\|json]` | a self-contained HTML snapshot for review audiences — coverage, status, verification completeness, Gate activity, burn-down, health. `--format json` emits the underlying data contract | before a steering review; on demand |
 | `rqunit activate batch --feature F --reviewer H` | Gate 1 activation (atomic, refuses on red, commits) | end of a Gate 1 sitting |
@@ -223,7 +223,7 @@ so traceability survives regeneration and is identical across languages.
 The same split runs through the whole conformance layer, in three pinned
 contracts: a stack's **extractor** reports what the code exposes
 (`actual-surface.json`), the framework diffs it against the manifests
-(CF1–CF9); the framework plans what must be checked (`test-plan.json`), a
+(CF1–CF11); the framework plans what must be checked (`test-plan.json`), a
 stack's **emitter** renders it; a stack's **scanner** finds tests and their
 `verifies` traces. Everything language-specific lives in those three
 per-stack pieces, and every judgment lives in the framework — so supporting
@@ -328,6 +328,8 @@ still matches the code.
 | CF7 | error | the route matches but its declared shape and the code's disagree — a field declared and not carried, or carried and not declared. Silent where the adapter reports no shape: omission means *not observed*, never *empty* |
 | CF8 | error | two routes serve the same request/response type while their manifests declare different censuses. The code's type is the shape identity the store deliberately does not carry |
 | CF9 | error | a covered service declares a surface family no probe examined. `covers` stops an unexamined family reading as an absent one; this stops it reading as a passing one |
+| CF10 | error | a declared audit event the code never records. A probe proves the emitting call site EXISTS — not that it runs; dead code and never-taken branches pass, which the proof classes report |
+| CF11 | error | an audit code the code records that no manifest declares — evidence with no retention rule and no forbidden-field check |
 
 **Ratified exceptions** live inside the artifact — `{rule, service, target,
 justification}`, the justification mandatory and substantive — and downgrade a
