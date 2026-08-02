@@ -97,6 +97,21 @@ $defs:
         type: string
         pattern: "^[a-z][a-z0-9_]*$"
         description: Manifest vocabulary constraining this field's values (C5).
+      artifact:
+        type: string
+        pattern: "^[a-z][a-z0-9-]*$"
+        description: >
+          This field's VALUE is a declared artifact (shared `artifacts`). The same
+          class of claim as `vocab` — one says which values are legal, the other
+          what structure the value has. It exists because a census stops at an
+          encoding boundary: a response says `access_token: string`, and the claims
+          are INSIDE that string, unreachable by any field list.
+      where:
+        enum: [claims, header]
+        description: >
+          Placement within a structured artifact (JWS vocabulary, and correct for
+          the population it describes). Meaningful on `artifacts` fields only; C11
+          rejects it on a surface census, where position is the field name.
       max_chars: { $ref: "#/$defs/bound" }
       min_chars: { $ref: "#/$defs/bound" }
       min:       { $ref: "#/$defs/bound" }
@@ -176,6 +191,32 @@ properties:
         description: >
           What an inbound surface does with a field it does not declare — itself a
           security requirement, and one the store had no way to state before.
+
+  artifacts:
+    type: object
+    description: >
+      Structures that are minted somewhere, carried as a VALUE inside payloads, and
+      validated elsewhere — credentials above all. It is a table rather than a
+      separate artifact kind because a manifest already IS a contract, and
+      two words for one idea cost every consumer an explanation. Promotion by
+      demonstrated reuse applies (§5.5), so an artifact used by one service stays in
+      that service's manifest.
+    propertyNames: { pattern: "^[a-z][a-z0-9-]*$" }
+    additionalProperties:
+      type: object
+      additionalProperties: false
+      required: [fields]
+      properties:
+        description: { type: string }
+        access_tier:
+          type: string
+          description: >
+            The credential tier whose surfaces consume this artifact ("surfaces of
+            this tier consume artifacts of this shape"). Membership is C5's check.
+        fields:
+          type: array
+          minItems: 1
+          items: { $ref: "#/$defs/field" }
 
   audit_forbidden:
     type: array

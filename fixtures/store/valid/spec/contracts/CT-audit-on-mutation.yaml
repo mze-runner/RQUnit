@@ -1,6 +1,0 @@
-id: CT-audit-on-mutation
-kind: claim-set
-description: Every mutating operation emits an audit envelope with actor and reason code.
-fields:
-  - { name: actor, where: claims, presence: always, type: string, note: acting principal }
-  - { name: reason_code, where: claims, presence: always, type: string }

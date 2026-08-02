@@ -11,7 +11,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-KINDS = ("value", "endpoint", "problem", "audit", "message", "channel", "frame", "vocab")
+KINDS = ("value", "endpoint", "problem", "audit", "message", "channel", "frame", "vocab",
+         "artifact")
 
 # Arity of the dotted key per kind (formats §2): single ident for most,
 # dotted for value/audit/endpoint, exactly channel.frame for frame.
@@ -28,6 +29,11 @@ _BODY = re.compile(
 
 # Every kind but `endpoint`: a dotted path of lowercase idents.
 _KEY_LOWER = re.compile(r"^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$")
+
+# v0.14 — an artifact key names the artifact, optionally one of its fields:
+#     <id>[.<field>]
+# Two segments at most: an artifact is a flat claim set, not a nested payload.
+_KEY_ARTIFACT = re.compile(r"^[a-z][a-z0-9-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)?$")
 
 # v0.13 — an endpoint key addresses a surface, optionally one of its two
 # directions, optionally a path INTO that direction's declared census:
@@ -108,7 +114,8 @@ def _parse_body(raw: str, start: int) -> Token | TokenError:
     qualifier, key = m.group("qualifier"), m.group("key")
     if qualifier and kind == "value":
         return TokenError("qualified-value", raw, start)
-    if not (_KEY_ENDPOINT if kind == "endpoint" else _KEY_LOWER).match(key):
+    pattern = {"endpoint": _KEY_ENDPOINT, "artifact": _KEY_ARTIFACT}.get(kind, _KEY_LOWER)
+    if not pattern.match(key):
         return TokenError("malformed", raw, start)
     parts = key.count(".") + 1
     if kind in _SINGLE and parts != 1:

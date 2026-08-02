@@ -81,6 +81,10 @@ def _census(store, manifest, where: str, direction: str, slot, default_policy) -
                 f"Use one of {sorted(_PRESENCE[direction])} here. Outbound `never` means "
                 "must-not-leak; inbound `forbidden` means must-be-rejected — different "
                 "claims, different tests (§5.9).")
+        if f.get("where"):
+            bad(f"field '{name}' declares `where: {f['where']}` on a surface census.",
+                "Drop it. `where` is placement inside an ENCODED artifact (JWS claims vs "
+                "header); on a payload the position IS the field name (§5.9).")
         if direction == "outbound" and f.get("in"):
             bad(f"field '{name}' declares `in: {f['in']}`, which describes where a CLIENT "
                 "supplies a value.",

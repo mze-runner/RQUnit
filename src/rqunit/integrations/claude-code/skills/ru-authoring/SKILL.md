@@ -71,12 +71,13 @@ the linter is the law (spec §5.9, formats §13).
   BANNED — a conflict is a blocking GAP.
 - Never fabricate a `contract`/`test`/`model` ref — use `TODO(<description>)` (the RU honestly
   computes *blocked*). Real test refs use `<cargo-package>::<file-stem>::<fn>`.
-- Wire shapes get a contract: `spec/contracts/CT-<slug>.yaml` (formats §11) — one per artifact
-  TYPE, presence binary (`always`/`never`, absences checkable), `access_tier` binds to the
-  credential tier, field `vocab` constrains values to a manifest vocabulary. RUs reference from
-  `verification`, NEVER restate field lists in statements. Dangling ref = L5; memberships = C5;
-  editing a referenced contract flips dependents suspect (L20). Endpoint `scope` values register
-  in the `token_scopes` vocabulary first.
+- Wire shapes are MANIFEST facts, not a separate artifact: a surface declares its census inline
+  (`inbound`/`outbound`), and a structure hidden behind an encoding boundary — a JWT's claims
+  inside `access_token: string` — is a shared `artifacts` entry the field names via `artifact:`.
+  RUs never restate a census; they ADDRESS it with a token
+  (`{endpoint:get_order.outbound.cost_basis}`, `{artifact:jwt-access-token.iss}`) and prove it
+  with a test. Memberships = C5; census well-formedness = C11; editing a manifest flips
+  dependents suspect (L20).
 - Drafts are `spec/ru/RU-draft-<ULID>.yaml` (Crockford ULID, alphabet excludes I L O U);
   permanent ids arrive only at activation.
 - Non-obvious decisions get an ADR: `spec/rationale/ADR-<slug>.md` (headings per formats §10:
@@ -101,9 +102,8 @@ Manifest facts change differently: a mutating manifest edit passes Gate 1 WITH i
 (`spec-impact`), and every frozen RU referencing the fact keeps meaning through the reference.
 
 TODO refs resolve WITHOUT supersession: when the promised check exists, run
-`rqunit activate resolve --reviewer <handle> RU-XXXX=<CT-id or test id>` — same-type
-replacement only, target must exist (contracts: in-store; tests: in the trace scan),
-`--match <substring>` disambiguates multiple same-type TODOs. Strictly strengthening;
+`rqunit activate resolve --reviewer <handle> RU-XXXX=<test id>` — the target must exist in
+the trace scan, `--match <substring>` disambiguates multiple TODOs. Strictly strengthening;
 weakening stays supersession-only. Never hand-edit the ref (L19).
 
 Contracts change manifest-like: a CT edit is Gate-1-reviewed in place (no supersession

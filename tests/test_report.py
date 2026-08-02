@@ -32,17 +32,18 @@ def test_data_contract_shape():
                          "verification", "gates", "features", "areas", "burndown", "health"}
     assert data["status"]["active_total"] == len(
         [r for r in Store.load(VALID).rus() if r.status == "active"])
-    assert set(data["totals"]) >= {"rus", "features", "contracts", "models", "adrs"}
+    assert set(data["totals"]) >= {"rus", "features", "models", "adrs"}
 
 
 def test_counts_are_derived_from_the_store_not_asserted(tmp_path):
     root = tmp_path / "store"
     shutil.copytree(VALID, root)
-    before = build_data(Store.load(root), root, now=NOW)["totals"]["contracts"]
-    (root / "spec" / "contracts" / "CT-extra.yaml").write_text(
-        "id: CT-extra\nkind: claim-set\ndescription: Added to move the count.\n"
-        "fields:\n- { name: sub, presence: always }\n")
-    after = build_data(Store.load(root), root, now=NOW)["totals"]["contracts"]
+    before = build_data(Store.load(root), root, now=NOW)["totals"]["adrs"]
+    (root / "spec" / "rationale").mkdir(parents=True, exist_ok=True)
+    (root / "spec" / "rationale" / "ADR-extra.md").write_text(
+        "# ADR-extra\n\n## Context\nAdded to move the count.\n\n## Decision\nx\n\n"
+        "## Alternatives\nx\n\n## Consequences\nx\n")
+    after = build_data(Store.load(root), root, now=NOW)["totals"]["adrs"]
     assert after == before + 1
 
 

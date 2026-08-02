@@ -86,7 +86,11 @@ def test_l21_active_warns_draft_errors():
     severities = {v.severity for v in _run("L21", "fail")}
     assert severities == {"warning", "error"}
     draft_error = next(v for v in _run("L21", "fail") if v.severity == "error")
-    assert "test" in draft_error.message and "contract" in draft_error.message  # missing type named
+    # The message names what would satisfy the rule. Since v0.14 a security RU
+    # must BIND a shape, not merely carry two verification types, so the naming
+    # is of token forms rather than of missing types.
+    assert "bind a declared shape" in draft_error.message
+    assert "{audit:<code>}" in draft_error.message
 
 
 def test_l22_names_both_sides_of_the_contradiction():

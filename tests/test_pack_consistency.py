@@ -17,6 +17,9 @@ from rqunit.store import Store
 
 # (token, schema rule that legitimizes the key shape)
 REFERENCEABLE_SHAPES = [
+    ("{artifact:jwt-access-token}", "shared artifacts registry (v0.14)"),
+    ("{artifact:jwt-access-token.iss}", "one claim of an artifact"),
+    ("{artifact:shared/jwt-access-token.sub}", "qualified artifact ref"),
     ("{endpoint:get_order.outbound}", "endpoint `outbound` slot (v0.13)"),
     ("{endpoint:get_order.inbound}", "endpoint `inbound` slot (v0.13)"),
     ("{endpoint:get_order.outbound.cost_basis}", "a declared field of a census"),
@@ -75,6 +78,8 @@ def test_field_segment_charset_matches_the_schema():
     "{value:service-orders/retention.decision_log_days}",  # qualified value: forbidden (§5.3)
     "{endpoint:CancelOrder}",                               # uppercase never legal
     "{frame:pong}",                                         # frame needs channel.frame
+    "{artifact:JWT}",                                       # uppercase never legal
+    "{artifact:a.b.c}",                                     # a claim set is flat
 ])
 def test_grammar_extension_did_not_loosen_the_malformed_classes(token):
     _, errors = extract(token)

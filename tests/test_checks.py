@@ -198,3 +198,28 @@ def test_c14_is_finding_class_and_spares_reads_and_planned_surfaces():
     violations = _run("C14", "fail")
     assert violations and all(v.severity == "finding" for v in violations)
     assert all("RU-0002" in v.suggestion for v in violations)
+
+
+def test_c5_rejects_a_field_carrying_an_undeclared_artifact(tmp_path):
+    """A census stops at an encoding boundary, so `artifact:` is the only way to
+    say what is inside the string — and it must name something that exists."""
+    root = tmp_path / "s"
+    shutil.copytree(FIXTURES.parent / "store" / "valid", root)
+    manifest = root / "spec" / "manifests" / "service-billing.manifest.yaml"
+    manifest.write_text(manifest.read_text().replace(
+        "artifact: session-token", "artifact: no-such-artifact"))
+    violations = [v for v in run_checks(Store.load(root), only="C5") if v.rule == "C5"]
+    assert violations and "which no shared manifest declares" in violations[0].message
+
+
+def test_c11_rejects_placement_on_a_surface_census(tmp_path):
+    """`where` is JWS placement inside an encoded artifact. On a payload the
+    position IS the field name."""
+    root = tmp_path / "s"
+    shutil.copytree(FIXTURES / "C6" / "pass", root)
+    manifest = root / "spec" / "manifests" / "service-orders.manifest.yaml"
+    manifest.write_text(manifest.read_text().replace(
+        "      - { name: order_id, presence: always, type: string }",
+        "      - { name: order_id, presence: always, type: string, where: claims }"))
+    violations = [v for v in run_checks(Store.load(root), only="C11") if v.rule == "C11"]
+    assert violations and "on a surface census" in violations[0].message

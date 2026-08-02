@@ -5,8 +5,8 @@ syntax: ears
 status: active
 source_ref: INT-0001#L1-2
 verification:
-  - { type: contract, ref: CT-base }
-  - { type: contract, ref: "TODO(claim-set check pending)" }
+  - { type: test, ref: TODO(base census not yet proved) }
+  - { type: test, ref: TODO(claim_set check pending) }
 scope:
   owns: [service-orders/fulfilment]
 tags: [orders]

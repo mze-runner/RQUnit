@@ -228,7 +228,7 @@ def test_simulation_refuses_post_activation_conflicts_before_writing(repo):
         "id": "RU-0098",
         "statement": "When a user cancels an order, the system shall halt fulfilment for the order.",
         "syntax": "ears", "status": "active", "source_ref": "INT-0001#L1-2",
-        "verification": [{"type": "contract", "ref": "CT-base"}],
+        "verification": [{"type": "test", "ref": "TODO(pending)"}],
         "scope": {"owns": ["service-orders/fulfilment"]}, "tags": ["orders"],
     }, sort_keys=False))
     from rqunit.canonical import canonical_hash
@@ -242,7 +242,7 @@ def test_simulation_refuses_post_activation_conflicts_before_writing(repo):
         "statement": "When a user cancels an order, the system shall continue fulfilment until shipment completes.",
         "syntax": "ears", "status": "draft", "feature": "FEAT-pilot",
         "source_ref": "INT-0001#L1-2",
-        "verification": [{"type": "contract", "ref": "CT-base"}],
+        "verification": [{"type": "test", "ref": "TODO(pending)"}],
         "scope": {"owns": ["service-orders/fulfilment"]}, "tags": ["orders"],
     }, sort_keys=False))
     _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "add", "-A")

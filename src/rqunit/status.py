@@ -2,7 +2,7 @@
 are derived, and v1 is deliberately conservative (plan D-P4.1): a verification
 entry counts as PASSING only when that is provable today — a human entry with
 a passing Gate 2 record dated after the gate stamp. Mechanical pass-states
-(contract/test/model results) arrive with Phases 6–7; until then `done` stays
+(test/model results) arrive with Phases 6–7; until then `done` stays
 false rather than lying.
 """
 

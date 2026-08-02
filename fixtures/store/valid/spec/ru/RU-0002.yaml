@@ -5,12 +5,12 @@ status: active
 tier: constitutional
 source_ref: INT-0057#L1-2
 verification:
-- type: contract
-  ref: CT-audit-on-mutation
+- type: test
+  ref: TODO(audit on mutation census not yet proved)
 tags:
 - doctrine
 - audit
 gate1_stamp:
-  hash: sha256:0579e74eb2fe8e747b8ea9db491c90755e6d14bb01e89760dd7330035fa48577
+  hash: sha256:3fa881d435cd6552575b3ea94462d323593ac53003bebd5ebf4ae3faed87c1f5
   by: fixture-op
   at: '2026-07-25T10:00:00+00:00'

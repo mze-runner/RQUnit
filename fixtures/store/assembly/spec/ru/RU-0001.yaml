@@ -6,11 +6,11 @@ status: active
 tier: constitutional
 source_ref: INT-0001#L1-2
 verification:
-- type: contract
-  ref: CT-base
+- type: test
+  ref: TODO(base census not yet proved)
 tags:
 - doctrine
 gate1_stamp:
-  hash: sha256:7c25893bd7c33907c591db6eadc90a3a4f5f45b1cb120df94a0948fc25e29248
+  hash: sha256:74014af493ee5ded89fb43a6fe28710d0c437ae9478512e37e71d9dcf741c01a
   by: fixture-op
   at: '2026-07-25T10:00:00+00:00'

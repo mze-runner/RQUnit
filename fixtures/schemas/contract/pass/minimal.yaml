@@ -1,5 +1,0 @@
-id: CT-base
-kind: claim-set
-description: Smallest legal contract.
-fields:
-  - { name: sub, presence: always }

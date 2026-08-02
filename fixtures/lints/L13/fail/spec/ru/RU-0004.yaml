@@ -5,5 +5,5 @@ status: active
 tier: constitutional
 source_ref: INT-0001#L1-2
 verification:
-  - { type: contract, ref: CT-invariant-0004 }
+  - { type: test, ref: TODO(invariant 0004 census not yet proved) }
 tags: [audit]

@@ -69,16 +69,6 @@ properties:
     items:
       oneOf:
 
-        - type: object              # ---- contract ----
-          additionalProperties: false
-          required: [type, ref]
-          properties:
-            type: { const: contract }
-            ref:
-              type: string
-              description: "CT id, or TODO(<description>) for a missing check (§6.5)."
-              pattern: "^(CT-[A-Za-z0-9-]+|TODO\\(.+\\))$"
-
         - type: object              # ---- test ----
           additionalProperties: false
           required: [type, ref]
@@ -152,7 +142,7 @@ properties:
   link_fingerprints:
     type: object
     description: Cross-artifact reference fingerprints at activation (§7.3).
-    propertyNames: { pattern: "^(RU-[0-9]{4}|ADR-[A-Za-z0-9-]+|CT-[a-z0-9-]+)$" }
+    propertyNames: { pattern: "^(RU-[0-9]{4}|ADR-[A-Za-z0-9-]+)$" }
     additionalProperties: { type: string, pattern: "^sha256:[0-9a-f]{64}$" }
 
 allOf:

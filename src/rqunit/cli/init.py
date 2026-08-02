@@ -25,7 +25,7 @@ from ..schemas import SEED_DIR, installed_version
 # Empty ones carry a .gitkeep: an absent directory and an empty one mean the
 # same thing to the tools, but only one of them survives a clone.
 STORE_DIRS = ("framework", "intent", "ru", "features", "manifests", "models",
-              "contracts", "gaps", "rationale", "reviews", "packets", "projections")
+              "gaps", "rationale", "reviews", "packets", "projections")
 
 # Seed file → destination within spec/. Vocabularies and policy are consumer
 # data (they are edited); schemas are not (they ship in the wheel).

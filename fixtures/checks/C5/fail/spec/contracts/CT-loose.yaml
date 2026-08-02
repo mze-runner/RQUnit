@@ -1,7 +1,0 @@
-id: CT-loose
-kind: claim-set
-description: Contract violating every membership rule at once.
-access_tier: banana
-fields:
-  - { name: scope, presence: always, vocab: no-such-vocab }
-  - { name: scope, presence: never }

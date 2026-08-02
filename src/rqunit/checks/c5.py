@@ -73,29 +73,47 @@ def run(store):
                                 f"'{vocab}', which is no declared vocabulary.",
                         suggestion="Declare the vocabulary in this manifest or shared — an audit "
                                    "record never introduces vocabulary (§5.7)."))
-    for ct_id, ct in store.contracts().items():
-        tier = ct.raw.get("access_tier")
+    declared_artifacts = set((shared_raw.get("artifacts") or {}) if (shared_raw := (
+        manifests["shared"].raw if "shared" in manifests else {})) else {})
+    for service, manifest in manifests.items():
+        for endpoint in manifest.raw.get("endpoints") or []:
+            for direction in ("inbound", "outbound"):
+                slot = endpoint.get(direction)
+                fields = slot.get("fields") if isinstance(slot, dict) else None
+                for field in fields if isinstance(fields, list) else []:
+                    ref = field.get("artifact")
+                    if ref is not None and ref not in declared_artifacts:
+                        out.append(Violation(
+                            rule="C5", severity="error",
+                            artifact=f"{service}:endpoints.{endpoint['id']}.{direction}",
+                            path=rel(store, manifest.path),
+                            message=f"field '{field.get('name')}' carries artifact '{ref}', "
+                                    "which no shared manifest declares.",
+                            suggestion="Declare it under `artifacts` in the shared manifest, or "
+                                       "fix the reference — a field cannot carry a structure "
+                                       "nothing describes (§5.9)."))
+
+    # Shared artifacts: the tier binding is finally correct here — this is the
+    # population "surfaces of this tier consume artifacts of this shape" always
+    # described, once the layer stopped holding response bodies too.
+    shared = manifests.get("shared")
+    for artifact_id, artifact in ((shared.raw.get("artifacts") or {}).items() if shared else ()):
+        where = f"shared:artifacts.{artifact_id}"
+        tier = artifact.get("access_tier")
         if tier is not None and tier not in tiers:
             out.append(Violation(
-                rule="C5", severity="error", artifact=ct_id, path=rel(store, ct.path),
+                rule="C5", severity="error", artifact=where, path=rel(store, shared.path),
                 message=f"access_tier '{tier}' is not in the shared access_tiers vocabulary "
                         f"({', '.join(sorted(tiers))}).",
-                suggestion="Bind the contract to a declared tier, or extend the vocabulary at Gate 1."))
-        seen: set[str] = set()
-        for field in ct.raw.get("fields") or []:
-            if field["name"] in seen:
-                out.append(Violation(
-                    rule="C5", severity="error", artifact=ct_id, path=rel(store, ct.path),
-                    message=f"field '{field['name']}' is declared twice — one field, one presence rule.",
-                    suggestion="Collapse the duplicates; a field appearing 'sometimes' belongs to a "
-                               "different artifact type with its own contract."))
-            seen.add(field["name"])
+                suggestion="Bind the artifact to a declared tier, or extend the vocabulary at "
+                           "Gate 1."))
+        for field in artifact.get("fields") or []:
             vocab = field.get("vocab")
             if vocab is not None and vocab not in all_vocabs:
                 out.append(Violation(
-                    rule="C5", severity="error", artifact=ct_id, path=rel(store, ct.path),
-                    message=f"field '{field['name']}' binds values to vocabulary '{vocab}', "
+                    rule="C5", severity="error", artifact=where, path=rel(store, shared.path),
+                    message=f"field '{field.get('name')}' binds values to vocabulary '{vocab}', "
                             "which exists in no manifest.",
-                    suggestion="Declare the vocabulary in a manifest — contracts constrain values "
-                               "through manifests, never introduce vocabulary (§5.7 spirit)."))
+                    suggestion="Declare the vocabulary in a manifest — an artifact constrains "
+                               "values through manifests, it never introduces them (§5.7)."))
     return out
