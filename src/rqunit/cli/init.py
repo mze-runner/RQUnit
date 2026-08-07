@@ -60,35 +60,48 @@ MARKERS = {
 RUST_CONFIG = """\
 # RQUnit consumer configuration. Only repo-specific inputs belong here — the
 # store layout itself is fixed (spec/ at this root) and is never configured.
-# Missing keys fall back to conventional defaults; unknown keys are errors,
-# because a typo silently ignored would read as configured.
+#
+# Any [stacks.<name>] table declares a stack. Core interprets only the
+# `adapter` role declarations and `literal_scan`; every other key under a
+# stack is the adapter's own configuration, passed through untouched. Typos in
+# core-read keys are errors, because a typo silently ignored would read as
+# configured; passthrough keys are checked against the adapter's manifest.
 
 [stacks.rust]
 
-# ---- tracing and lint sweeps -------------------------------------------------
+# tests/ directories swept by the hardcoded-bound advisory (core-read).
+literal_scan = ["**/tests"]
+
+# ---- adapter-owned configuration ---------------------------------------------
+# Core passes everything from here to the adapter table through untouched; the
+# Rust adapter reads it. Each entry is a fact about THIS repository — not
+# about Rust, and not about any framework. An extractor that guessed would
+# report a surface nobody declared, and the reconciler would believe it.
+# Leave a section out and that family is simply not examined, which the
+# report says out loud rather than passing quietly.
 
 # Cargo.toml of every crate whose tests/ participate in verifies-tracing.
 trace_scan = ["**/Cargo.toml"]
 # Git pathspecs for the L14 new-test diff gate.
 trace_diff = ["*/tests/*.rs"]
-# tests/ directories swept by the hardcoded-bound advisory.
-literal_scan = ["**/tests"]
 # Crate receiving generated constants and statechart conformance suites.
 conformance_crate = "spec-conformance-tests"
-
-# ---- conformance: what the extractor reads, and what it reports on -----------
-#
-# Everything below is a fact about THIS repository — not about Rust, and not
-# about any framework. That is why it is configuration: an extractor that
-# guessed would report a surface nobody declared, and the reconciler would
-# believe it. Leave a section out and that family is simply not examined, which
-# the report says out loud rather than passing quietly.
-
 # Manifest service slug the extractor reports on. It does not guess this.
 service = ""
-# Where this stack's extractor writes actual-surface.json ("" disables
-# conformance reconciliation until an extractor is wired).
-actual_surface = "spec-conformance-tests/actual-surface.json"
+
+# ---- adapter roles -----------------------------------------------------------
+# Each role is either a command core execs (cmd = ["..."], argv, no shell) or
+# an artifact an earlier pipeline step produced (artifact = "path"). A role
+# left undeclared is unavailable — reported as such, never silently skipped.
+
+[stacks.rust.adapter]
+# Where this stack's extractor writes actual-surface.json — the artifact
+# `rqunit conformance` reconciles against the manifests.
+extractor = { artifact = "spec-conformance-tests/actual-surface.json" }
+# scanner = { cmd = ["adapters/rust/target/release/scan-checks"] }
+# emitter = { cmd = ["adapters/rust/target/release/emit-suite"] }
+# The adapter's manifest, declaring its roles and the config keys it reads.
+# manifest = "adapters/rust/adapter.yaml"
 
 # HTTP composition: which router function, in which file, mounts at what prefix
 # under which access tier. One table per mounted router.

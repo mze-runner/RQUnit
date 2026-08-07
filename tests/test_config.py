@@ -1,60 +1,146 @@
-"""rqunit.toml consumer config (product Phase I). Invariants: missing file =
-generic conventional defaults (store-only operations need zero config);
-values override; unknown tables/keys/shapes are BadConfig errors — a typo
-silently ignored would read as configured; scan and emit sites actually
-honor the file."""
+"""rqunit.toml consumer config. Invariants: a missing file means no stacks
+(store-only operations need zero config; stack participation is always an
+explicit declaration); any stack NAME is accepted — core carries no list of
+supported languages; core interprets a closed key set per stack (`adapter`,
+`literal_scan`) and passes everything else through untouched; malformed
+shapes among the core-read keys are BadConfig errors, never silence."""
 
 import shutil
 from pathlib import Path
 
 import pytest
 
-from rqunit.config import Config, load
+from rqunit.config import Config, Role, Stack, load
 from rqunit.errors import BadConfig
 from rqunit.generate import targets
 from rqunit.store import Store
 from rqunit.trace import scan_tests
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
+REPO = Path(__file__).parent.parent
 
 
-def test_missing_file_yields_generic_defaults(tmp_path):
+def _toml(tmp_path, body: str):
+    (tmp_path / "rqunit.toml").write_text(body)
+    return tmp_path
+
+
+def test_missing_file_means_no_stacks(tmp_path):
     cfg = load(tmp_path)
     assert cfg == Config()
-    assert cfg.rust.trace_scan == ("**/Cargo.toml",)
-    assert cfg.rust.conformance_crate == "spec-conformance-tests"
+    assert cfg.stacks == () and cfg.stack("rust") is None
 
 
-def test_values_override_defaults(tmp_path):
-    (tmp_path / "rqunit.toml").write_text(
-        '[stacks.rust]\ntrace_scan = ["crates/*/Cargo.toml"]\n'
-        'conformance_crate = "tools/conformance"\n')
-    cfg = load(tmp_path)
-    assert cfg.rust.trace_scan == ("crates/*/Cargo.toml",)
-    assert cfg.rust.conformance_crate == "tools/conformance"
-    assert cfg.rust.trace_diff == ("*/tests/*.rs",)   # untouched keys keep defaults
+def test_any_stack_name_is_accepted_core_has_no_language_list(tmp_path):
+    cfg = load(_toml(tmp_path, "[stacks.jvm]\n[stacks.rust]\n[stacks.cobol-85]\n"))
+    assert [s.name for s in cfg.stacks] == ["cobol-85", "jvm", "rust"]
+    assert cfg.stack("jvm") == Stack(name="jvm")
 
 
-@pytest.mark.parametrize("content", [
-    "[stacks.rust]\ntrace_scam = []\n",              # typoed key
-    "[stacks.java]\n",                               # unsupported stack
-    "[store]\nroot = 'elsewhere'\n",                 # store layout is not configurable
-    "[stacks.rust]\ntrace_scan = 'not-a-list'\n",
-    "[stacks.rust]\nconformance_crate = 3\n",
-    "not toml [",
+def test_core_keys_parse_and_the_rest_passes_through_opaquely(tmp_path):
+    cfg = load(_toml(tmp_path, """
+[stacks.rust]
+literal_scan = ["**/tests"]
+trace_scan = ["crates/*/Cargo.toml"]
+conformance_crate = "tools/conformance"
+service = "service-orders"
+
+[[stacks.rust.routers]]
+file = "http/src/routes/mod.rs"
+function = "router"
+
+[stacks.rust.adapter]
+extractor = { artifact = "actual-surface.json" }
+scanner = { cmd = ["adapters/rust/target/release/scan-checks", "--flag"] }
+"""))
+    stack = cfg.stack("rust")
+    assert stack.literal_scan == ("**/tests",)
+    assert stack.adapter.extractor == Role(artifact="actual-surface.json")
+    assert stack.adapter.scanner == Role(cmd=("adapters/rust/target/release/scan-checks",
+                                              "--flag"))
+    assert stack.adapter.emitter is None            # undeclared = unavailable
+    # Passthrough arrives verbatim — core never interprets or reshapes it.
+    assert stack.options["trace_scan"] == ["crates/*/Cargo.toml"]
+    assert stack.options["conformance_crate"] == "tools/conformance"
+    assert stack.options["routers"] == [{"file": "http/src/routes/mod.rs",
+                                         "function": "router"}]
+    assert "adapter" not in stack.options and "literal_scan" not in stack.options
+
+
+def test_a_role_is_cmd_xor_artifact(tmp_path):
+    for body in (
+        '[stacks.rust.adapter]\nextractor = { cmd = ["x"], artifact = "y" }\n',  # both
+        "[stacks.rust.adapter]\nextractor = { }\n",                              # neither
+    ):
+        with pytest.raises(BadConfig) as caught:
+            load(_toml(tmp_path, body))
+        assert "exactly one of" in str(caught.value)
+
+
+@pytest.mark.parametrize("content, expected", [
+    ("[store]\nroot = 'elsewhere'\n", "unknown top-level"),      # store layout is fixed
+    ("[stacks.Rust]\n", "must match"),                           # stack naming discipline
+    ("[stacks.rust]\nliteral_scan = 'not-a-list'\n", "list of glob strings"),
+    ("[stacks.rust.adapter]\nextracter = { artifact = 'x' }\n", "unknown"),  # typoed role
+    ("[stacks.rust.adapter]\nextractor = { path = 'x' }\n", "unknown"),      # typoed key
+    ("[stacks.rust.adapter]\nextractor = { cmd = [] }\n", "non-empty list"),
+    ("[stacks.rust.adapter]\nextractor = { artifact = '' }\n", "non-empty"),
+    ("[stacks.rust.adapter]\nextractor = 'a-string'\n", "must be a table"),
+    ("not toml [", "not parseable"),
 ])
-def test_unknown_or_malformed_config_is_an_error(tmp_path, content):
-    (tmp_path / "rqunit.toml").write_text(content)
-    with pytest.raises(BadConfig):
-        load(tmp_path)
+def test_malformed_core_read_shapes_are_errors_not_silence(tmp_path, content, expected):
+    with pytest.raises(BadConfig) as caught:
+        load(_toml(tmp_path, content))
+    assert expected in str(caught.value)
 
 
-def test_scan_tests_honors_trace_scan(tmp_path):
+def test_adapter_vocabulary_is_not_validated_here(tmp_path):
+    """A typo in a passthrough key is the adapter manifest's problem
+    (config_keys), not this loader's — core judging `routers` would be
+    language knowledge."""
+    cfg = load(_toml(tmp_path, "[stacks.rust]\ntrace_scam = ['x']\n"))
+    assert cfg.stack("rust").options["trace_scam"] == ["x"]
+
+
+def test_gate_driving_passthrough_shapes_are_validated_at_the_read_site(tmp_path):
+    """Key NAMES are the manifest's problem, but a key whose SHAPE drives a
+    gate must error where it is read — a string bent into per-character
+    pathspecs would let L14 examine nonsense and report green."""
+    from rqunit.trace import SCANNERS
+
     root = tmp_path / "repo"
     shutil.copytree(FIXTURES / "rusttree", root)
-    assert scan_tests(root)                                    # default finds service-x
+    (root / "rqunit.toml").write_text('[stacks.rust]\ntrace_scan = "not-a-list"\n')
+    with pytest.raises(BadConfig) as caught:
+        scan_tests(root)
+    assert "trace_scan" in str(caught.value)
+
+    with pytest.raises(BadConfig) as caught:
+        SCANNERS["rust"].diff_pathspecs(Stack(name="rust", options={"trace_diff": "x"}))
+    assert "trace_diff" in str(caught.value)
+
+
+def test_the_shipped_consumer_configs_load(tmp_path):
+    """Every config this repo ships parses under the strict reader, and what
+    a store declares round-trips. The property, not the census: exact values
+    belong to the stores, and pinning them here breaks legitimate growth."""
+    demo = load(REPO / "demo" / "order-management")
+    assert demo.stack("rust").adapter.extractor.artifact   # extractor declared
+    traced = load(FIXTURES / "store" / "traced")
+    assert traced.stack("rust").options["trace_scan"]      # passthrough survives
+    assert traced.stack("rust").adapter.extractor is None  # declares no roles
+
+
+# ------------------------------------------------ scan and emit honor the file
+
+def test_scan_tests_honors_declared_stacks_and_trace_scan(tmp_path):
+    root = tmp_path / "repo"
+    shutil.copytree(FIXTURES / "rusttree", root)
+    assert scan_tests(root), "the fixture tree declares [stacks.rust]"
     (root / "rqunit.toml").write_text('[stacks.rust]\ntrace_scan = ["nothing/Cargo.toml"]\n')
     assert scan_tests(root) == []
+    (root / "rqunit.toml").unlink()
+    assert scan_tests(root) == []       # no declaration, no participation
 
 
 def test_targets_honors_conformance_crate(tmp_path):
@@ -67,64 +153,3 @@ def test_targets_honors_conformance_crate(tmp_path):
     trace_map = out[root / "spec" / "projections" / "trace-map.json"]
     assert '"conf::' in trace_map                              # basename = package prefix
     assert "spec-conformance-tests" not in trace_map
-
-
-# ------------------------------------------------ composition is configuration
-
-def _toml(tmp_path, body: str):
-    (tmp_path / "rqunit.toml").write_text(body)
-    return tmp_path
-
-
-def test_router_composition_round_trips(tmp_path):
-    """Which router mounts where is a fact about one repository, so it belongs
-    here rather than as a constant in adapter source."""
-    cfg = load(_toml(tmp_path, """
-[stacks.rust]
-service = "service-orders"
-
-[[stacks.rust.routers]]
-file = "http/src/routes/mod.rs"
-function = "router"
-
-[[stacks.rust.routers]]
-file = "http/src/routes/orders/mod.rs"
-function = "router"
-prefix = "/api/v1/orders"
-access = "protected"
-
-[stacks.rust.messages]
-subject_sources = ["wire-contracts/src"]
-publisher_sources = ["adapters/nats/src"]
-"""))
-    assert cfg.rust.service == "service-orders"
-    assert [r.function for r in cfg.rust.routers] == ["router", "router"]
-    assert cfg.rust.routers[1].prefix == "/api/v1/orders"
-    assert cfg.rust.routers[0].prefix == ""            # optional, defaults empty
-    assert cfg.rust.messages.subject_sources == ("wire-contracts/src",)
-
-
-def test_a_router_that_cannot_be_named_is_an_error(tmp_path):
-    with pytest.raises(BadConfig) as caught:
-        load(_toml(tmp_path, """
-[stacks.rust]
-[[stacks.rust.routers]]
-file = "http/src/routes/mod.rs"
-"""))
-    assert "cannot find a router it cannot name" in str(caught.value)
-
-
-def test_typos_in_the_new_tables_are_errors_not_silence(tmp_path):
-    for body, expected in (
-        ("[stacks.rust]\n[[stacks.rust.routers]]\nfile='a'\nfunction='r'\ntier='x'\n",
-         "unknown router key"),
-        ("[stacks.rust]\n[stacks.rust.messages]\nsubjects=['a']\n", "unknown messages key"),
-    ):
-        with pytest.raises(BadConfig) as caught:
-            load(_toml(tmp_path, body))
-        assert expected in str(caught.value)
-
-
-def test_defaults_survive_for_a_repo_that_configures_nothing(tmp_path):
-    cfg = load(tmp_path)
-    assert cfg.rust.routers == () and cfg.rust.service == ""

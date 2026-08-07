@@ -1,0 +1,3 @@
+# Stack participation is always an explicit declaration: this tree takes the
+# rust scanner's conventional defaults (trace_scan = ["**/Cargo.toml"]).
+[stacks.rust]

@@ -94,7 +94,8 @@ def load_actual(path: Path) -> dict:
     if not path.is_file():
         raise BadConfig(str(path), "no actual-surface artifact — run the stack's extractor "
                                    "(Rust: `cargo run -p spec-conformance-tests --bin "
-                                   "extract-surface`) or point [stacks.*] actual_surface at it")
+                                   "extract-surface`) or point [stacks.<name>.adapter] "
+                                   "extractor = { artifact = \"...\" } at it")
     try:
         data = json.loads(path.read_text())
     except json.JSONDecodeError as e:

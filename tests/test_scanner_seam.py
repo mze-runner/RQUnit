@@ -37,13 +37,13 @@ def test_scanning_goes_through_the_registry(tmp_path, monkeypatch):
 
     monkeypatch.setitem(SCANNERS, "rust", Scanner(
         name="rust", scan=fake, definition=SCANNERS["rust"].definition,
-        diff_pathspecs=lambda c: list(c.trace_diff)))
+        diff_pathspecs=lambda c: list(c.options.get("trace_diff", []))))
     assert scan_tests(root) == []
     assert calls == [root]          # core delegates, never scans on its own
 
 
-def test_only_configured_stacks_run(tmp_path, monkeypatch):
-    """A registered scanner whose stack has no config block stays dormant —
+def test_only_declared_stacks_run(tmp_path, monkeypatch):
+    """A registered scanner whose stack is not declared stays dormant —
     adding a language to the product must not change existing consumers."""
     root = tmp_path / "repo"
     shutil.copytree(RUSTTREE, root)
@@ -53,7 +53,7 @@ def test_only_configured_stacks_run(tmp_path, monkeypatch):
         name="java", scan=lambda r, c: ran.append("java") or [],
         definition=SCANNERS["rust"].definition, diff_pathspecs=lambda c: []))
     scan_tests(root)
-    assert ran == []                # Config has no `java` attribute → skipped
+    assert ran == []                # no [stacks.java] table → skipped
 
 
 def test_a_second_stack_merges_without_core_changes(tmp_path, monkeypatch):
@@ -64,11 +64,9 @@ def test_a_second_stack_merges_without_core_changes(tmp_path, monkeypatch):
     extra = trace.TestCheck(id="svc::PaymentTest::refunds", path="src/test/java/PaymentTest.java",
                       fn="refunds", verifies=("RU-0001",))
 
-    class FakeConfig:
-        rust = trace.load_config(root).rust
-        java = object()
-
-    monkeypatch.setattr(trace, "load_config", lambda r: FakeConfig())
+    from rqunit.config import Config, Stack
+    fake = Config(stacks=(*trace.load_config(root).stacks, Stack(name="java")))
+    monkeypatch.setattr(trace, "load_config", lambda r: fake)
     monkeypatch.setitem(SCANNERS, "java", Scanner(
         name="java", scan=lambda r, c: [extra],
         definition=SCANNERS["rust"].definition, diff_pathspecs=lambda c: []))

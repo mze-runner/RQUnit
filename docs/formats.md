@@ -372,16 +372,36 @@ Adapters may not author these. An artifact carrying an `exceptions` key is
 rejected as a configuration error naming this file, because an extractor
 observes and does not get to excuse what it observed (spec §5.6).
 
-## 15. Adapter inputs (`rqunit.toml`)
+## 15. Stack declarations (`rqunit.toml`)
 
-Repo-specific facts an extractor needs. Composition is a property of one
-repository — not of a language, and not of a web framework — so it is
-configuration, and the adapter stays generic.
+Any `[stacks.<name>]` table declares a stack (`name` matches
+`[a-z][a-z0-9_-]*`); core carries no list of supported languages. A missing
+file means no stacks: store-only operations need zero configuration, and
+stack participation is always an explicit declaration.
+
+Per stack, core interprets a CLOSED key set; every other key is the adapter's
+own configuration, passed through opaquely and never read by core.
+
+**Core-interpreted keys:**
+
+| Key | Meaning |
+|---|---|
+| `adapter.extractor` / `adapter.scanner` / `adapter.emitter` | role declarations — each `{ cmd = ["..."] }` XOR `{ artifact = "path" }` |
+| `adapter.manifest` | path to the adapter's manifest |
+| `literal_scan` | globs to tests/ directories for the hardcoded-bound advisory |
+
+A role declares `cmd` (argv core execs, no shell) or `artifact` (a file an
+earlier pipeline step produced) — exactly one. An undeclared role means that
+capability is unavailable for the stack: reported as such, never silently
+skipped.
 
 ```toml
 [stacks.rust]
+literal_scan = ["**/tests"]
+
+# ---- adapter-owned: core passes these through untouched --------------------
 service = "service-orders"          # manifest slug the artifact is keyed by; never guessed
-actual_surface = "conformance/actual-surface.json"
+trace_scan = ["**/Cargo.toml"]
 
 [[stacks.rust.routers]]             # one table per mounted router
 file = "http/src/routes/orders/mod.rs"
@@ -392,13 +412,19 @@ access = "protected"
 [stacks.rust.messages]
 subject_sources = ["wire/src"]              # where subject constants are declared
 publisher_sources = ["adapters/nats/src"]   # code that references them
+
+[stacks.rust.adapter]
+extractor = { artifact = "conformance/actual-surface.json" }
 ```
 
-`file` and `function` are required on a router — an extractor cannot find a
-router it cannot name. Unknown keys are errors: a typo silently ignored would
-read as configured. A missing `[stacks.rust]` table is an error for the
-extractor rather than a default, because a guessed composition produces a
-surface nobody declared and the reconciler would believe it.
+Malformed shapes among the core-interpreted keys are errors: a typo silently
+ignored would read as configured. Passthrough keys are validated by the
+adapter — the framework judging what `routers` means would be language
+knowledge — with key-name typo detection provided by the adapter manifest's
+`config_keys`. Composition facts like `routers` stay configuration because
+they are properties of one repository, not of a language: an extractor that
+guessed a composition would report a surface nobody declared, and the
+reconciler would believe it.
 
 ## 16. Shared artifacts
 

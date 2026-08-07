@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .checks.base import run_checks
 from .config import load as load_config
+from .errors import BadConfig
 from .status import compute
 from .store import Store
 
@@ -52,13 +53,15 @@ def register(scanner: Scanner) -> Scanner:
 
 
 def _stack_configs(root: Path) -> list[tuple[Scanner, object]]:
-    """Configured stacks paired with their scanner, in stable order."""
+    """Declared stacks paired with their scanner, in declaration order.
+    A stack with no registered scanner contributes nothing here — its checks
+    arrive via its adapter's scanner role once one is declared."""
     config = load_config(root)
     out = []
-    for name in sorted(SCANNERS):
-        stack = getattr(config, name, None)
-        if stack is not None:
-            out.append((SCANNERS[name], stack))
+    for stack in config.stacks:
+        scanner = SCANNERS.get(stack.name)
+        if scanner is not None:
+            out.append((scanner, stack))
     return out
 
 
@@ -75,12 +78,25 @@ def _package_name(cargo_toml: Path) -> str | None:
     return m.group(1) if m else None
 
 
-def scan_rust(root: Path, config) -> list[TestCheck]:
+def _globs(stack, key: str, default: list[str]) -> list[str]:
+    """A passthrough key this transitional in-core scanner still reads. The
+    NAME is the adapter manifest's problem, but the SHAPE drives a gate here,
+    so it is validated at the read site — a malformed glob list silently
+    bent into pathspecs would let L14 examine nonsense and report green."""
+    value = stack.options.get(key, default)
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise BadConfig("rqunit.toml",
+                        f"[stacks.{stack.name}] {key} must be a list of glob strings")
+    return list(value)
+
+
+def scan_rust(root: Path, stack) -> list[TestCheck]:
     """Rust: `#[test]`/`#[tokio::test]` above a free fn in a crate's `tests/`.
-    Which crates participate is consumer data (rqunit.toml trace_scan)."""
+    Which crates participate is consumer data (rqunit.toml trace_scan —
+    adapter-owned, read here only until the scanner moves out of core)."""
     out: list[TestCheck] = []
     seen_dirs: set[Path] = set()
-    for pattern in config.trace_scan:
+    for pattern in _globs(stack, "trace_scan", ["**/Cargo.toml"]):
         for cargo in sorted(Path(root).glob(pattern)):
             crate_dir = cargo.parent
             tests_dir = crate_dir / "tests"
@@ -99,7 +115,7 @@ register(Scanner(
     name="rust",
     scan=scan_rust,
     definition=_FN,
-    diff_pathspecs=lambda config: list(config.trace_diff),
+    diff_pathspecs=lambda stack: _globs(stack, "trace_diff", ["*/tests/*.rs"]),
 ))
 
 

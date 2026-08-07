@@ -30,6 +30,7 @@ def _store(tmp_path: Path) -> Path:
     to point at, because a TODO converts only to a check that EXISTS."""
     root = tmp_path / "store"
     shutil.copytree(BASE, root)
+    (root / "rqunit.toml").write_text("[stacks.rust]\n")   # participation is declared
     crate = root / "svc"
     (crate / "tests").mkdir(parents=True)
     (crate / "Cargo.toml").write_text('[package]\nname = "svc"\n')

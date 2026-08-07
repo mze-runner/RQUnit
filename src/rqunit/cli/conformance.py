@@ -37,7 +37,8 @@ def main(store_path: Path | None, artifacts: tuple[Path, ...], fmt: str, strict:
         paths = [Path(a) for a in artifacts] or _configured(root)
         if not paths:
             click.echo("rqunit conformance: no actual-surface artifact configured "
-                       "([stacks.<name>] actual_surface in rqunit.toml)", err=True)
+                       "([stacks.<name>.adapter] extractor = { artifact = \"...\" } "
+                       "in rqunit.toml)", err=True)
             sys.exit(2)
         violations = run_conformance(store, root, paths)
         # What extraction actually reached. The manifest is allowed to exceed
@@ -69,4 +70,6 @@ def main(store_path: Path | None, artifacts: tuple[Path, ...], fmt: str, strict:
 
 def _configured(root: Path) -> list[Path]:
     config = load_config(root)
-    return [root / config.rust.actual_surface] if config.rust.actual_surface else []
+    return [root / stack.adapter.extractor.artifact
+            for stack in config.stacks
+            if stack.adapter.extractor is not None and stack.adapter.extractor.artifact]

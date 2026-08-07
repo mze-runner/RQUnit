@@ -1,5 +1,7 @@
 [stacks.rust]
+literal_scan = ["*/tests"]
+# Adapter-owned (passthrough): which crates participate in verifies-tracing.
 trace_scan = ["*/Cargo.toml"]
 trace_diff = ["*/tests/*.rs"]
-literal_scan = ["*/tests"]
-actual_surface = ""
+# No [stacks.rust.adapter] roles: no extractor artifact, so conformance
+# reconciliation is unavailable for this store — by design.

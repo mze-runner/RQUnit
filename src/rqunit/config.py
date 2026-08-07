@@ -1,93 +1,86 @@
-"""Consumer configuration — `rqunit.toml` at the repo root (product Phase I).
+"""Consumer configuration — `rqunit.toml` at the repo root.
 
-Everything repo-specific the toolchain needs lives HERE, never in code: which
-code trees participate in trace scanning, and where generated conformance
-artifacts land. The spec store itself is NOT configurable — its layout is
-fixed by spec §12.1 (`spec/` at the root), and projections/packets are part
-of that contract.
+Everything repo-specific the toolchain needs lives HERE, never in code. The
+spec store itself is NOT configurable — its layout is fixed by spec §12.1
+(`spec/` at the root), and projections/packets are part of that contract.
 
-A missing file (or missing keys) falls back to generic conventional defaults,
-so store-only operations and fresh checkouts work with zero configuration.
-Unknown tables or keys are errors (`BadConfig`): a typo silently ignored
-would read as configured.
+Stacks are open: any `[stacks.<name>]` table declares a stack, and core
+carries no list of supported languages. Per stack, core interprets a CLOSED
+set of keys — the `adapter` role declarations and `literal_scan` — and every
+other key is the stack adapter's own configuration, carried opaquely in
+`Stack.options` and never read by core. That line is what keeps the framework
+stack-agnostic: a judgment about what `routers` or `trace_scan` mean would be
+language knowledge, and language knowledge lives out of process.
+
+A missing file means no stacks: store-only operations need zero
+configuration, and stack participation is always an explicit declaration.
+Unknown shapes among the keys core DOES interpret are errors (`BadConfig`) —
+a typo silently ignored would read as configured. Passthrough keys are
+validated against the adapter manifest's `config_keys`, not here.
 """
 
 from __future__ import annotations
 
+import re
 import tomllib
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .errors import BadConfig
 
+_STACK_NAME = re.compile(r"^[a-z][a-z0-9_-]*$")
 
-@dataclass(frozen=True)
-class Router:
-    """One mounted router: which function in which file, at what prefix, under
-    which access tier. This is composition — a fact about THIS repository's
-    layout, not about Rust or about axum — so it is configuration. It lived as
-    a constant in adapter source, which put a consumer's file paths and service
-    names inside the product."""
-
-    file: str
-    function: str
-    prefix: str = ""
-    access: str = ""
+ROLES = ("extractor", "scanner", "emitter")
 
 
 @dataclass(frozen=True)
-class Messages:
-    """Where async subjects are declared and who publishes them."""
+class Role:
+    """One adapter role: a command core execs (`cmd`), XOR an artifact an
+    earlier pipeline step already produced (`artifact`). Exactly one — a role
+    that could be both would leave which one ran ambiguous."""
 
-    # Files or directories declaring subject constants.
-    subject_sources: tuple[str, ...] = ()
-    # Files or directories whose code references those constants — what the
-    # service actually publishes, as opposed to what it could name.
-    publisher_sources: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class Audit:
-    """Where audit codes are declared, and which sources record them.
-
-    Same shape as `Messages` because it is the same question: naming a code is
-    not emitting one, so declaration sources and emission sources are separate
-    inputs."""
-
-    code_sources: tuple[str, ...] = ()
-    emitter_sources: tuple[str, ...] = ()
+    cmd: tuple[str, ...] = ()
+    artifact: str = ""
 
 
 @dataclass(frozen=True)
-class RustStack:
-    # Globs (repo-root-relative) to the Cargo.toml of every crate whose
-    # tests/ directory participates in verifies-tracing (`rqunit trace`).
-    trace_scan: tuple[str, ...] = ("**/Cargo.toml",)
-    # Git pathspecs for the L14 new-test diff gate.
-    trace_diff: tuple[str, ...] = ("*/tests/*.rs",)
+class Adapter:
+    """The stack's declared adapter capability. An absent role means that
+    capability is unavailable for this stack — reported as such by whatever
+    needs it, never silently skipped."""
+
+    manifest: str = ""
+    extractor: Role | None = None
+    scanner: Role | None = None
+    emitter: Role | None = None
+
+
+@dataclass(frozen=True)
+class Stack:
+    name: str
+    adapter: Adapter = Adapter()
     # Globs to tests/ DIRECTORIES for the hardcoded-bound advisory
-    # (`rqunit generate scan-literals`).
-    literal_scan: tuple[str, ...] = ("**/tests",)
-    # Path of the crate receiving generated constants and statechart suites.
-    # Its basename doubles as the package name prefixing trace-map check ids.
-    conformance_crate: str = "spec-conformance-tests"
-    # Where this stack's extractor writes actual-surface.json — the artifact
-    # `rqunit conformance` reconciles against the manifests. Empty disables.
-    actual_surface: str = "spec-conformance-tests/actual-surface.json"
-    # Manifest service slug this stack's extractor reports on. Empty means the
-    # extractor cannot key its output and conformance is not attempted.
-    service: str = ""
-    # HTTP composition table (see Router).
-    routers: tuple[Router, ...] = ()
-    # Async surface discovery.
-    messages: Messages = Messages()
-    # Audit emission discovery.
-    audit: Audit = Audit()
+    # (`rqunit generate scan-literals`). Core-read, but the sweep itself is
+    # still Rust-specific (it globs *.rs), so only the rust stack's globs are
+    # honored until the advisory moves behind an adapter role.
+    literal_scan: tuple[str, ...] = ()
+    # Everything else under [stacks.<name>] — adapter-owned, opaque to core.
+    options: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class Config:
-    rust: RustStack = RustStack()
+    stacks: tuple[Stack, ...] = ()
+
+    def stack(self, name: str) -> Stack | None:
+        for stack in self.stacks:
+            if stack.name == name:
+                return stack
+        return None
+
+
+# Keys core interprets per [stacks.<name>]; the rest is passthrough.
+_CORE_KEYS = {"adapter", "literal_scan"}
 
 
 def load(root: Path) -> Config:
@@ -101,88 +94,70 @@ def load(root: Path) -> Config:
     unknown = set(data) - {"stacks"}
     if unknown:
         raise BadConfig(str(path), f"unknown top-level table(s): {', '.join(sorted(unknown))}")
-    stacks = data.get("stacks") or {}
-    unknown = set(stacks) - {"rust"}
-    if unknown:
-        raise BadConfig(str(path), f"unknown stack(s): {', '.join(sorted(unknown))} "
-                                   "(supported: rust)")
-    rust_raw = stacks.get("rust") or {}
-    known = {f.name for f in fields(RustStack)}
-    unknown = set(rust_raw) - known
-    if unknown:
-        raise BadConfig(str(path), f"unknown [stacks.rust] key(s): {', '.join(sorted(unknown))} "
-                                   f"(supported: {', '.join(sorted(known))})")
-    kwargs = {}
-    for name in known & set(rust_raw):
-        value = rust_raw[name]
-        if name == "routers":
-            kwargs[name] = _routers(path, value)
-        elif name == "messages":
-            kwargs[name] = _messages(path, value)
-        elif name == "audit":
-            kwargs[name] = _audit(path, value)
-        elif name in ("conformance_crate", "service"):
-            if not isinstance(value, str) or (name == "conformance_crate" and not value):
-                raise BadConfig(str(path), f"{name} must be a non-empty string")
-            kwargs[name] = value
-        elif name == "actual_surface":
-            if not isinstance(value, str):
-                raise BadConfig(str(path), "actual_surface must be a string path ('' disables)")
-            kwargs[name] = value
-        else:
-            if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
-                raise BadConfig(str(path), f"{name} must be a list of glob strings")
-            kwargs[name] = tuple(value)
-    return Config(rust=RustStack(**kwargs))
+    stacks_raw = data.get("stacks") or {}
+    if not isinstance(stacks_raw, dict):
+        raise BadConfig(str(path), "stacks must be a table of [stacks.<name>] tables")
+    stacks = []
+    for name in sorted(stacks_raw):
+        if not _STACK_NAME.match(name):
+            raise BadConfig(str(path), f"stack name '{name}' must match [a-z][a-z0-9_-]* — "
+                                       "it names config tables and adapter directories")
+        raw = stacks_raw[name]
+        if not isinstance(raw, dict):
+            raise BadConfig(str(path), f"[stacks.{name}] must be a table")
+        stacks.append(_stack(path, name, raw))
+    return Config(stacks=tuple(stacks))
 
 
-def _routers(path: Path, value: object) -> tuple[Router, ...]:
-    if not isinstance(value, list):
-        raise BadConfig(str(path), "routers must be a list of [[stacks.rust.routers]] tables")
-    out = []
-    for entry in value:
-        if not isinstance(entry, dict):
-            raise BadConfig(str(path), "each router must be a table")
-        unknown = set(entry) - {"file", "function", "prefix", "access"}
-        if unknown:
-            raise BadConfig(str(path), f"unknown router key(s): {', '.join(sorted(unknown))} "
-                                       "(supported: file, function, prefix, access)")
-        missing = {"file", "function"} - set(entry)
-        if missing:
-            raise BadConfig(str(path), f"router is missing {', '.join(sorted(missing))} — an "
-                                       "extractor cannot find a router it cannot name")
-        out.append(Router(file=entry["file"], function=entry["function"],
-                          prefix=entry.get("prefix", ""), access=entry.get("access", "")))
-    return tuple(out)
-
-
-def _messages(path: Path, value: object) -> Messages:
-    if not isinstance(value, dict):
-        raise BadConfig(str(path), "messages must be a [stacks.rust.messages] table")
-    unknown = set(value) - {"subject_sources", "publisher_sources"}
-    if unknown:
-        raise BadConfig(str(path), f"unknown messages key(s): {', '.join(sorted(unknown))} "
-                                   "(supported: subject_sources, publisher_sources)")
-    for key in ("subject_sources", "publisher_sources"):
-        entries = value.get(key, [])
-        if not isinstance(entries, list) or not all(isinstance(v, str) for v in entries):
-            raise BadConfig(str(path), f"{key} must be a list of path strings")
-    return Messages(
-        subject_sources=tuple(value.get("subject_sources", [])),
-        publisher_sources=tuple(value.get("publisher_sources", [])),
+def _stack(path: Path, name: str, raw: dict) -> Stack:
+    literal = raw.get("literal_scan", [])
+    if not isinstance(literal, list) or not all(isinstance(v, str) for v in literal):
+        raise BadConfig(str(path), f"[stacks.{name}] literal_scan must be a list of glob strings")
+    return Stack(
+        name=name,
+        adapter=_adapter(path, name, raw.get("adapter")),
+        literal_scan=tuple(literal),
+        options={k: v for k, v in raw.items() if k not in _CORE_KEYS},
     )
 
 
-def _audit(path: Path, value: object) -> Audit:
-    if not isinstance(value, dict):
-        raise BadConfig(str(path), "audit must be a [stacks.rust.audit] table")
-    unknown = set(value) - {"code_sources", "emitter_sources"}
+def _adapter(path: Path, name: str, raw: object) -> Adapter:
+    if raw is None:
+        return Adapter()
+    if not isinstance(raw, dict):
+        raise BadConfig(str(path), f"[stacks.{name}.adapter] must be a table")
+    unknown = set(raw) - {"manifest", *ROLES}
     if unknown:
-        raise BadConfig(str(path), f"unknown audit key(s): {', '.join(sorted(unknown))} "
-                                   "(supported: code_sources, emitter_sources)")
-    for key in ("code_sources", "emitter_sources"):
-        entries = value.get(key, [])
-        if not isinstance(entries, list) or not all(isinstance(v, str) for v in entries):
-            raise BadConfig(str(path), f"{key} must be a list of path strings")
-    return Audit(code_sources=tuple(value.get("code_sources", [])),
-                 emitter_sources=tuple(value.get("emitter_sources", [])))
+        raise BadConfig(str(path), f"unknown [stacks.{name}.adapter] key(s): "
+                                   f"{', '.join(sorted(unknown))} "
+                                   f"(supported: manifest, {', '.join(ROLES)})")
+    manifest = raw.get("manifest", "")
+    if not isinstance(manifest, str):
+        raise BadConfig(str(path), f"[stacks.{name}.adapter] manifest must be a string path")
+    roles = {role: _role(path, name, role, raw[role]) for role in ROLES if role in raw}
+    return Adapter(manifest=manifest, **roles)
+
+
+def _role(path: Path, stack: str, role: str, raw: object) -> Role:
+    where = f"[stacks.{stack}.adapter] {role}"
+    if not isinstance(raw, dict):
+        raise BadConfig(str(path), f"{where} must be a table: "
+                                   "{ cmd = [...] } or { artifact = \"path\" }")
+    unknown = set(raw) - {"cmd", "artifact"}
+    if unknown:
+        raise BadConfig(str(path), f"unknown {where} key(s): {', '.join(sorted(unknown))} "
+                                   "(supported: cmd, artifact)")
+    if ("cmd" in raw) == ("artifact" in raw):
+        raise BadConfig(str(path), f"{where} needs exactly one of `cmd` (core execs it) or "
+                                   "`artifact` (core reads a file the pipeline produced)")
+    if "cmd" in raw:
+        cmd = raw["cmd"]
+        if (not isinstance(cmd, list) or not cmd
+                or not all(isinstance(v, str) and v for v in cmd)):
+            raise BadConfig(str(path), f"{where} cmd must be a non-empty list of strings — "
+                                       "argv, executed without a shell")
+        return Role(cmd=tuple(cmd))
+    artifact = raw["artifact"]
+    if not isinstance(artifact, str) or not artifact:
+        raise BadConfig(str(path), f"{where} artifact must be a non-empty repo-relative path")
+    return Role(artifact=artifact)

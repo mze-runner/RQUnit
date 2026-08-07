@@ -65,7 +65,8 @@ def test_rust_detection_writes_config_the_strict_reader_accepts(tmp_path):
     result = _init(tmp_path)
     assert result.exit_code == 0 and "rust" in result.output
     loaded = config.load(tmp_path)
-    assert loaded.rust.conformance_crate  # parsed, not defaulted past a bad file
+    # parsed, not defaulted past a bad file
+    assert loaded.stack("rust").options["conformance_crate"]
 
 
 def test_stackless_detection_writes_no_stacks_table(tmp_path):
@@ -83,7 +84,7 @@ def test_stack_override_beats_detection(tmp_path):
     (tmp_path / "pom.xml").write_text("<project/>")
     result = _init(tmp_path, "--stack", "rust")
     assert result.exit_code == 0
-    assert config.load(tmp_path).rust.trace_scan
+    assert config.load(tmp_path).stack("rust").options["trace_scan"]
 
 
 def test_refuses_a_non_empty_store_without_touching_it(tmp_path):
@@ -104,14 +105,19 @@ def test_existing_config_is_never_overwritten(tmp_path):
     assert (tmp_path / "rqunit.toml").read_text() == original
 
 
-def test_the_scaffold_mentions_every_key_the_reader_accepts(tmp_path):
+def test_the_scaffold_mentions_every_key_the_toolchain_reads(tmp_path):
     """`audit` was accepted by config.py, read by the Rust probe, and depended
     on by CF10/CF11 — and absent from the scaffold, so a consumer had no way to
     discover it existed. A key you cannot find in the file you configure is a
-    capability that silently does nothing."""
-    from dataclasses import fields
+    capability that silently does nothing. Core-read keys are DERIVED from
+    config.py so a new accepted key nobody documented fails this build; the
+    adapter-owned list genuinely cannot be derived until adapter manifests
+    exist (it becomes the manifest's config_keys then), so it is literal."""
+    from rqunit.config import ROLES, _CORE_KEYS
 
-    from rqunit.config import RustStack
+    core_read = tuple(sorted((_CORE_KEYS - {"adapter"}) | set(ROLES) | {"manifest"}))
+    adapter_owned = ("trace_scan", "trace_diff", "conformance_crate", "service",
+                     "routers", "messages", "audit")
 
     (tmp_path / "Cargo.toml").write_text('[package]\nname = "app"\n')
     _init(tmp_path)
@@ -119,9 +125,9 @@ def test_the_scaffold_mentions_every_key_the_reader_accepts(tmp_path):
     # The TOML forms, not a bare substring: "audit" appears in the prose that
     # explains the block, so a substring check passes with the key deleted —
     # a test that looks like proof and is not.
-    missing = [f.name for f in fields(RustStack)
-               if f"{f.name} =" not in scaffold
-               and f"[stacks.rust.{f.name}]" not in scaffold]
+    missing = [name for name in (*core_read, *adapter_owned)
+               if f"{name} =" not in scaffold
+               and f"[stacks.rust.{name}]" not in scaffold]
     assert missing == [], f"accepted but undiscoverable: {', '.join(missing)}"
 
 
@@ -130,8 +136,9 @@ def test_the_scaffold_it_writes_is_one_the_strict_reader_accepts(tmp_path):
     produce a store its own loader rejects."""
     (tmp_path / "Cargo.toml").write_text('[package]\nname = "app"\n')
     _init(tmp_path)
-    loaded = config.load(tmp_path)
-    assert loaded.rust.trace_scan and loaded.rust.conformance_crate
+    stack = config.load(tmp_path).stack("rust")
+    assert stack.options["trace_scan"] and stack.options["conformance_crate"]
+    assert stack.adapter.extractor.artifact     # the extractor role is declared
 
 
 def test_emitted_guidance_names_only_directories_the_store_has():

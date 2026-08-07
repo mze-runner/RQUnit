@@ -177,9 +177,17 @@ def emit_rust_suite(plan: dict) -> str:
 def targets(store: Store, root: Path) -> dict[Path, str]:
     """Every generated artifact and its current rendering. Where the
     conformance crate lives comes from rqunit.toml ([stacks.rust]
-    conformance_crate); projection paths are store contract (§12.1), fixed."""
+    conformance_crate — adapter-owned, read here only until emission moves
+    behind the emitter role); projection paths are store contract (§12.1),
+    fixed."""
     from .config import load as load_config
-    crate_rel = load_config(root).rust.conformance_crate
+    from .errors import BadConfig
+    stack = load_config(root).stack("rust")
+    crate_rel = (stack.options.get("conformance_crate", "spec-conformance-tests")
+                 if stack else "spec-conformance-tests")
+    if not isinstance(crate_rel, str) or not crate_rel:
+        raise BadConfig(str(root / "rqunit.toml"),
+                        "conformance_crate must be a non-empty string path")
     out: dict[Path, str] = {}
     crate = root / crate_rel
     mods = []
@@ -280,7 +288,11 @@ def scan_literals(store: Store, root: Path) -> list[str]:
         for dotted, value in manifest_value_leaves(manifest.raw.get("values") or {}).items():
             if isinstance(value, int) and not isinstance(value, bool) and abs(value) >= 10:
                 values.setdefault(value, []).append(f"{service}:{dotted}")
-    dirs = sorted({d for pattern in load_config(root).rust.literal_scan
+    # The sweep globs *.rs, so only the rust stack's literal_scan participates
+    # until the advisory moves behind an adapter role — unioning every stack's
+    # globs here would report clean for stacks the sweep never looked at.
+    stack = load_config(root).stack("rust")
+    dirs = sorted({d for pattern in (stack.literal_scan if stack else ())
                    for d in Path(root).glob(pattern) if d.is_dir()})
     for tests_dir in dirs:
         for rs in sorted(tests_dir.glob("*.rs")):
