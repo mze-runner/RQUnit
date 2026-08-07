@@ -30,12 +30,22 @@ def _store(tmp_path: Path) -> Path:
     to point at, because a TODO converts only to a check that EXISTS."""
     root = tmp_path / "store"
     shutil.copytree(BASE, root)
-    (root / "rqunit.toml").write_text("[stacks.rust]\n")   # participation is declared
+    (root / "rqunit.toml").write_text(
+        '[stacks.rust.adapter]\nscanner = { artifact = "scanned-checks.json" }\n')
     crate = root / "svc"
     (crate / "tests").mkdir(parents=True)
     (crate / "Cargo.toml").write_text('[package]\nname = "svc"\n')
     (crate / "tests" / "flow_tests.rs").write_text(
         "#[test]\nfn issues_token() {}\n\n#[test]\nfn records_decision() {}\n")
+    import json
+    (root / "scanned-checks.json").write_text(json.dumps({
+        "contract_version": 1, "generated_by": "fixture-scanner 0.1",
+        "checks": [
+            {"id": "svc::flow_tests::issues_token", "path": "svc/tests/flow_tests.rs",
+             "fn": "issues_token", "verifies": []},
+            {"id": "svc::flow_tests::records_decision", "path": "svc/tests/flow_tests.rs",
+             "fn": "records_decision", "verifies": []},
+        ]}))
     return root
 
 

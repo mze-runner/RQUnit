@@ -127,11 +127,13 @@ framework; everything language-specific lives in a per-stack adapter.
 |---|---|---|---|
 | `actual-surface.json` | adapter → core | an **extractor**: what the code really exposes | what every difference means (CF-rules), including the planned-surface asymmetry |
 | `test-plan.json` | core → adapter | an **emitter**: renders the plan as idiomatic tests | which checks exist, what each asserts, their identity and order |
-| scanner registry | adapter → core | a **scanner**: finds tests and their `verifies` traces | traceability rules and the new-test gate |
+| `scanned-checks.json` | adapter → core | a **scanner**: finds tests and their `verifies` traces | traceability rules and the new-test gate (L14 = base-vs-head set difference over the observations) |
 
-The scanner registry is a registry of *functions*, not a parameterized generic
-scanner: test discovery differs structurally between stacks, and one algorithm bent
-to fit all of them would be false generality.
+Every role runs out of process behind its pinned schema — a declared command
+core execs as a black box, or an artifact the stack's pipeline produced. The
+contract pins the *output shape*, never the algorithm: test discovery differs
+structurally between stacks, and one algorithm bent to fit all of them would
+be false generality.
 
 ---
 

@@ -102,24 +102,6 @@ def test_adapter_vocabulary_is_not_validated_here(tmp_path):
     assert cfg.stack("rust").options["trace_scam"] == ["x"]
 
 
-def test_gate_driving_passthrough_shapes_are_validated_at_the_read_site(tmp_path):
-    """Key NAMES are the manifest's problem, but a key whose SHAPE drives a
-    gate must error where it is read — a string bent into per-character
-    pathspecs would let L14 examine nonsense and report green."""
-    from rqunit.trace import SCANNERS
-
-    root = tmp_path / "repo"
-    shutil.copytree(FIXTURES / "rusttree", root)
-    (root / "rqunit.toml").write_text('[stacks.rust]\ntrace_scan = "not-a-list"\n')
-    with pytest.raises(BadConfig) as caught:
-        scan_tests(root)
-    assert "trace_scan" in str(caught.value)
-
-    with pytest.raises(BadConfig) as caught:
-        SCANNERS["rust"].diff_pathspecs(Stack(name="rust", options={"trace_diff": "x"}))
-    assert "trace_diff" in str(caught.value)
-
-
 def test_the_shipped_consumer_configs_load(tmp_path):
     """Every config this repo ships parses under the strict reader, and what
     a store declares round-trips. The property, not the census: exact values
@@ -133,11 +115,11 @@ def test_the_shipped_consumer_configs_load(tmp_path):
 
 # ------------------------------------------------ scan and emit honor the file
 
-def test_scan_tests_honors_declared_stacks_and_trace_scan(tmp_path):
+def test_scan_tests_honors_declared_scanner_roles(tmp_path):
     root = tmp_path / "repo"
     shutil.copytree(FIXTURES / "rusttree", root)
-    assert scan_tests(root), "the fixture tree declares [stacks.rust]"
-    (root / "rqunit.toml").write_text('[stacks.rust]\ntrace_scan = ["nothing/Cargo.toml"]\n')
+    assert scan_tests(root), "the fixture tree declares a scanner role"
+    (root / "rqunit.toml").write_text("[stacks.rust]\n")     # role removed
     assert scan_tests(root) == []
     (root / "rqunit.toml").unlink()
     assert scan_tests(root) == []       # no declaration, no participation

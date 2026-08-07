@@ -116,7 +116,7 @@ def test_the_scaffold_mentions_every_key_the_toolchain_reads(tmp_path):
     from rqunit.config import ROLES, _CORE_KEYS
 
     core_read = tuple(sorted((_CORE_KEYS - {"adapter"}) | set(ROLES) | {"manifest"}))
-    adapter_owned = ("trace_scan", "trace_diff", "conformance_crate", "service",
+    adapter_owned = ("trace_scan", "conformance_crate", "service",
                      "routers", "messages", "audit")
 
     (tmp_path / "Cargo.toml").write_text('[package]\nname = "app"\n')

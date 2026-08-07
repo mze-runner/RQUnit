@@ -13,10 +13,8 @@ literal_scan = ["**/tests"]
 # ---- adapter-owned configuration ---------------------------------------------
 # Core passes everything below through untouched; the Rust adapter reads it.
 
-# Cargo.toml of every crate whose tests/ participate in verifies-tracing.
+# Cargo.toml of every crate whose tests/ the scanner walks.
 trace_scan = ["**/Cargo.toml"]
-# Git pathspecs for the L14 new-test diff gate.
-trace_diff = ["*/tests/*.rs"]
 # Crate receiving generated constants and statechart conformance suites.
 conformance_crate = "spec-conformance-tests"
 # Manifest service slug the extractor reports on. It does not guess this.

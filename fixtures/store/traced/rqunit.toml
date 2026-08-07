@@ -1,7 +1,11 @@
 [stacks.rust]
 literal_scan = ["*/tests"]
-# Adapter-owned (passthrough): which crates participate in verifies-tracing.
+# Adapter-owned (passthrough): which crates the rust scanner walks when it
+# runs over this tree — the committed artifact below is that scan's output.
 trace_scan = ["*/Cargo.toml"]
-trace_diff = ["*/tests/*.rs"]
-# No [stacks.rust.adapter] roles: no extractor artifact, so conformance
-# reconciliation is unavailable for this store — by design.
+
+[stacks.rust.adapter]
+# Artifact-mode scanner: the committed observation, kept current by the Rust
+# adapter's golden test. No extractor: conformance is unavailable here — by
+# design.
+scanner = { artifact = "scanned-checks.json" }

@@ -22,10 +22,12 @@ uv run rqunit lint        --store demo/order-management --format text
 uv run rqunit check       --store demo/order-management --format text
 uv run rqunit conformance --store demo/order-management --format text
 
-# Adapters build independently of the core.
+# Adapters build independently of the core, and their tests pin the committed
+# scanner goldens under fixtures/ — unrun cargo tests rot.
 cargo check --manifest-path adapters/rust/Cargo.toml
 cargo clippy --manifest-path adapters/rust/Cargo.toml --all-targets -- -D warnings
 cargo fmt --manifest-path adapters/rust/Cargo.toml --check
+cargo test --manifest-path adapters/rust/Cargo.toml
 ```
 
 Report: pass/fail per stage, and for any failure the exact command that

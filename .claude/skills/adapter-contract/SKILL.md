@@ -1,6 +1,6 @@
 ---
 name: adapter-contract
-description: How language support works — the three pinned contracts (actual-surface, test-plan, scanner registry) and the rules an adapter must obey. Load before adding a language, changing an adapter, or touching anything in src/rqunit/interfaces/ or adapters/.
+description: How language support works — the three pinned contracts (actual-surface, test-plan, scanned-checks) and the rules an adapter must obey. Load before adding a language, changing an adapter, or touching anything in src/rqunit/interfaces/ or adapters/.
 ---
 
 # Language adapters
@@ -15,7 +15,7 @@ stay honest.
 |---|---|---|---|
 | `actual-surface.json` | adapter → core | an **extractor**: the routes and messages the code really exposes, in manifest vocabulary | what every difference means (CF-rules), including the planned-surface asymmetry |
 | `test-plan.json` | core → adapter | an **emitter**: the plan rendered as idiomatic tests | which checks exist, what each asserts, their identity and order |
-| scanner registry | adapter → core | a **scanner**: tests and their `verifies` annotations | traceability rules and the new-test gate |
+| `scanned-checks.json` | adapter → core | a **scanner**: tests and their `verifies` annotations | traceability rules and the new-test gate (L14 = base-vs-head set difference) |
 
 Schemas live in `src/rqunit/interfaces/`. They are pinned: changing one is a
 revision event affecting every adapter.
@@ -54,14 +54,15 @@ wearing a waiver.
 2. **Currency test** in the stack's own suite: regenerate, compare to the
    committed artifact, fail with the command that fixes it.
 3. **Emitter** → renders `test-plan.json` into the stack's test idiom.
-4. **Scanner** → register a `Scanner` in the trace registry: how tests are
-   found, and what an added test definition looks like for the diff gate.
+4. **Scanner** → a `scan-checks` command (or pipeline-produced artifact)
+   emitting `scanned-checks.json`: the tests a tree carries and what each
+   one's trace annotation claims. Core derives newness by set difference.
 5. **Config** → a `[stacks.<name>]` block in the consumer's `rqunit.toml`.
 
-The registry is a registry of **functions**, not a parameterized generic
-scanner. Discovery differs structurally between stacks; one algorithm bent to
-fit them all would be false generality, and the seam exists precisely so each
-language can be honest about its own shape.
+The contract pins the scanner's *output shape*, never its algorithm.
+Discovery differs structurally between stacks; one algorithm bent to fit them
+all would be false generality, and the seam exists precisely so each language
+can be honest about its own shape — out of process, in its own idiom.
 
 ## The acceptance test for a new language
 

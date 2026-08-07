@@ -28,3 +28,7 @@ path = "src/extract.rs"
 [[bin]]
 name = "extract-surface"
 path = "src/bin/extract-surface.rs"
+
+[[bin]]
+name = "scan-checks"
+path = "src/bin/scan-checks.rs"

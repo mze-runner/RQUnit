@@ -12,6 +12,8 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub mod scan;
+
 /// Extraction reads and parses files, both of which can fail for ordinary
 /// reasons (a moved router, an unparseable source). Those are reported, never
 /// panicked: this runs as a build step whose error message IS its interface.

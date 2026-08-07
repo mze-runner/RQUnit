@@ -270,7 +270,7 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | L11 | error | FEAT goals carry no normative keywords (shall/must/should, uppercase MAY) |
 | L12 | error | the parsed EARS actor is a canonical `actors.yaml` id; aliases rejected with the rename; unknown hyphenated role-names flagged |
 | L13 | error | ≤15 active constitutional RUs store-wide; violation lists all members |
-| L14 | error (diff-aware) | *lives in `rqunit trace`*: NEW tests without a `verifies` trace (or the audited `infrastructure` marker) block; pre-existing untraced tests are burn-down |
+| L14 | error (base-vs-head) | *lives in `rqunit trace`*: tests NEW against `--against REF` (set difference over the scanner's observations) without a `verifies` trace (or the audited `infrastructure` marker) block; pre-existing untraced tests are burn-down |
 | L15 | error | every statement reference resolves; malformed tokens are a distinct class; qualified refs resolve ONLY in the named manifest and only to surfaces/problem/audit |
 | L16 | error | a service-manifest key shadowing a shared key — resolution must stay unambiguous |
 | L17 | error | fact restatement: literal paths/subjects/wire-types/registered values (≥10 for numbers) in a statement instead of a reference (P8's teeth) |

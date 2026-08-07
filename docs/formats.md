@@ -426,6 +426,13 @@ they are properties of one repository, not of a language: an extractor that
 guessed a composition would report a surface nobody declared, and the
 reconciler would believe it.
 
+**Scanned checks** (contract: `interfaces/scanned-checks.schema.json`) — the
+scanner role's output: the tests a tree carries and what each one's trace
+annotation claims (`verifies`: RU ids, `["infrastructure"]`, or `[]` for
+untraced). Check ids are stack-qualified so the union across stacks never
+collides. `rqunit trace` owns every judgment over these observations,
+including L14's set-difference definition of "new" (spec §6.6).
+
 **Adapter manifest** (`adapter.yaml`, contract:
 `interfaces/adapter-manifest.schema.json`) — the adapter package's
 self-declaration, read by core and never by the adapter. Located at the

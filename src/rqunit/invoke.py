@@ -39,10 +39,16 @@ MANIFEST_SCHEMA = "adapter-manifest.schema.json"
 TIMEOUT_SECONDS = 600
 
 
-def run_role(root: Path, stack: Stack, role_name: str, schema: str) -> dict:
+def run_role(root: Path, stack: Stack, role_name: str, schema: str,
+             target_root: Path | None = None) -> dict:
     """One adapter role's output, parsed and validated against its pinned
     schema — the single door for both transports, so every caller gets the
-    same checks. `schema` is the contract file under interfaces/."""
+    same checks. `schema` is the contract file under interfaces/.
+
+    `target_root` points the role at a different tree to observe (the L14
+    base scan runs the scanner over a detached checkout): the command still
+    resolves and runs from `root`, where the built adapter lives, but its
+    `--root` — and an artifact-mode read — is the target tree."""
     role = getattr(stack.adapter, role_name)
     if role is None:
         raise RoleUnavailable(
@@ -51,9 +57,10 @@ def run_role(root: Path, stack: Stack, role_name: str, schema: str) -> dict:
             f"[stacks.{stack.name}.adapter] {role_name} = {{ cmd = [...] }} or "
             "{ artifact = \"path\" } in rqunit.toml")
     root = Path(root).resolve()      # the documented promise: --root is absolute
+    target = Path(target_root).resolve() if target_root is not None else root
     if role.artifact:
-        return _from_artifact(root, role.artifact, role_name, schema)
-    return _from_cmd(root, stack, role_name, role.cmd, schema)
+        return _from_artifact(target, role.artifact, role_name, schema)
+    return _from_cmd(root, target, stack, role_name, role.cmd, schema)
 
 
 def _from_artifact(root: Path, artifact: str, role_name: str, schema: str) -> dict:
@@ -67,13 +74,13 @@ def _from_artifact(root: Path, artifact: str, role_name: str, schema: str) -> di
         data = json.loads(path.read_text())
     except json.JSONDecodeError as e:
         raise BadConfig(str(path), f"not parseable JSON: {e}") from e
-    return _validate(data, schema, str(path))
+    return validate_payload(data, schema, str(path))
 
 
-def _from_cmd(root: Path, stack: Stack, role_name: str, cmd: tuple[str, ...],
-              schema: str) -> dict:
+def _from_cmd(root: Path, target: Path, stack: Stack, role_name: str,
+              cmd: tuple[str, ...], schema: str) -> dict:
     where = f"[stacks.{stack.name}.adapter] {role_name}"
-    argv = [_resolve(root, cmd[0]), *cmd[1:], "--root", str(root)]
+    argv = [_resolve(root, cmd[0]), *cmd[1:], "--root", str(target)]
     try:
         # input="" puts the child's stdin at EOF: a probe (or anything it
         # spawns) that prompts fails fast instead of hanging the gate.
@@ -102,7 +109,7 @@ def _from_cmd(root: Path, stack: Stack, role_name: str, cmd: tuple[str, ...],
     except json.JSONDecodeError as e:
         raise BadConfig(where, f"emitted unparseable JSON on stdout: {e} — a probe's "
                                "stdout is its artifact; logs belong on stderr") from e
-    return _validate(data, schema, where)
+    return validate_payload(data, schema, where)
 
 
 def _resolve(root: Path, cmd0: str) -> str:
@@ -114,7 +121,7 @@ def _resolve(root: Path, cmd0: str) -> str:
     return cmd0
 
 
-def _validate(data: object, schema_file: str, where: str) -> dict:
+def validate_payload(data: object, schema_file: str, where: str) -> dict:
     if not isinstance(data, dict):
         raise BadConfig(where, "adapter output must be a JSON object")
     version = data.get("contract_version")
@@ -158,7 +165,7 @@ def load_adapter_manifest(root: Path, stack: Stack) -> dict | None:
         data = yaml.safe_load(path.read_text())
     except yaml.YAMLError as e:
         raise BadConfig(str(path), f"not parseable YAML: {e}") from e
-    data = _validate(data, MANIFEST_SCHEMA, str(path))
+    data = validate_payload(data, MANIFEST_SCHEMA, str(path))
     if data["stack"] != stack.name:
         raise BadConfig(str(path),
                         f"manifest declares stack '{data['stack']}' but is wired to "

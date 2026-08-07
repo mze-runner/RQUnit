@@ -381,7 +381,7 @@ Every test declares which RU(s) it verifies (`verifies(RU-XXXX)` annotation, or 
 - **Untraced checks** — behaviour no requirement governs: compile the missing RU (via new INT acknowledgment), delete the check and its behaviour, or mark `trace: infrastructure` (audited — a growing infrastructure bucket is the escape hatch rotting).
 - **Orphan manifest facts** (C7) — a surface or shared value no active RU references: dead interface or missing requirement; a finding either way.
 
-L14 blocks new untraced checks; pre-existing ones burn down. A requirement without behaviour, a behaviour without a requirement, and a fact without a governor are all equally detectable.
+L14 blocks new untraced checks; pre-existing ones burn down. "New" is set difference — the check ids the scanner observes at head minus those it observed at the base ref — never diff-line inspection, which would put language knowledge in the framework. The base observation is governed by the base tree's own configuration: widening a scan makes previously unobserved checks new, deliberately, because a check nothing had ever observed has never been judged; a renamed untraced check is one deletion plus one addition, and the addition still blocks. A requirement without behaviour, a behaviour without a requirement, and a fact without a governor are all equally detectable.
 
 ### 6.7 Coverage policies — verification depth by criticality
 

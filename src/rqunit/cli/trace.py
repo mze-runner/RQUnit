@@ -11,7 +11,7 @@ import click
 
 from ..schemas import repo_root
 from ..store import Store
-from ..trace import build_report, l14_gate, render_markdown
+from ..trace import build_report, l14_gate, render_markdown, scan_tests
 
 
 @click.command()
@@ -23,8 +23,9 @@ def main(store_path: Path | None, against: str | None, no_write: bool) -> None:
     try:
         root = store_path or repo_root()
         store = Store.load(root)
-        report = build_report(store, root)
-        gate = l14_gate(store, root, against) if against else []
+        checks = scan_tests(root)         # one observation feeds both consumers
+        report = build_report(store, root, checks=checks)
+        gate = l14_gate(store, root, against, head=checks) if against else []
     except Exception as e:
         click.echo(f"spec-trace: tool error: {e}", err=True)
         sys.exit(2)
@@ -43,6 +44,10 @@ def main(store_path: Path | None, against: str | None, no_write: bool) -> None:
         click.echo(f"ERROR {line}", err=True)
     for line in gate:
         click.echo(f"ERROR {line}", err=True)
+    for name in report.unscanned_stacks:
+        click.echo(f"note: stack '{name}' declares no scanner role — its tests are "
+                   "not observed ([stacks."
+                   f"{name}.adapter] scanner in rqunit.toml)", err=True)
     click.echo(
         f"trace: {len(report.unverified_rus)} unverified RU(s), "
         f"{len(report.untraced_checks)} untraced check(s) (burn-down), "

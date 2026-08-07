@@ -80,10 +80,9 @@ literal_scan = ["**/tests"]
 # Leave a section out and that family is simply not examined, which the
 # report says out loud rather than passing quietly.
 
-# Cargo.toml of every crate whose tests/ participate in verifies-tracing.
+# Cargo.toml of every crate whose tests/ the scanner walks (read by the
+# scan-checks binary when it runs over this tree).
 trace_scan = ["**/Cargo.toml"]
-# Git pathspecs for the L14 new-test diff gate.
-trace_diff = ["*/tests/*.rs"]
 # Crate receiving generated constants and statechart conformance suites.
 conformance_crate = "spec-conformance-tests"
 # Manifest service slug the extractor reports on. It does not guess this.
@@ -98,6 +97,11 @@ service = ""
 # Where this stack's extractor writes actual-surface.json — the artifact
 # `rqunit conformance` reconciles against the manifests.
 extractor = { artifact = "spec-conformance-tests/actual-surface.json" }
+# The scanner feeds `rqunit trace` (traceability + the L14 new-test gate).
+# Build the adapter in its own toolchain, or produce the artifact in your
+# pipeline and declare artifact = "path" instead. In artifact mode L14 judges
+# the artifact, not your sources — regenerate it in the same pipeline step
+# that runs the gate.
 # scanner = { cmd = ["adapters/rust/target/release/scan-checks"] }
 # emitter = { cmd = ["adapters/rust/target/release/emit-suite"] }
 # The adapter's manifest, declaring its roles and the config keys it reads.
