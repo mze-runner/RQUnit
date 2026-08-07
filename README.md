@@ -57,11 +57,17 @@ Exit codes everywhere: `0` pass, `1` violations, `2` tool error.
 ## Language support
 
 The framework is language-neutral by construction: every *judgment* lives in the
-core, and everything language-specific lives in a small adapter behind three pinned
-JSON contracts — an extractor (what the code exposes), an emitter (rendering the
-framework's test plan as idiomatic tests), and a scanner (finding tests and their
-traceability annotations). Supporting a language costs an adapter, never a second
-copy of the rules.
+core, and everything language-specific lives in a per-stack adapter that runs
+**out of process** behind pinned JSON contracts — an extractor (what the code
+exposes), a scanner (the tests it carries and their traceability annotations),
+and an emitter (the framework's test plan rendered as idiomatic tests, returned
+as files-as-data that core validates and writes). Each role is a declared
+command core execs as an opaque black box, or an artifact the stack's own
+pipeline produced; core never invokes a language toolchain. Any
+`[stacks.<name>]` table declares a stack — core carries no list of supported
+languages — and `rqunit adapter verify` runs an adapter's compliance kit, the
+executable definition of a correct adapter. Supporting a language costs an
+adapter, never a second copy of the rules, and never a core change.
 
 Adapters live under [`adapters/`](adapters).
 

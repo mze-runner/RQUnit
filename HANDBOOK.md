@@ -217,14 +217,22 @@ what must be checked — and a per-stack **emitter** renders it as idiomatic
 tests. Emitters render; they never decide. Check identity comes from the plan,
 so traceability survives regeneration and is identical across languages.
 
-The same split runs through the whole conformance layer, in three pinned
-contracts: a stack's **extractor** reports what the code exposes
-(`actual-surface.json`), the framework diffs it against the manifests
-(CF1–CF11); the framework plans what must be checked (`test-plan.json`), a
-stack's **emitter** renders it; a stack's **scanner** finds tests and their
-`verifies` traces. Everything language-specific lives in those three
-per-stack pieces, and every judgment lives in the framework — so supporting
-a language costs an adapter, never a second copy of the rules.
+The same split runs through the whole conformance layer, in pinned contracts
+each role serves **out of process**: a stack's **extractor** reports what the
+code exposes (`actual-surface.json`), the framework diffs it against the
+manifests (CF1–CF11); a stack's **scanner** reports the tests a tree carries
+and their `verifies` traces (`scanned-checks.json`), the framework owns
+traceability and L14's set-difference definition of "new"; the framework
+plans what must be checked, a stack's **emitter** renders the emit request as
+files-as-data (`emitted-files`) that core validates against the plan's census
+and writes itself. Each role is a declared command core execs as a black box,
+or an artifact the stack's own pipeline produced — core never invokes a
+language toolchain. The adapter's manifest (`adapter.yaml`) declares its
+roles, the passthrough config keys it reads, and the compliance kit
+`rqunit adapter verify` runs. Everything language-specific lives in those
+per-stack pieces, and every judgment lives in the framework — so supporting a
+language costs an adapter, never a second copy of the rules, and never a core
+change.
 
 An extractor's repo-specific inputs — which router functions mount at which
 prefix and tier, where subject constants live, which manifest service the

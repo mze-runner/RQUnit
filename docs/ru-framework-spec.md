@@ -1,6 +1,25 @@
 # Requirement Unit (RU) Framework — Specification Management for Agentic Development
 
-**Status:** v0.14.0-draft (v0.14.0: one vocabulary — the manifest IS the
+**Status:** v0.16.0-draft (v0.16.0: adapters become pluggable processes. Any
+`[stacks.<name>]` table declares a stack — core carries no language list — and
+core interprets a closed key set per stack (the `adapter` role declarations
+and `literal_scan`); every other key is adapter-owned passthrough, validated
+by the adapter manifest's `config_keys`, never by core. Each role runs out of
+process behind a pinned schema, declared `cmd` (core execs the argv as an
+opaque black box — never a language toolchain or build system) XOR `artifact`
+(a file the stack's own pipeline produced). Three interface contracts join
+`actual-surface` and `test-plan`: `scanned-checks` (scanner output),
+`emit-request`/`emitted-files` (emitter stdin/stdout — files as data, core
+writes every one, and check identity flows through the response's plan-check
+mapping, never through parsing emitted source); the `adapter-manifest`
+self-declaration carries roles, `config_keys`, and the compliance kit that
+`rqunit adapter verify` runs. L14 newness becomes base-vs-head set difference
+over scanner observations, never diff-line inspection (§6.6 states the
+widened-scan and rename consequences). **Consumers MUST act:** declare
+adapter roles in `[stacks.<name>.adapter]` — the extractor's write target
+moves to `extractor = { artifact = "…" }` — delete `trace_diff`, and wire a
+scanner role before using `rqunit trace --against`;
+v0.14.0: one vocabulary — the manifest IS the
 contract. `spec/contracts/` and the `contract` verification type retire; a shape
 is a manifest fact and an RU binds to one by addressing it in the statement.
 What the layer genuinely held — structure behind an ENCODING boundary, where a
@@ -236,7 +255,7 @@ Inside RU statements (and only there — not scope, not verification refs):
 {endpoint:<id>.<direction>}            {endpoint:<id>.<direction>.<field>}
 ```
 
-An endpoint reference may address one of the surface's two directions, and a field within that direction's declared census (§5.9); nesting is expressed by the field name (`…outbound.cancellation.at`). `direction` is `inbound` or `outbound` and closed by the grammar — a misspelling is malformed, not unresolved. This is how an RU binds to a shape: the statement names the field, and L23 reports a reference to a field the surface does not declare.
+An endpoint reference may address one of the surface's two directions, and a field within that direction's declared census (§5.9); nesting is expressed by the field name (`…outbound.cancellation.at`). `direction` is `inbound` or `outbound` and closed by the grammar — a misspelling is malformed, not unresolved. This is how an RU binds to a shape: the statement names the field, and L15 reports a reference to a field the surface does not declare.
 
 **Cross-service qualifier (v0.10).** A reference may name the owning service: `{endpoint:service-billing/charge}`, `{problem:service-billing/payment-failed}`. One slash, before the key; grammar in `formats.md` §2. Rules:
 

@@ -60,7 +60,7 @@ repo_root = store_root
 #
 # A meta-test ties this to the status line in docs/ru-framework-spec.md; the two
 # move together or the build says so.
-SPEC_VERSION = "0.14.0"
+SPEC_VERSION = "0.16.0"
 
 
 def installed_version() -> str:

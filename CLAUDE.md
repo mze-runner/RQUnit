@@ -99,9 +99,13 @@ equally.
 
 7. **Adapters never judge; the core never invokes a language toolchain.** An
    extractor reports what the code exposes; the framework decides what a difference
-   means. Extraction runs in the stack's own build system. Emitters are pure
-   functions of the plan — asserted, because that is what stops a second language
-   from silently asserting something different from the first.
+   means. The core may exec a *declared, prebuilt* adapter command as an opaque
+   black box behind a pinned schema — but it never runs a compiler, build tool, or
+   test runner: building the adapter is the stack's own build system's job, and a
+   missing binary is a config error naming both fixes (build it, or use artifact
+   mode). Emitters are pure functions of the emit request — asserted, because that
+   is what stops a second language from silently asserting something different
+   from the first.
 
 8. **Kinds grow by demand.** Contract kinds are a closed set; the model dialect is
    flat; there is no generic assertion DSL. Extend by schema PR when a real case
@@ -146,8 +150,9 @@ be false generality.
   reference is a defect; a meta-test guards this. Extend both together.
 - **Adding a rule** = module + pass/fail fixtures + handbook catalogue entry + spec
   line. Rules are numbered within their family and never renumbered.
-- **Adding a language** = an extractor, an emitter, and a scanner. If it requires a
-  core change, the contracts are wrong — fix them rather than special-casing.
+- **Adding a language** = an extractor, a scanner, an emitter, and a manifest with
+  a passing compliance kit (`rqunit adapter verify`). If it requires a core change,
+  the contracts are wrong — fix them rather than special-casing.
 
 ---
 

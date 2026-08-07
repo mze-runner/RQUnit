@@ -374,7 +374,7 @@ def _lookup_endpoint(manifest: dict, key: str) -> object | None:
     declaration, or one declared field. A direction declared `none` resolves to
     the string `none` — "this surface carries nothing" is a POSITIVE claim, so
     it must resolve; an ABSENT direction does not, which is what lets C10 and
-    L23 tell an unfinished declaration from a deliberate empty one."""
+    L15 tell an unfinished declaration from a deliberate empty one."""
     endpoint_id, _, path = key.partition(".")
     entry = next((e for e in manifest.get("endpoints", []) if e.get("id") == endpoint_id), None)
     if entry is None or not path:
