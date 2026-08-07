@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 
 pub mod emit;
 pub mod scan;
+pub mod strip;
 
 /// Extraction reads and parses files, both of which can fail for ordinary
 /// reasons (a moved router, an unparseable source). Those are reported, never

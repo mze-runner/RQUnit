@@ -68,6 +68,7 @@ at the repo root — the tools carry no consumer paths in code.
 | `rqunit check [--only C4]` | consistency C1–C15 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
+| `rqunit trace --strip [--all] [--apply]` | the off-ramp: remove trace annotations naming no active RU (`--all`: every annotation, `infrastructure` markers included). Dry unless `--apply` — it rewrites source you own. Needs the stack's `stripper` role; a stack without one is reported un-strippable, never swept silently | off-boarding; before re-adopting onto a fresh corpus |
 | `rqunit conformance` | manifest ↔ code surfaces (CF1–CF11) — reads each stack's declared extractor output (a committed artifact, or a prebuilt adapter core execs as a black box); never invokes a language toolchain | after changing routes/messages; every gate |
 | `rqunit doctor [--strict]` | structural health: lost RUs (id gaps), orphaned artifacts, dangling review records, a branch stale enough to make activation collide. Advisory — exit 0 unless `--strict` | after merges; before a Gate 1 sitting |
 | `rqunit evidence record [--from F]` | fold a test run's observations into `spec/check-evidence/check-evidence.jsonl`, recording only firsts. Without it nothing can tell a check that has demonstrated it can fail from one that has only ever been green (L26) | wherever the suite runs; CI |
@@ -205,6 +206,20 @@ legacy prose verbatim as INT → compile one RU per acceptance criterion →
 replace the area's bridge-FEAT links → one Gate 1 sitting activates and flips
 the ledger row → tombstone the legacy files. The C7 orphan count is the
 progress bar.
+
+**Re-adopt onto a fresh corpus** (the store was emptied and adoption restarts):
+the previous corpus's `verifies` annotations are still in your tests, naming ids
+that no longer exist. Clear them BEFORE the first activation — ids are allocated
+`max + 1` from `spec/ru/`, so a restarted corpus walks back into the id space
+those annotations occupy, and a stale annotation stops erroring and starts
+resolving to an unrelated requirement. `rqunit trace --strip` (dry) then
+`--apply` removes exactly the orphans; the live links you have already
+re-pointed survive, so it is safe to re-run at any point in the migration.
+
+**Off-board entirely**: `rqunit trace --strip --all --apply` returns the tests
+to the state adoption found them in; `spec/`, `rqunit.toml`, the generated
+artifacts, and the emitted `.claude/` templates are directories you delete.
+Commit the strip separately from the deletions — one reviewable diff per idea.
 
 **Resolve a suspect link** (`suspect-queue.json` non-empty): a fingerprinted
 target changed after review. Binary choice at the next Gate 1 sitting:

@@ -111,9 +111,35 @@ def test_orphan_facts_mirror_c7():
 
 def test_markdown_report_renders_all_sections():
     md = render_markdown(build_report(Store.load(TRACED), TRACED))
-    for heading in ("Unverified RUs", "Untraced checks", "Infrastructure bucket",
+    for heading in ("Broken annotations", "Dangling test refs", "Unverified RUs",
+                    "Untraced checks", "Infrastructure bucket",
                     "Orphan manifest facts", "Unscanned stacks"):
         assert heading in md
+
+
+def test_the_markdown_report_renders_every_class_it_carries():
+    """The JSON projection is `asdict(report)` and therefore complete by
+    construction; the markdown is hand-assembled and was not. It omitted both
+    BLOCKING classes — so the committed, human-read half of the report showed a
+    store in ordinary burn-down while the gate was red. Field-driven rather
+    than a heading list, so a class added later cannot quietly go unrendered."""
+    from dataclasses import fields
+
+    from rqunit.trace import TraceReport
+
+    report = TraceReport(
+        dangling_refs=["RU-0001: test ref 'pkg::file::gone' resolves to no scanned test"],
+        invalid_annotations=["pkg::file::t: verifies RU-9999, which is not an active RU"],
+        unverified_rus=["RU-0002: blocked (TODO refs)"],
+        untraced_checks=["pkg::file::untraced"],
+        infrastructure=["pkg::file::infra"],
+        orphan_facts=["orphan fact: shared:values.retry_limit"],
+        unscanned_stacks=["jvm"],
+    )
+    md = render_markdown(report)
+    for f in fields(report):
+        for item in getattr(report, f.name):
+            assert item in md, f"{f.name} entry absent from the report: {item}"
 
 
 def test_a_declared_stack_without_a_scanner_is_reported_not_skipped(tmp_path):

@@ -30,7 +30,7 @@ from .errors import BadConfig
 
 _STACK_NAME = re.compile(r"^[a-z][a-z0-9_-]*$")
 
-ROLES = ("extractor", "scanner", "emitter", "evidence")
+ROLES = ("extractor", "scanner", "emitter", "evidence", "stripper")
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,11 @@ class Adapter:
     scanner: Role | None = None
     emitter: Role | None = None
     evidence: Role | None = None
+    # The off-ramp. Adoption asks a consumer to write trace annotations into
+    # their own sources; a stack that declares no stripper can be adopted but
+    # not un-adopted, and `rqunit trace --strip` says exactly that rather than
+    # reporting a clean sweep it never performed.
+    stripper: Role | None = None
 
 
 @dataclass(frozen=True)

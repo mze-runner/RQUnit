@@ -1,6 +1,6 @@
 # Requirement Unit (RU) Framework — Specification Management for Agentic Development
 
-**Status:** v0.16.0-draft (v0.16.0: adapters become pluggable processes. Any
+**Status:** v0.16.0-rc (v0.16.0: adapters become pluggable processes. Any
 `[stacks.<name>]` table declares a stack — core carries no language list — and
 core interprets a closed key set per stack (the `adapter` role declarations
 and `literal_scan`); every other key is adapter-owned passthrough, validated
@@ -23,7 +23,12 @@ reported apart from suites that execute — the last place
 declared depth could exceed provable depth. Packets gain a `mode`: `check-authoring` assembles the same context plus the
 instruction to write the checks before the implementation and record their
 first red — discipline the framework states rather than polices, made
-checkable by the ledger below. A fourth probe role, `evidence`, and an append-only ledger at
+checkable by the ledger below. Adoption becomes reversible: a fifth role, `stripper`, and
+`rqunit trace --strip` remove the trace annotations adoption asked a consumer
+to write into their own tests — orphans by default, `--all` for off-boarding,
+nothing written without `--apply`, and a stack declaring no stripper reported
+as un-strippable rather than swept clean (§6.6). Core decides which tokens are
+stale; the adapter rewrites its own sources. A fourth probe role, `evidence`, and an append-only ledger at
 `spec/check-evidence/` record which checks have demonstrated they can fail; L26
 reports the ones that never have (§6.8). L14 newness becomes base-vs-head set difference
 over scanner observations, never diff-line inspection (§6.6 states the
@@ -431,6 +436,8 @@ Every test declares which RU(s) it verifies (`verifies(RU-XXXX)` annotation, or 
 - **Unverified RUs** — covered by computed status.
 - **Untraced checks** — behaviour no requirement governs: compile the missing RU (via new INT acknowledgment), delete the check and its behaviour, or mark `trace: infrastructure` (audited — a growing infrastructure bucket is the escape hatch rotting).
 - **Orphan manifest facts** (C7) — a surface or shared value no active RU references: dead interface or missing requirement; a finding either way.
+
+**Adoption is reversible.** A trace annotation lives in the consumer's own source because the framework asked for it, so the framework MUST be able to take it back: `rqunit trace --strip` removes annotations naming no active RU, and `--all` removes every annotation including the `infrastructure` markers. The judgment is core's — which tokens are stale is a store question, and an adapter is never asked it — while the rewriting is the **stripper** role's, because only a stack knows what its own annotation looks like. A partially-stale annotation keeps its live tokens: a check proving three RUs, one retired, keeps the other two. Nothing is written without an explicit apply, a stripper answer naming a check core did not ask about is refused rather than written, and a stack declaring no stripper is REPORTED as un-strippable rather than reported clean — a stack that can be adopted but not un-adopted is a one-way door, and the operator has to see it. Artifact transport cannot serve this role: the answer depends on a request computed from today's store, so a committed file would be an earlier run's edits applied to current source.
 
 L14 blocks new untraced checks; pre-existing ones burn down. "New" is set difference — the check ids the scanner observes at head minus those it observed at the base ref — never diff-line inspection, which would put language knowledge in the framework. The base observation is governed by the base tree's own configuration: widening a scan makes previously unobserved checks new, deliberately, because a check nothing had ever observed has never been judged; a renamed untraced check is one deletion plus one addition, and the addition still blocks. A requirement without behaviour, a behaviour without a requirement, and a fact without a governor are all equally detectable.
 

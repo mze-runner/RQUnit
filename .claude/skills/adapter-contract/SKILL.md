@@ -1,6 +1,6 @@
 ---
 name: adapter-contract
-description: How language support works — the pinned adapter contracts (actual-surface, scanned-checks, emit-request/emitted-files, adapter-manifest) and the rules an adapter must obey. Load before adding a language, changing an adapter, or touching anything in src/rqunit/interfaces/ or adapters/.
+description: How language support works — the pinned adapter contracts (actual-surface, scanned-checks, emit-request/emitted-files, strip-request/stripped-files, adapter-manifest) and the rules an adapter must obey. Load before adding a language, changing an adapter, or touching anything in src/rqunit/interfaces/ or adapters/.
 ---
 
 # Language adapters
@@ -16,6 +16,7 @@ boundaries stay honest.
 | `actual-surface.json` | adapter → core | an **extractor**: the routes and messages the code really exposes, in manifest vocabulary | what every difference means (CF-rules), including the planned-surface asymmetry |
 | `emit-request` → `emitted-files` | core → adapter → core | an **emitter**: the plan rendered as idiomatic tests, returned as files-as-data | which checks exist, what each asserts, their identity and order; core validates the plan↔check mapping and writes every file |
 | `scanned-checks.json` | adapter → core | a **scanner**: tests and their `verifies` annotations | traceability rules and the new-test gate (L14 = base-vs-head set difference) |
+| `strip-request` → `stripped-files` | core → adapter → core | a **stripper**: the named annotations removed from its own sources, returned as files-as-data | which tokens are stale (a store question), and writing every file — a stripper is told exactly what to remove and never sweeps on its own initiative |
 
 Schemas live in `src/rqunit/interfaces/`. They are pinned: changing one is a
 revision event affecting every adapter.
@@ -65,10 +66,17 @@ justification nobody could defend in prose is a defect wearing a waiver.
 4. **Scanner** → a `scan-checks` command (or pipeline-produced artifact)
    emitting `scanned-checks.json`: the tests a tree carries and what each
    one's trace annotation claims. Core derives newness by set difference.
-5. **Manifest + kit** → `adapter.yaml` declaring roles, `config_keys`, and a
+5. **Stripper** → a `strip-annotations` command reading the strip request on
+   stdin and answering with the rewritten sources as files-as-data. The
+   off-ramp: adoption asks a consumer to mark their own tests, so a stack that
+   cannot un-mark them is a one-way door. Rewrite as TEXT, not by re-emitting a
+   parsed tree — reformatting every file it touches turns a two-token deletion
+   into an unreviewable diff. `cmd` only; artifact transport cannot answer a
+   request computed moments earlier.
+6. **Manifest + kit** → `adapter.yaml` declaring roles, `config_keys`, and a
    compliance kit; `rqunit adapter verify --stack <name>` passing is the
    definition of done — no Python read, no framework source read.
-6. **Config** → a `[stacks.<name>]` block in the consumer's `rqunit.toml`,
+7. **Config** → a `[stacks.<name>]` block in the consumer's `rqunit.toml`,
    declaring each role `cmd` (core execs it) XOR `artifact` (the pipeline
    produced it).
 

@@ -41,3 +41,7 @@ path = "src/bin/scan-checks.rs"
 [[bin]]
 name = "emit-suite"
 path = "src/bin/emit-suite.rs"
+
+[[bin]]
+name = "strip-annotations"
+path = "src/bin/strip-annotations.rs"

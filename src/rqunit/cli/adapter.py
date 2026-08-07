@@ -33,7 +33,16 @@ ROLE_SCHEMAS = {
     "scanner": "scanned-checks.schema.json",
     "emitter": "emitted-files.schema.json",
     "evidence": "check-evidence.schema.json",
+    "stripper": "stripped-files.schema.json",
 }
+
+# Roles whose kit input includes a request on stdin. The emitter's ships with
+# the tool because it is a pure function of a plan the framework owns; the
+# stripper's cannot, because it names files in the ADAPTER's own kit tree —
+# so the adapter supplies it and core validates it against the pinned request
+# schema, which keeps the shape the framework's while the content stays the
+# adapter's.
+KIT_REQUESTS = {"stripper": "strip-request.schema.json"}
 
 EMIT_REQUEST = PACK_DIR / "kit" / "emit-request.json"
 
@@ -61,7 +70,23 @@ def _verify_role(role: str, argv: list[str], base: Path, kit: Path) -> list[str]
     if not tree.is_dir():
         return [f"{role}: kit has no input tree at {tree} — the kit layout is "
                 f"<kit>/{role}/tree/ with the expectation at <kit>/{role}/expected.json"]
-    return _judge(role, resolved, base, tree, "", kit / role / "expected.json")
+
+    stdin = ""
+    if role in KIT_REQUESTS:
+        request = kit / role / "request.json"
+        if not request.is_file():
+            return [f"{role}: kit has no request at {request} — this role is driven by a "
+                    "request on stdin, and the request names files in the kit tree, so "
+                    "the adapter supplies it"]
+        stdin = request.read_text()
+        try:
+            validate_payload(json.loads(stdin), KIT_REQUESTS[role], str(request))
+        except json.JSONDecodeError as e:
+            return [f"{role}: kit request is unparseable JSON: {e}"]
+        except StoreError as e:
+            return [f"{role}: kit request is not a valid request — {e}"]
+
+    return _judge(role, resolved, base, tree, stdin, kit / role / "expected.json")
 
 
 def _judge(role: str, resolved: list[str], base: Path, root: Path, stdin: str,
@@ -102,7 +127,7 @@ def _judge(role: str, resolved: list[str], base: Path, root: Path, stdin: str,
     if role == "scanner":
         with tempfile.TemporaryDirectory(prefix="rqunit-kit-empty-") as empty:
             problems.extend(_empty_tree_probe(resolved, base, Path(empty)))
-    if role == "emitter":
+    if role in ("emitter", *KIT_REQUESTS):
         starved = _run(full, base, stdin="")
         if starved.returncode == 0:
             problems.append(f"{role}: exited 0 with no request on stdin — silence in "

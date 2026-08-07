@@ -107,6 +107,14 @@ extractor = { artifact = "spec-conformance-tests/actual-surface.json" }
 # that runs the gate.
 # scanner = { cmd = ["adapters/rust/target/release/scan-checks"] }
 # emitter = { cmd = ["adapters/rust/target/release/emit-suite"] }
+# The off-ramp. `rqunit trace --strip` removes the trace annotations adoption
+# asked you to write into your own tests — the orphaned ones by default, all of
+# them with --all. Declare it and off-boarding is one command; leave it out and
+# this stack can be adopted but not un-adopted, which the strip run says out
+# loud rather than reporting a sweep it never performed. cmd only: a stripper
+# answers a request computed from today's store, so no committed artifact can
+# be that answer.
+# stripper = { cmd = ["adapters/rust/target/release/strip-annotations"] }
 # The evidence probe reads your runner's output and reports which checks
 # passed and which failed; `rqunit evidence record` folds a run into the
 # ledger. Without it nothing can tell a check that has demonstrated it can

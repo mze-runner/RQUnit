@@ -1,0 +1,15 @@
+{
+  "contract_version": 1,
+  "files": [
+    {
+      "content": "/// verifies: RU-0001\n#[test]\nfn traced_single() {}\n\n/// Longer doc first.\n/// verifies: RU-0001\n#[tokio::test]\nasync fn traced_multi() {}\n\n#[test]\nfn plumbing_probe() {}\n\n#[test]\n#[ignore = \"flaky upstream\"]\nfn untraced_with_extra_attr() {}\n\nfn helper_not_a_test() {}\n\n#[test]\nfn traced_to_missing_ru() {}\n",
+      "path": "service-x/tests/sample_tests.rs"
+    }
+  ],
+  "generated_by": "rqunit-adapter-rust strip-annotations 0.1.0",
+  "stripped": [
+    "service-x-application::sample_tests::plumbing_probe",
+    "service-x-application::sample_tests::traced_multi",
+    "service-x-application::sample_tests::traced_to_missing_ru"
+  ]
+}

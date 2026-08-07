@@ -1,0 +1,4 @@
+# Compliance-kit tree for the stripper role. Present for realism only: a
+# stripper is driven entirely by its request, never by discovery, so it must
+# rewrite exactly the checks it was handed whatever this file says.
+[stacks.rust]

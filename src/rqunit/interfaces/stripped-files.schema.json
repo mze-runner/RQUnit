@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rqunit/interfaces/stripped-files.schema.json",
+  "title": "StrippedFiles",
+  "description": "A stripper's answer, on stdout: the rewritten sources as data, plus which checks it actually touched. CORE writes the files, exactly as it does for an emitter — that keeps the write path, the path-escape rejection, and the dry-run in one place, and denies an adapter the ability to scribble outside the files it was asked about. A stripper reports what it changed; it never decides what should change.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "generated_by",
+    "files",
+    "stripped"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "generated_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Adapter name and version — names the stripper for anyone reading an error that quotes it."
+    },
+    "files": {
+      "type": "array",
+      "description": "Every source the strip changed, with its full new content. A file whose content would be unchanged MUST be omitted, so the count core reports is the count of real edits.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "content"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Consumer-root-relative, '/'-separated, normalized. Core rejects absolute paths and any '..' segment before writing — a stripper edits the files it was handed, nothing else."
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "stripped": {
+      "type": "array",
+      "description": "The check ids whose annotations changed. Core requires this to be a subset of the request: a stripper that reports touching a check nobody asked about has exceeded its instruction, and core says so rather than writing the result.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

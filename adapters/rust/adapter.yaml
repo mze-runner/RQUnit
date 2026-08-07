@@ -2,7 +2,7 @@
 # Read by core, never by this adapter.
 contract_version: 1
 stack: rust
-roles: [extractor, scanner, emitter]
+roles: [extractor, scanner, emitter, stripper]
 config_keys:
   # Read by extract.rs.
   - service
@@ -19,3 +19,4 @@ kit:
     extractor: [target/debug/extract-surface]
     scanner: [target/debug/scan-checks]
     emitter: [target/debug/emit-suite]
+    stripper: [target/debug/strip-annotations]
