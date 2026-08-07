@@ -31,6 +31,7 @@ import yaml
 
 from ..canonical import canonical_hash, expected_fingerprints
 from ..checks.base import run_checks
+from ..errors import StoreError
 from ..impact import build_report, diff_manifests, manifest_at_ref, render
 from ..lints.base import run_lints
 from ..lints.l21 import first_matching_rule, load_policy, violation_reason
@@ -173,6 +174,18 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
     finally:
         shutil.rmtree(sim_root, ignore_errors=True)
 
+    # Pre-flight the emitter BEFORE any mutation: targets() now execs a
+    # declared adapter, and an unbuilt binary or a stale artifact response
+    # must fail here — with nothing written — rather than inside the
+    # mutated-tree window. The census it validates is (model, check id),
+    # which activation's renames never change, so a clean pre-flight is a
+    # clean regeneration later.
+    from ..generate import targets, write_all
+    try:
+        targets(Store.load(root), Path(root))
+    except StoreError as e:
+        _fail(f"the emitter pre-flight failed — nothing was written: {e}")
+
     # ---- rename phase (real tree) — every mutated path is journaled so a
     # refused commit rolls the operation back instead of stranding it.
     journal: dict[Path, str | None] = {}
@@ -192,12 +205,17 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
 
     # Regenerate projections/conformance artifacts BEFORE the commit: a
     # pre-commit `spec-generate check` gate must see them current, not stale
-    # against the just-renamed RUs.
-    from ..generate import targets, write_all
+    # against the just-renamed RUs. The emitter was pre-flighted above; if it
+    # still fails here, the journal restores every mutated file.
     post = Store.load(root)
-    for path in targets(post, Path(root)):
-        journal.setdefault(path, path.read_text() if path.exists() else None)
-    regenerated = write_all(post, Path(root))
+    try:
+        for path in targets(post, Path(root)):
+            journal.setdefault(path, path.read_text() if path.exists() else None)
+        regenerated = write_all(post, Path(root))
+    except StoreError as e:
+        _restore(journal)
+        _fail("regeneration failed after the rename phase — ALL written files were "
+              f"rolled back; the store is exactly as before this run: {e}")
 
     if not no_commit:
         try:
@@ -209,12 +227,7 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
                             f"spec: activate {ids} (Gate 1, reviewer {reviewer})"],
                            check=True, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
-            for path, before in journal.items():
-                if before is None:
-                    path.unlink(missing_ok=True)
-                else:
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text(before)
+            _restore(journal)
             subprocess.run(["git", "-C", str(root), "reset", "-q", "HEAD", "--", "."],
                            check=False, capture_output=True)
             detail = ((e.stderr or "") + (e.stdout or "")).strip()
@@ -438,6 +451,16 @@ def _remap(value, mapping: dict[str, str]):
     if isinstance(value, dict):
         return {k: _remap(v, mapping) for k, v in value.items()}
     return value
+
+
+def _restore(journal: dict[Path, str | None]) -> None:
+    """Put every journaled file back exactly as it was before this run."""
+    for path, before in journal.items():
+        if before is None:
+            path.unlink(missing_ok=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(before)
 
 
 def _fail(message: str) -> None:

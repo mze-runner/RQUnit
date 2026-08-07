@@ -10,7 +10,6 @@ from pathlib import Path
 
 from rqunit.generate import (
     check_current,
-    render_model_suite,
     scan_literals,
     targets,
     write_all,
@@ -50,34 +49,31 @@ def test_hand_edit_is_detected(tmp_path):
     assert problems and "hand-edited" in problems[0]
 
 
-def test_statechart_suite_enumerates_every_case_the_model_declares():
-    """One test per declared transition, one rejection per undeclared
-    (state, event) pair over the model's event alphabet, one probe per
-    invariant — and every one ignored until a shim is registered."""
+def test_every_plan_check_lands_in_its_models_suite_ignored():
+    """Rendering semantics bind the adapter (its cargo tests own the deep
+    assertions); what CORE must guarantee is that each model's staged suite
+    carries exactly that model's checks and nothing runnable before a shim
+    exists, and that the trace map covers the union — the property per model,
+    never a one-model census the fixture's growth would break."""
+    import json
+
+    from rqunit.generate import plan_model_suite
+
     store = Store.load(VALID)
-    model = store.models()["order-lifecycle"]
-    states = model.raw["states"]
-    transitions = sum(len(s.get("on") or {}) for s in states.values())
-    alphabet = {e for s in states.values() for e in (s.get("on") or {})}
-    rejections = sum(len(alphabet - set(s.get("on") or {})) for s in states.values())
-    invariants = sum(1 for s in states.values() if s.get("invariant"))
-
-    suite = render_model_suite(store, "order-lifecycle")
-    assert suite.count("fn transition_") == transitions
-    assert suite.count("fn rejects_") == rejections
-    assert suite.count("fn invariant_") == invariants
-    assert suite.count("#[test]") == transitions + rejections + invariants
-    assert suite.count('#[ignore = "statechart shim pending') == suite.count("#[test]")
-
-
-def test_undeclared_event_policy_selects_the_expected_outcome():
-    store = Store.load(VALID)
-    policy = store.models()["order-lifecycle"].raw["undeclared_event_policy"]
-    suite = render_model_suite(store, "order-lifecycle")
-    if policy == "error":
-        assert "Outcome::Error" in suite and "Outcome::Ignored" not in suite
-    else:
-        assert "Outcome::Ignored" in suite
+    staged = targets(store, VALID)
+    all_planned: set[str] = set()
+    for model_id in store.models():
+        plan = plan_model_suite(store, model_id)
+        stem = f"generated_mdl_{model_id.replace('-', '_')}"
+        suite = next(content for path, content in staged.items()
+                     if path.stem == stem)
+        assert suite.count("#[test]") == len(plan["checks"])
+        for check in plan["checks"]:
+            assert f"fn {check['id']}()" in suite
+        assert suite.count('#[ignore = "statechart shim pending') == suite.count("#[test]")
+        all_planned |= {c["id"] for c in plan["checks"]}
+    trace_map = json.loads(staged[VALID / "spec" / "projections" / "trace-map.json"])
+    assert {key.rsplit("::", 1)[1] for key in trace_map["checks"]} == all_planned
 
 
 def test_literal_scan_is_advisory_and_word_bounded():

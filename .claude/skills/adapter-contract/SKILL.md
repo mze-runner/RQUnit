@@ -14,7 +14,7 @@ stay honest.
 | Contract | Direction | The adapter provides | The framework decides |
 |---|---|---|---|
 | `actual-surface.json` | adapter → core | an **extractor**: the routes and messages the code really exposes, in manifest vocabulary | what every difference means (CF-rules), including the planned-surface asymmetry |
-| `test-plan.json` | core → adapter | an **emitter**: the plan rendered as idiomatic tests | which checks exist, what each asserts, their identity and order |
+| `emit-request` → `emitted-files` | core → adapter → core | an **emitter**: the plan rendered as idiomatic tests, returned as files-as-data | which checks exist, what each asserts, their identity and order; core validates the plan↔check mapping and writes every file |
 | `scanned-checks.json` | adapter → core | a **scanner**: tests and their `verifies` annotations | traceability rules and the new-test gate (L14 = base-vs-head set difference) |
 
 Schemas live in `src/rqunit/interfaces/`. They are pinned: changing one is a
@@ -53,7 +53,9 @@ wearing a waiver.
    pretence of a universal AST.
 2. **Currency test** in the stack's own suite: regenerate, compare to the
    committed artifact, fail with the command that fixes it.
-3. **Emitter** → renders `test-plan.json` into the stack's test idiom.
+3. **Emitter** → an `emit-suite` command reading the emit request (plan +
+   constants + passthrough options) on stdin and answering with files-as-data
+   plus the plan-id → check-id mapping. Core writes the files.
 4. **Scanner** → a `scan-checks` command (or pipeline-produced artifact)
    emitting `scanned-checks.json`: the tests a tree carries and what each
    one's trace annotation claims. Core derives newness by set difference.

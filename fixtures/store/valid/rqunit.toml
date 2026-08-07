@@ -1,3 +1,8 @@
-# Stack participation is always an explicit declaration: this store declares
-# a rust stack so generation targets the (default) conformance crate.
+# Stack participation is always an explicit declaration. The emitter is
+# declared artifact-mode: the committed emit-response.json is this store's
+# rendered suite-set, kept current by the Rust adapter's golden test — which
+# also keeps the Python suite cargo-free.
 [stacks.rust]
+
+[stacks.rust.adapter]
+emitter = { artifact = "emit-response.json" }

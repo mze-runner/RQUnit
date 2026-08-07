@@ -126,7 +126,7 @@ framework; everything language-specific lives in a per-stack adapter.
 | Contract | Direction | Stack provides | Framework decides |
 |---|---|---|---|
 | `actual-surface.json` | adapter → core | an **extractor**: what the code really exposes | what every difference means (CF-rules), including the planned-surface asymmetry |
-| `test-plan.json` | core → adapter | an **emitter**: renders the plan as idiomatic tests | which checks exist, what each asserts, their identity and order |
+| `emit-request` → `emitted-files` | core → adapter → core | an **emitter**: renders the plan as idiomatic tests, returned as files-as-data | which checks exist, what each asserts, their identity and order; core validates the plan↔check mapping and writes every file |
 | `scanned-checks.json` | adapter → core | a **scanner**: finds tests and their `verifies` traces | traceability rules and the new-test gate (L14 = base-vs-head set difference over the observations) |
 
 Every role runs out of process behind its pinned schema — a declared command

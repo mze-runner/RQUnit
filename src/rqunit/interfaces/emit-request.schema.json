@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rqunit/interfaces/emit-request.schema.json",
+  "title": "EmitRequest",
+  "description": "Everything an emitter may know, on stdin: the neutral test plan, the manifest value leaves for generated constants, and the stack's own passthrough options. An emitter is a pure function of this request — it never reads the store, which is what stops a second language from silently asserting something different from the first.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "plan",
+    "constants",
+    "options"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "plan": {
+      "type": "object",
+      "description": "The test-plan payload, verbatim (contract: test-plan.schema.json — validated against it separately, so the plan's shape lives in one schema). Which checks exist, what each asserts, their identity and order are decided here, by the framework, before any emitter runs."
+    },
+    "constants": {
+      "type": "object",
+      "description": "Per manifest service: its content hash (for the generated file's staleness header) and its value leaves, dotted. The emitter renders these as the stack's constants so application tests import bounds instead of hardcoding them.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "manifest_hash",
+          "values"
+        ],
+        "properties": {
+          "manifest_hash": {
+            "type": "string",
+            "minLength": 1
+          },
+          "values": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "description": "The stack's [stacks.<name>] passthrough table, as data. Handed on stdin rather than read from disk so emission stays a pure function of the request."
+    }
+  }
+}

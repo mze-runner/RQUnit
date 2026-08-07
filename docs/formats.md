@@ -433,6 +433,21 @@ untraced). Check ids are stack-qualified so the union across stacks never
 collides. `rqunit trace` owns every judgment over these observations,
 including L14's set-difference definition of "new" (spec §6.6).
 
+**Emit request / emitted files** (contracts:
+`interfaces/emit-request.schema.json`, `interfaces/emitted-files.schema.json`)
+— the emitter role's stdin and stdout. The request carries the test plan
+(verbatim `test-plan.json` payload), each value-holding manifest's leaves and
+hash, and the stack's passthrough options as data — an emitter is a pure
+function of the request and never reads the store. The response returns files
+as data plus the plan-check → stack-qualified-check-id mapping; core validates
+that mapping against the plan's census (nothing dropped, invented, or
+double-mapped), rejects any path escaping the consumer root, and writes every
+file itself. An artifact-mode emitter owes a currency test in its own suite —
+regenerate the response from the current request and compare — exactly as an
+artifact-mode extractor does: the census catches a dropped or added check,
+but a semantic change that keeps every check id (a flipped
+`undeclared_event_policy`) only the currency test catches.
+
 **Adapter manifest** (`adapter.yaml`, contract:
 `interfaces/adapter-manifest.schema.json`) — the adapter package's
 self-declaration, read by core and never by the adapter. Located at the

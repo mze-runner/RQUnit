@@ -125,13 +125,16 @@ def test_scan_tests_honors_declared_scanner_roles(tmp_path):
     assert scan_tests(root) == []       # no declaration, no participation
 
 
-def test_targets_honors_conformance_crate(tmp_path):
+def test_targets_hands_passthrough_options_to_the_emitter(tmp_path):
+    """`conformance_crate` is emitter vocabulary now — core's whole part is
+    delivering the passthrough table as request data. Where paths land is the
+    adapter's decision, pinned by its own cargo tests."""
+    from rqunit.generate import emit_request
+
     root = tmp_path / "repo"
     shutil.copytree(FIXTURES / "store" / "valid", root)
-    (root / "rqunit.toml").write_text('[stacks.rust]\nconformance_crate = "tools/conf"\n')
-    out = targets(Store.load(root), root)
-    suite_paths = [p for p in out if p.suffix == ".rs" and "tests" in p.parts]
-    assert suite_paths and all(str(p).startswith(str(root / "tools" / "conf")) for p in suite_paths)
-    trace_map = out[root / "spec" / "projections" / "trace-map.json"]
-    assert '"conf::' in trace_map                              # basename = package prefix
-    assert "spec-conformance-tests" not in trace_map
+    (root / "rqunit.toml").write_text(
+        '[stacks.rust]\nconformance_crate = "tools/conf"\n'
+        '[stacks.rust.adapter]\nemitter = { artifact = "emit-response.json" }\n')
+    request = emit_request(Store.load(root), load(root).stack("rust"))
+    assert request["options"]["conformance_crate"] == "tools/conf"

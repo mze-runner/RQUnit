@@ -28,3 +28,6 @@ service = "service-orders"
 # Where this stack's extractor writes actual-surface.json — the artifact
 # `rqunit conformance` reconciles against the manifests.
 extractor = { artifact = "actual-surface.json" }
+# Artifact-mode emitter: the committed emit-response.json is this store's
+# rendered suite-set, regenerated whenever models or manifest values change.
+emitter = { artifact = "emit-response.json" }

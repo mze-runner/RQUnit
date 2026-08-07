@@ -40,7 +40,8 @@ TIMEOUT_SECONDS = 600
 
 
 def run_role(root: Path, stack: Stack, role_name: str, schema: str,
-             target_root: Path | None = None) -> dict:
+             target_root: Path | None = None,
+             stdin_payload: str | None = None) -> dict:
     """One adapter role's output, parsed and validated against its pinned
     schema — the single door for both transports, so every caller gets the
     same checks. `schema` is the contract file under interfaces/.
@@ -60,7 +61,7 @@ def run_role(root: Path, stack: Stack, role_name: str, schema: str,
     target = Path(target_root).resolve() if target_root is not None else root
     if role.artifact:
         return _from_artifact(target, role.artifact, role_name, schema)
-    return _from_cmd(root, target, stack, role_name, role.cmd, schema)
+    return _from_cmd(root, target, stack, role_name, role.cmd, schema, stdin_payload)
 
 
 def _from_artifact(root: Path, artifact: str, role_name: str, schema: str) -> dict:
@@ -78,14 +79,16 @@ def _from_artifact(root: Path, artifact: str, role_name: str, schema: str) -> di
 
 
 def _from_cmd(root: Path, target: Path, stack: Stack, role_name: str,
-              cmd: tuple[str, ...], schema: str) -> dict:
+              cmd: tuple[str, ...], schema: str,
+              stdin_payload: str | None = None) -> dict:
     where = f"[stacks.{stack.name}.adapter] {role_name}"
     argv = [_resolve(root, cmd[0]), *cmd[1:], "--root", str(target)]
     try:
-        # input="" puts the child's stdin at EOF: a probe (or anything it
-        # spawns) that prompts fails fast instead of hanging the gate.
+        # The emitter reads its request on stdin; probes get stdin at EOF so
+        # one that prompts fails fast instead of hanging the gate.
         proc = subprocess.run(argv, cwd=root, capture_output=True, text=True,
-                              input="", timeout=TIMEOUT_SECONDS)
+                              input=stdin_payload if stdin_payload is not None else "",
+                              timeout=TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
         raise BadConfig(where,
                         f"{role_name} produced nothing for {TIMEOUT_SECONDS}s and was "

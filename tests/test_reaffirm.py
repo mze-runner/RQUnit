@@ -27,6 +27,11 @@ def _store_with_edited_model(tmp_path: Path) -> Path:
     model = json.loads(model_path.read_text())
     next(iter(model["states"].values()))["invariant"] = "reaffirm_probe"
     model_path.write_text(json.dumps(model, indent=2) + "\n")
+    # The fixture's artifact-mode emit response cannot re-render an edited
+    # model (that staleness failing loudly is its own tested behavior); this
+    # test is about hash ceremony, so the store declares no emitter and the
+    # verbs' projection refresh runs the lenient path.
+    (root / "rqunit.toml").write_text("[stacks.rust]\n")
     return root
 
 

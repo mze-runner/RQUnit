@@ -7,7 +7,8 @@ from pathlib import Path
 
 import click
 
-from ..generate import check_current, scan_literals, write_all
+from ..errors import StoreError
+from ..generate import check_current, missing_emitter, scan_literals, write_all
 from ..schemas import repo_root
 from ..store import Store
 
@@ -18,8 +19,12 @@ def main() -> None:
 
 
 def _load(store_path: Path | None) -> tuple[Path, Store]:
-    root = store_path or repo_root()
-    return root, Store.load(root)
+    try:
+        root = store_path or repo_root()
+        return root, Store.load(root)
+    except StoreError as e:
+        click.echo(f"rqunit generate: {e}", err=True)
+        sys.exit(2)
 
 
 @main.command()
@@ -28,7 +33,14 @@ def all(store_path) -> None:
     """(Re)generate every artifact: constants, statechart suites, test plan,
     trace map, index, surface sheets."""
     root, store = _load(store_path)
-    written = write_all(store, root)
+    try:
+        if (problem := missing_emitter(store, root)):
+            click.echo(f"rqunit generate: {problem}", err=True)
+            sys.exit(2)
+        written = write_all(store, root)
+    except StoreError as e:
+        click.echo(f"rqunit generate: {e}", err=True)
+        sys.exit(2)
     for path in written:
         click.echo(f"wrote {path.relative_to(root)}")
     click.echo(f"{len(written)} file(s) updated")
@@ -39,7 +51,14 @@ def all(store_path) -> None:
 def check(store_path) -> None:
     """Fail if any generated artifact is stale, missing, or hand-edited."""
     root, store = _load(store_path)
-    problems = check_current(store, root)
+    try:
+        if (problem := missing_emitter(store, root)):
+            click.echo(f"rqunit generate: {problem}", err=True)
+            sys.exit(2)
+        problems = check_current(store, root)
+    except StoreError as e:
+        click.echo(f"rqunit generate: {e}", err=True)
+        sys.exit(2)
     for p in problems:
         click.echo(p, err=True)
     sys.exit(1 if problems else 0)

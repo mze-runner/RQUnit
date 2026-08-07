@@ -12,6 +12,7 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub mod emit;
 pub mod scan;
 
 /// Extraction reads and parses files, both of which can fail for ordinary
