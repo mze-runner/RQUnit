@@ -109,6 +109,13 @@ Models change through re-affirmation: after editing a referenced statechart, run
 `rqunit activate reaffirm --model MDL-<id> --reviewer <handle>` — it re-stamps every active
 dependent whose meaning survives the change (supersede the ones whose meaning it alters).
 Never hand-edit a `model_hash` (L19); superseded RUs keep historical hashes (L6 ignores them).
+A model's generated suite drives a shim the APPLICATION provides. Until that shim is recorded in
+`spec/framework/shims.yaml` (checked by C15), the suite is rendered unrunnable and its
+verification counts as ZERO depth — so a `model` entry alone will not satisfy a mechanical
+minimum, and a draft relying on one cannot activate until the shim lands. A suite that cannot
+execute is not depth. The dialect itself is checked too (M1-M4/M6): `initial` must name a
+declared state, transition targets must exist, final states carry no `on`, and invariant names
+are unique — generation refuses a model whose violation would make the rendered suite wrong.
 
 ## Non-negotiables
 
@@ -119,6 +126,13 @@ Never hand-edit a `model_hash` (L19); superseded RUs keep historical hashes (L6 
   need 2 mechanical, all of type `test`, and `binds_shape`; `audit`-tagged need `binds_shape`.
   `binds_shape` reads the STATEMENT — the RU must ADDRESS a declared shape by token
   (`{endpoint:…}`, `{audit:…}`, `{artifact:…}`), since depth without relevance proves nothing
-  about the shape in question. Under-covered drafts cannot activate.
+  about the shape in question. Under-covered drafts cannot activate. A `model` entry whose shim
+  is unregistered counts as no depth at all (see above).
+- A `test` ref names a check that must EARN its green. A check written against an implementation
+  it has already read can assert that implementation's shape and never fail — it reads as
+  coverage and proves nothing. Author checks before the code where you can
+  (`rqunit assemble build … --mode check-authoring`), run them expecting red, and record that run
+  with `rqunit evidence record`. L26 reports, as a finding, any check observed green and never
+  red.
 - After ANY spec/ change run: `rqunit lint && rqunit check &&
   rqunit generate all` (projections are committed and currency-checked).
