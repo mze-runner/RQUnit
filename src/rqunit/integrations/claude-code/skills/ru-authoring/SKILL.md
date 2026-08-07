@@ -1,14 +1,13 @@
 ---
 name: ru-authoring
-description: How to read, write, and MODIFY Requirement Units — EARS statement syntax, reference tokens, one-AC-one-RU compilation, GAP discipline, and the supersession rule (active RUs are frozen; L19 catches in-place edits). Load before authoring or changing ANYTHING under spec/ (RUs, FEATs, GAPs, manifests, models, contracts, ADRs, INT captures).
+description: How to read, write, and MODIFY Requirement Units — EARS statement syntax, reference tokens, one-AC-one-RU compilation, GAP discipline, and the supersession rule (active RUs are frozen; L19 catches in-place edits). Load before authoring or changing ANYTHING under spec/ (RUs, FEATs, GAPs, manifests, models, ADRs, INT captures).
 ---
 
 # Authoring Requirement Units
 
 Normative sources (this skill summarizes, they win):
 the framework specification and
-the formats reference. Applies only to areas the
-the area ledger (`spec/framework/MIGRATION.md`) marks `ru`.
+the formats reference. Applies to every artifact under `spec/`.
 
 ## Reading an RU
 
@@ -69,7 +68,7 @@ the linter is the law (spec §5.9, formats §13).
   (`spec/gaps/GAP-<ULID>.yaml`, severity `blocking` holds activation; `clarify-later` doesn't).
   Zero gaps from substantial intent is itself a red flag. Inline `# CONFLICT:` comments are
   BANNED — a conflict is a blocking GAP.
-- Never fabricate a `contract`/`test`/`model` ref — use `TODO(<description>)` (the RU honestly
+- Never fabricate a `test`/`model` ref — use `TODO(<description>)` (the RU honestly
   computes *blocked*). Real test refs use `<cargo-package>::<file-stem>::<fn>`.
 - Wire shapes are MANIFEST facts, not a separate artifact: a surface declares its census inline
   (`inbound`/`outbound`), and a structure hidden behind an encoding boundary — a JWT's claims
@@ -99,16 +98,12 @@ meaning:
    assigns the id, flips the target to `superseded`, stamps, and fingerprints atomically.
 
 Manifest facts change differently: a mutating manifest edit passes Gate 1 WITH its impact report
-(`spec-impact`), and every frozen RU referencing the fact keeps meaning through the reference.
+(`rqunit impact`), and every frozen RU referencing the fact keeps meaning through the reference.
 
 TODO refs resolve WITHOUT supersession: when the promised check exists, run
 `rqunit activate resolve --reviewer <handle> RU-XXXX=<test id>` — the target must exist in
 the trace scan, `--match <substring>` disambiguates multiple TODOs. Strictly strengthening;
 weakening stays supersession-only. Never hand-edit the ref (L19).
-
-Contracts change manifest-like: a CT edit is Gate-1-reviewed in place (no supersession
-machinery); referencing RUs keep meaning through the reference, and their content
-fingerprints flip suspect (L20) for re-affirm-or-supersede at the next sitting.
 
 Models change through re-affirmation: after editing a referenced statechart, run
 `rqunit activate reaffirm --model MDL-<id> --reviewer <handle>` — it re-stamps every active
@@ -119,7 +114,11 @@ Never hand-edit a `model_hash` (L19); superseded RUs keep historical hashes (L6 
 
 - Reviewer/operator ids are stable handles (`<your-handle>`), NEVER emails — schema + CLI reject `@`.
 - Tags must exist in `spec/framework/tags.yaml` first (L10); grow it in the same change.
-- Coverage policy (`coverage.policy.yaml`, L21): constitutional RUs need ≥2 mechanical
-  verifications; `security`-tagged need contract AND test. Under-covered drafts cannot activate.
+- Coverage policy (`coverage.policy.yaml`, L21) is DATA, and the shipped default is a starting
+  point the consumer tunes: constitutional RUs need ≥2 mechanical verifications; `security`-tagged
+  need 2 mechanical, all of type `test`, and `binds_shape`; `audit`-tagged need `binds_shape`.
+  `binds_shape` reads the STATEMENT — the RU must ADDRESS a declared shape by token
+  (`{endpoint:…}`, `{audit:…}`, `{artifact:…}`), since depth without relevance proves nothing
+  about the shape in question. Under-covered drafts cannot activate.
 - After ANY spec/ change run: `rqunit lint && rqunit check &&
   rqunit generate all` (projections are committed and currency-checked).

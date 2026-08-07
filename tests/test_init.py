@@ -132,3 +132,34 @@ def test_the_scaffold_it_writes_is_one_the_strict_reader_accepts(tmp_path):
     _init(tmp_path)
     loaded = config.load(tmp_path)
     assert loaded.rust.trace_scan and loaded.rust.conformance_crate
+
+
+def test_emitted_guidance_names_only_directories_the_store_has():
+    """The skills and agents `init` writes into a consumer repository are read
+    by agents BEFORE they touch the store, so a directory named there that the
+    layout does not have is an instruction to create one — which the loader
+    then rejects. This is how the retired contract kind survived its own
+    removal: the schema, the rules and the docs dropped `spec/contracts/`, and
+    the emitted authoring skill went on telling every new consumer to write
+    there. Assert against STORE_DIRS, the layout's single source."""
+    import re
+
+    from rqunit.cli.init import STORE_DIRS
+
+    root = Path(__file__).parent.parent / "src" / "rqunit" / "integrations"
+    named = re.compile(r"spec/(?:\{([a-z,_.-]+)\}|([a-z_-]+))/")
+
+    stray = []
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix not in {".md", ".sh", ".json", ".yaml"}:
+            continue
+        for lineno, line in enumerate(path.read_text().splitlines(), 1):
+            for m in named.finditer(line):
+                group = m.group(1) or m.group(2)
+                for name in group.split(","):
+                    if name.strip() and name.strip() not in STORE_DIRS:
+                        stray.append(f"{path.name}:{lineno} names spec/{name.strip()}/")
+    assert not stray, (
+        "emitted guidance names directories the scaffold never creates:\n  "
+        + "\n  ".join(stray)
+    )
