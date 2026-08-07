@@ -327,24 +327,54 @@ def test_doctor_stays_quiet_about_artifact_roles_and_resolvable_commands(tmp_pat
 
 # ------------------------------------------------------- permanent-id ceiling
 
+class _FakeRu:
+    def __init__(self, rid): self.id = rid
+
+
+class _FakeStore:
+    """Both numbered families, independently positioned."""
+    def __init__(self, ru_top=1, int_top=1):
+        self._ru, self._int = ru_top, int_top
+    def rus(self): return [_FakeRu(f"RU-{self._ru:04d}")]
+    def intents(self): return [f"INT-{self._int:04d}"]
+
+
 def test_doctor_warns_with_runway_before_the_id_ceiling():
     """Widening the id width is a store-wide migration, so the only useful
     moment to hear about it is well before the sitting that needs it."""
     from rqunit.doctor import _HEADROOM_WARN, id_headroom
     from rqunit.store import ID_CEILING
 
-    class FakeRu:
-        def __init__(self, rid): self.id = rid
-
-    class FakeStore:
-        def __init__(self, top): self._top = top
-        def rus(self): return [FakeRu(f"RU-{self._top:04d}")]
-
-    assert id_headroom(FakeStore(ID_CEILING - _HEADROOM_WARN - 1)) == []   # quiet
-    findings = id_headroom(FakeStore(ID_CEILING - 1))
+    far = ID_CEILING - _HEADROOM_WARN - 1
+    assert id_headroom(_FakeStore(ru_top=far, int_top=far)) == []          # quiet
+    findings = id_headroom(_FakeStore(ru_top=ID_CEILING - 1, int_top=far))
     assert len(findings) == 1 and findings[0].kind == "id-headroom"
-    assert "1 permanent id(s) left" in findings[0].message
+    assert "1 RU id(s) left" in findings[0].message
     assert "migration" in findings[0].suggestion
+
+
+def test_doctor_warns_for_intents_too_and_says_nothing_guards_them():
+    """The gap in the first version of this warning: it watched RU only, so a
+    store could sail into the INT ceiling while being told its runway was
+    healthy. Intents differ in kind — no verb allocates them, so unlike
+    activation nothing will refuse, and the message must not imply otherwise."""
+    from rqunit.doctor import _HEADROOM_WARN, id_headroom
+    from rqunit.store import ID_CEILING
+
+    far = ID_CEILING - _HEADROOM_WARN - 1
+    findings = id_headroom(_FakeStore(ru_top=far, int_top=ID_CEILING - 3))
+    assert len(findings) == 1
+    assert "3 INT id(s) left" in findings[0].message
+    assert "NOTHING allocates intent ids" in findings[0].suggestion
+    assert "refuses at the ceiling" not in findings[0].suggestion   # RU's guard, not INT's
+
+
+def test_both_families_are_reported_independently():
+    from rqunit.doctor import id_headroom
+    from rqunit.store import ID_CEILING
+
+    findings = id_headroom(_FakeStore(ru_top=ID_CEILING - 2, int_top=ID_CEILING - 5))
+    assert {f.message.split()[1] for f in findings} == {"RU", "INT"}
 
 
 def test_the_ceiling_message_never_prints_an_impossible_id():

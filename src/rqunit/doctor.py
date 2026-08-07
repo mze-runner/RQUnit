@@ -23,6 +23,7 @@ from .config import ROLES
 from .store import ID_CEILING, ID_WIDTH, Store
 
 _PERMANENT = re.compile(rf"^RU-([0-9]{{{ID_WIDTH}}})$")
+_INTENT = re.compile(rf"^INT-([0-9]{{{ID_WIDTH}}})$")
 
 # Ids left before the ceiling is worth warning about. Generous on purpose:
 # the fix is a store-wide migration, so the warning has to arrive with enough
@@ -65,29 +66,47 @@ def id_gaps(store: Store) -> list[Finding]:
 
 
 def id_headroom(store: Store) -> list[Finding]:
-    """Runway left before the permanent-id ceiling.
+    """Runway left before a sequential-id ceiling — for BOTH numbered families.
 
-    Widening the id width is a store-wide migration in one commit, not a flag
-    — so the only useful moment to learn about it is well BEFORE the sitting
-    that would need it. The threshold is deliberately generous for that
-    reason: a store activating a dozen units a sitting still gets months of
-    notice, and no ordinary store trips it at all."""
-    numbers = [int(m.group(1)) for ru in store.rus() if (m := _PERMANENT.match(ru.id))]
-    if not numbers:
-        return []
-    remaining = ID_CEILING - max(numbers)
-    if remaining > _HEADROOM_WARN:
-        return []
-    return [Finding(
-        kind="id-headroom", severity="warning",
-        message=(f"{remaining} permanent id(s) left: the highest is "
-                 f"RU-{max(numbers):0{ID_WIDTH}d} and the {ID_WIDTH}-digit ceiling is "
-                 f"RU-{ID_CEILING}."),
-        suggestion="Plan the width migration before a sitting needs it. The width is "
-                   "compiled into every schema pattern, filename and cross-reference, "
-                   "so it changes store-wide in ONE commit — every id renamed, every "
-                   "reference rewritten, never mixed widths (formats §1). Activation "
-                   "refuses rather than crossing it, so this is runway, not breakage.")]
+    Widening the width is a store-wide migration in one commit, not a flag, so
+    the only useful moment to learn about it is well before the capture or
+    sitting that would need it. The threshold is deliberately generous for
+    that reason, and no ordinary store trips it.
+
+    The two families differ in one way that matters to the reader. `activate`
+    allocates RU ids and refuses at the ceiling, so an RU store runs out
+    safely. NOTHING allocates INT ids — intents are written by hand or by an
+    analyst agent — so nothing will refuse, and the first capture past the
+    ceiling simply makes the store unloadable. Same wall, no guard rail, and
+    the suggestion has to say so rather than implying the RU protection."""
+    families = (
+        ("RU", [int(m.group(1)) for ru in store.rus() if (m := _PERMANENT.match(ru.id))],
+         "`rqunit activate` refuses at the ceiling rather than crossing it, so this "
+         "is runway, not breakage."),
+        ("INT", [int(m.group(1)) for i in store.intents() if (m := _INTENT.match(i))],
+         "NOTHING allocates intent ids — no verb owns them, so nothing will refuse. "
+         "The first capture past the ceiling makes the store unloadable, which is "
+         "why this warning is the only guard rail intents have."),
+    )
+    out = []
+    for prefix, numbers, guard in families:
+        if not numbers:
+            continue
+        highest = max(numbers)
+        remaining = ID_CEILING - highest
+        if remaining > _HEADROOM_WARN:
+            continue
+        out.append(Finding(
+            kind="id-headroom", severity="warning",
+            message=(f"{remaining} {prefix} id(s) left: the highest is "
+                     f"{prefix}-{highest:0{ID_WIDTH}d} and the {ID_WIDTH}-digit ceiling "
+                     f"is {prefix}-{ID_CEILING}."),
+            suggestion=f"Plan the width migration before it is needed. The width is "
+                       "compiled into every schema pattern, filename and "
+                       "cross-reference, so it changes store-wide in ONE commit — "
+                       "every id renamed, every reference rewritten, never mixed "
+                       f"widths (formats §1). {guard}"))
+    return out
 
 
 def orphan_artifacts(store: Store) -> list[Finding]:
