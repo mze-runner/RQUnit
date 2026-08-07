@@ -8,7 +8,7 @@ from pathlib import Path
 
 import click
 
-from ..config import load as load_config
+from ..config import load as load_config, retired_key_uses
 from ..errors import BadConfig, StoreError
 from ..lints.base import run_lints
 from ..schemas import repo_root
@@ -35,9 +35,22 @@ def main(store_path: Path | None, only: str | None, fmt: str, strict: bool) -> N
         # a consumer looks: only `trace` loaded the config, and it reported the
         # failure as a TOOL error, so lint, check and doctor all exited 0 over a
         # repository whose configuration the loader rejects outright.
-        load_config(root)
+        config = load_config(root)
         store = Store.load(root)
         violations = run_lints(store, only=only)
+        # A retired key still sitting where core used to read it configures
+        # nothing, and looks exactly like live adapter passthrough. Core cannot
+        # judge an unknown key — but it can recognise one it used to own.
+        violations += [
+            Violation(
+                rule="CONFIG", severity="warning", artifact="rqunit.toml",
+                path="rqunit.toml",
+                message=(f"[stacks.{stack}] {key} is retired — core no longer reads it, "
+                         "so it sits in adapter passthrough configuring nothing."),
+                suggestion=f"Move it: {went}. Delete the old key in the same edit, or "
+                           "the file keeps claiming a setting the tool does not have.")
+            for stack, key, went in retired_key_uses(config)
+        ]
         checked = (len(store.rus()) + len(store.features()) + len(store.gaps())
                    + len(store.manifests()) + len(store.models()) + len(store.intents()))
     except BadConfig as e:

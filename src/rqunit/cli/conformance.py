@@ -18,7 +18,7 @@ import click
 from ..conformance import boundary_provenance, load_actual, reject_exceptions
 from ..conformance import run as run_conformance
 from ..config import load as load_config
-from ..errors import StoreError
+from ..errors import BadConfig, StoreError
 from ..invoke import run_role
 from ..schemas import repo_root
 from ..store import Store
@@ -52,6 +52,14 @@ def main(store_path: Path | None, artifacts: tuple[Path, ...], fmt: str, strict:
         # the unproven fraction has to be countable, or a green run reads as
         # "checked" when most of the boundary was never looked at (§5.6).
         provenance = boundary_provenance(store, loaded)
+    except BadConfig as e:
+        # Same rule as `lint` and `trace`: a rejected config is the store
+        # being wrong, not the tool breaking. One fact, one category, every
+        # surface.
+        click.echo(f"ERROR CONFIG {e}", err=True)
+        click.echo("    Fix rqunit.toml, then re-run. `rqunit lint` reports this "
+                   "with the full rule reference.", err=True)
+        sys.exit(1)
     except StoreError as e:
         click.echo(f"rqunit conformance: {e}", err=True)
         sys.exit(2)

@@ -88,6 +88,20 @@ class Config:
 # Keys core interprets per [stacks.<name>]; the rest is passthrough.
 _CORE_KEYS = {"adapter", "literal_scan"}
 
+# Keys core USED to interpret, and where each one went. Passthrough means core
+# cannot judge an unknown key — that is deliberate, and adapters own their own
+# vocabulary. But a RETIRED key is the one class core still recognises, because
+# it used to own it: left where it was, it loads cleanly, lands in `options`
+# beside live adapter keys, and silently configures nothing. A consumer reading
+# their own file sees a setting; the tool sees a passthrough it will never
+# read. Naming the successor turns that silent degradation into one line of
+# instruction, and costs a constant.
+RETIRED_KEYS = {
+    "actual_surface": '[stacks.<name>.adapter] extractor = { artifact = "..." }',
+    "trace_diff": "deleted — L14 compares scanner observations between refs, "
+                  "so it needs no pathspecs (§6.6)",
+}
+
 
 def load(root: Path) -> Config:
     path = Path(root) / "rqunit.toml"
@@ -167,3 +181,12 @@ def _role(path: Path, stack: str, role: str, raw: object) -> Role:
     if not isinstance(artifact, str) or not artifact:
         raise BadConfig(str(path), f"{where} artifact must be a non-empty repo-relative path")
     return Role(artifact=artifact)
+
+
+def retired_key_uses(config: Config) -> list[tuple[str, str, str]]:
+    """(stack, retired key, where it went) for every dead setting a consumer
+    still carries. Reported by `lint`; core reads none of them."""
+    return [(stack.name, key, RETIRED_KEYS[key])
+            for stack in config.stacks
+            for key in sorted(stack.options)
+            if key in RETIRED_KEYS]

@@ -14,10 +14,12 @@ doctor never becomes a gate that teaches people to ignore it.
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from .config import ROLES
 from .store import Store
 
 _PERMANENT = re.compile(r"^RU-([0-9]{4})$")
@@ -170,7 +172,49 @@ def stack_config_health(root: Path) -> list[Finding]:
     return out
 
 
+def role_wiring(root: Path) -> list[Finding]:
+    """Declared roles whose command cannot be found.
+
+    `rqunit adapter verify` proves an ADAPTER is correct; nothing proved a
+    consumer wired one correctly, and the only way to find out was to run the
+    verb that needed the role and watch it fail. A committed `cmd` path that
+    resolves on its author's machine and nowhere else is the live case.
+
+    Resolvability, not execution: an evidence probe runs a test suite and a
+    stripper rewrites sources, so an advisory health check must not invoke
+    them. `artifact` roles are exempt — their file is produced by a pipeline
+    step that legitimately has not run yet, and the verb that needs it already
+    says so precisely."""
+    from .config import load as load_config
+    from .errors import StoreError
+    from .invoke import resolve_command
+
+    out = []
+    try:
+        config = load_config(root)
+    except StoreError:
+        return []          # lint owns config errors; doctor does not repeat them
+    for stack in config.stacks:
+        for role_name in ROLES:
+            role = getattr(stack.adapter, role_name)
+            if role is None or not role.cmd:
+                continue
+            resolved = resolve_command(Path(root), role.cmd[0])
+            if Path(resolved).exists() or shutil.which(resolved):
+                continue
+            out.append(Finding(
+                kind="role-wiring", severity="warning",
+                message=(f"[stacks.{stack.name}.adapter] {role_name} names "
+                         f"'{role.cmd[0]}', which is neither a file under the store "
+                         "root nor on PATH."),
+                suggestion="Build the adapter in its own toolchain, or fix the path. A "
+                           "path that resolves only on the machine that wrote it is "
+                           "committed breakage for everyone else — the role is "
+                           "unavailable until the verb that needs it fails."))
+    return out
+
+
 def run(store: Store, root: Path) -> list[Finding]:
     return (id_gaps(store) + orphan_artifacts(store)
             + dangling_reviews(store, root) + branch_staleness(root)
-            + stack_config_health(root))
+            + stack_config_health(root) + role_wiring(root))

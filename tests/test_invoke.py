@@ -215,3 +215,77 @@ def test_conformance_runs_a_cmd_mode_extractor_end_to_end(tmp_path):
     for violation in report["violations"]:
         assert "probe.py" not in violation.get("path", "")
         assert "[stacks.rust.adapter] extractor" in violation.get("path", "")
+
+
+# ------------------------------------- consumer wiring (onboarding findings)
+
+def test_a_rejected_config_is_a_violation_on_every_verb(tmp_path):
+    """One fact, one category. A config the loader rejects is the STORE being
+    wrong; reporting it as a tool error on some verbs sent CI looking for a
+    broken rqunit instead of a one-line fix in the consumer's own file."""
+    from click.testing import CliRunner
+
+    from rqunit.cli.conformance import main as conformance_main
+    from rqunit.cli.lint import main as lint_main
+    from rqunit.cli.trace import main as trace_main
+
+    root = tmp_path / "store"
+    shutil.copytree(FIXTURES / "store" / "valid", root)
+    (root / "rqunit.toml").write_text(
+        '[stacks.rust.adapter]\nactual_surface = "x.json"\n')     # retired, now unknown here
+
+    runner = CliRunner()
+    for main, args in ((lint_main, ["--store", str(root)]),
+                       (trace_main, ["--store", str(root), "--no-write"]),
+                       (conformance_main, ["--store", str(root)])):
+        result = runner.invoke(main, args)
+        assert result.exit_code == 1, f"{main.name}: {result.exit_code}\n{result.output}"
+        assert "CONFIG" in result.output
+
+
+def test_a_retired_key_is_named_with_where_it_went(tmp_path):
+    """Core cannot judge adapter passthrough — but it CAN recognise a key it
+    used to own. Left in place, such a key loads cleanly and configures
+    nothing, which reads to its author as a live setting."""
+    from click.testing import CliRunner
+
+    from rqunit.cli.lint import main as lint_main
+
+    root = tmp_path / "store"
+    shutil.copytree(FIXTURES / "store" / "valid", root)
+    (root / "rqunit.toml").write_text(
+        '[stacks.rust]\nactual_surface = "spec-conformance-tests/actual-surface.json"\n')
+
+    result = CliRunner().invoke(lint_main, ["--store", str(root), "--format", "text"])
+    assert "actual_surface is retired" in result.output
+    assert "extractor = { artifact" in result.output          # names the successor
+    assert result.exit_code == 0                              # warning, not blocking
+
+
+def test_doctor_reports_a_declared_role_that_resolves_nowhere(tmp_path):
+    """`adapter verify` proves an ADAPTER correct; nothing proved a CONSUMER
+    wired one correctly. A cmd path that resolves on its author's machine and
+    nowhere else is committed breakage every other developer meets late."""
+    from rqunit.doctor import role_wiring
+
+    (tmp_path / "rqunit.toml").write_text(
+        '[stacks.rust.adapter]\nscanner = { cmd = ["../elsewhere/scan-checks"] }\n')
+    findings = role_wiring(tmp_path)
+    assert len(findings) == 1
+    assert findings[0].kind == "role-wiring" and findings[0].severity == "warning"
+    assert "scanner" in findings[0].message
+
+
+def test_doctor_stays_quiet_about_artifact_roles_and_resolvable_commands(tmp_path):
+    """An artifact its pipeline has not produced yet is normal, and the verb
+    that needs it says so precisely — doctor crying wolf about it is how a
+    health check gets ignored. A command that DOES resolve is simply fine."""
+    from rqunit.doctor import role_wiring
+
+    (tmp_path / "probe").write_text("#!/bin/sh\n")
+    (tmp_path / "probe").chmod(0o755)
+    (tmp_path / "rqunit.toml").write_text(
+        '[stacks.rust.adapter]\n'
+        'extractor = { artifact = "never-generated-yet.json" }\n'
+        'scanner = { cmd = ["probe"] }\n')
+    assert role_wiring(tmp_path) == []

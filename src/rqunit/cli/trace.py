@@ -9,6 +9,7 @@ from pathlib import Path
 
 import click
 
+from ..errors import BadConfig
 from ..schemas import repo_root
 from ..store import Store
 from ..strip import apply as apply_strip, plan as plan_strip
@@ -22,6 +23,11 @@ def _strip(store_path: Path | None, everything: bool, write: bool) -> None:
         root = store_path or repo_root()
         decided = plan_strip(Store.load(root), root, everything=everything)
         result = apply_strip(root, decided, write=write) if decided.total else None
+    except BadConfig as e:
+        click.echo(f"ERROR CONFIG {e}", err=True)
+        click.echo("    Fix rqunit.toml, then re-run. `rqunit lint` reports this "
+                   "with the full rule reference.", err=True)
+        sys.exit(1)
     except Exception as e:
         click.echo(f"rqunit trace --strip: tool error: {e}", err=True)
         sys.exit(2)
@@ -85,6 +91,15 @@ def main(store_path: Path | None, against: str | None, no_write: bool,
         checks = scan_tests(root)         # one observation feeds both consumers
         report = build_report(store, root, checks=checks)
         gate = l14_gate(store, root, against, head=checks) if against else []
+    except BadConfig as e:
+        # A rejected config is a VIOLATION, not a tool error. It reads as
+        # "your store is wrong" from `lint` and must read the same here — CI
+        # treats exit 2 as "rqunit is broken", which sends the operator
+        # looking in the wrong place for a one-line fix in their own file.
+        click.echo(f"ERROR CONFIG {e}", err=True)
+        click.echo("    Fix rqunit.toml, then re-run. `rqunit lint` reports this "
+                   "with the full rule reference.", err=True)
+        sys.exit(1)
     except Exception as e:
         click.echo(f"spec-trace: tool error: {e}", err=True)
         sys.exit(2)
