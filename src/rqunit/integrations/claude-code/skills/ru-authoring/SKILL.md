@@ -58,7 +58,7 @@ never leaves, or that a client may not set it, cites the field rather than descr
 direction set is closed: a misspelling is a malformed token, not an unresolved one. Summary only —
 the linter is the law (spec §5.9, formats §13).
 
-## Compiling requirements (the analyst contract, spec §8.1)
+## Compiling requirements (the analyst's remit, spec §8.1)
 
 - Input is an immutable INT capture under `spec/intent/` (verbatim human words — never authored
   prose). Every RU's `source_ref` anchors into it with real line numbers (L4 checks the range).
