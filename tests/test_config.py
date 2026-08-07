@@ -141,3 +141,41 @@ def test_targets_hands_passthrough_options_to_the_emitter(tmp_path):
         '[stacks.rust.adapter]\nemitter = { artifact = "emit-response.json" }\n')
     request = emit_request(Store.load(root), load(root).stack("rust"))
     assert request["options"]["conformance_crate"] == "tools/conf"
+
+
+def test_a_config_the_loader_rejects_is_a_lint_violation_not_a_tool_error(tmp_path):
+    """The one surface a consumer runs on every edit has to be the one that
+    reports this. It used to report nowhere anyone looks: only `trace` loaded
+    the config, and it raised the failure as a TOOL error, so lint, check and
+    doctor all exited 0 over a repository whose configuration cannot be read —
+    a green pre-commit hook on an unreadable store. Same rule DialectViolation
+    states: one fact must not read as "rqunit is broken" on one command and
+    "your store is wrong" on another."""
+    from click.testing import CliRunner
+
+    from rqunit.cli.init import main as init_main
+    from rqunit.cli.lint import main as lint_main
+
+    CliRunner().invoke(init_main, ["--store", str(tmp_path), "--stack", "rust"])
+    config = tmp_path / "rqunit.toml"
+    config.write_text(config.read_text() + '\nnot_a_role = "x.json"\n')
+
+    result = CliRunner().invoke(lint_main, ["--store", str(tmp_path), "--format", "text"])
+    assert result.exit_code == 1, result.output          # a violation, not exit 2
+    assert "CONFIG" in result.output
+    assert "not_a_role" in result.output
+    assert "tool error" not in result.output
+    assert "suggestion:" in result.output                # message quality is asserted
+
+
+def test_a_sound_config_leaves_lint_alone(tmp_path):
+    """The guard must not turn every store with a stack into a red build."""
+    from click.testing import CliRunner
+
+    from rqunit.cli.init import main as init_main
+    from rqunit.cli.lint import main as lint_main
+
+    CliRunner().invoke(init_main, ["--store", str(tmp_path), "--stack", "rust"])
+    result = CliRunner().invoke(lint_main, ["--store", str(tmp_path), "--format", "text"])
+    assert result.exit_code == 0, result.output
+    assert "CONFIG" not in result.output

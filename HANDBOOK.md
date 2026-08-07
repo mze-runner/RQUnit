@@ -65,7 +65,7 @@ at the repo root — the tools carry no consumer paths in code.
 |---|---|---|
 | `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`, and the agent-runtime templates into `.claude/`. Reports the stack it detected; refuses a non-empty store; never overwrites a runtime file the consumer already has | once, at adoption |
 | `rqunit init --refresh-integrations` | rewrite the agent-runtime templates and touch nothing else. They teach the current vocabulary, so a store on a newer tool with older templates is being taught the wrong one | after upgrading the tool |
-| `rqunit lint [--only L3]` | lints L1–L26 + the M dialect family | after any spec/ edit |
+| `rqunit lint [--only L3]` | lints L1–L26 + the M dialect family, and `rqunit.toml` itself — a config the loader rejects is a `CONFIG` violation here, not a tool error somewhere else | after any spec/ edit |
 | `rqunit check [--only C4]` | consistency C1–C15 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
