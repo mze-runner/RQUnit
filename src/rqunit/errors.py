@@ -41,3 +41,9 @@ class UnresolvedRef(StoreError):
     """Well-formed reference token that resolves to no manifest fact (L15).
     Qualified refs resolve only against the named manifest — never a
     fallback (spec §5.3 v0.10)."""
+
+
+class RoleUnavailable(StoreError):
+    """A caller needed an adapter role the stack does not declare. Absence is
+    a capability statement, not an error in itself — but whatever needed the
+    role reports it rather than silently skipping."""

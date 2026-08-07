@@ -1,0 +1,217 @@
+"""Adapter invocation — the seam where core execs a declared adapter command
+or reads its artifact. Invariants: both transports produce the same validated
+observation; the stdio exit contract (0 ok / 1 probe failure / 2 tool error)
+maps to teaching errors, never silence; an unsupported contract_version is
+named, not guessed across; an absent role is RoleUnavailable, not a skip; and
+the adapter manifest is the vocabulary authority for passthrough keys."""
+
+import json
+import shutil
+import sys
+from pathlib import Path
+
+import pytest
+
+from click.testing import CliRunner
+
+from rqunit.config import Adapter, Role, Stack
+from rqunit.doctor import stack_config_health
+from rqunit.errors import BadConfig, RoleUnavailable
+from rqunit.invoke import load_adapter_manifest, run_role, stack_declaration_problems
+
+FIXTURES = Path(__file__).parent.parent / "fixtures"
+
+ARTIFACT = {"contract_version": 1, "generated_by": "fake-probe 0.1",
+            "services": {"service-orders": {"endpoints": []}}}
+
+SCHEMA = "actual-surface.schema.json"
+
+
+def _stack(**adapter_kwargs) -> Stack:
+    return Stack(name="rust", adapter=Adapter(**adapter_kwargs))
+
+
+def _probe(tmp_path: Path, body: str) -> Role:
+    script = tmp_path / "probe.py"
+    script.write_text(body)
+    return Role(cmd=(sys.executable, str(script)))
+
+
+def test_cmd_mode_returns_the_validated_observation(tmp_path):
+    role = _probe(tmp_path, f"""
+import json, sys
+if "--root" not in sys.argv:
+    sys.exit(3)
+print(json.dumps({ARTIFACT!r}))
+""")
+    data = run_role(tmp_path, _stack(extractor=role), "extractor", schema=SCHEMA)
+    assert data == ARTIFACT
+
+
+def test_artifact_mode_yields_the_same_observation(tmp_path):
+    (tmp_path / "actual-surface.json").write_text(json.dumps(ARTIFACT))
+    stack = _stack(extractor=Role(artifact="actual-surface.json"))
+    assert run_role(tmp_path, stack, "extractor", schema=SCHEMA) == ARTIFACT
+
+
+def test_relative_cmd_resolves_against_the_consumer_root(tmp_path):
+    script = tmp_path / "probe.sh"
+    script.write_text(f"#!/bin/sh\necho '{json.dumps(ARTIFACT)}'\n")
+    script.chmod(0o755)
+    stack = _stack(extractor=Role(cmd=("probe.sh",)))
+    assert run_role(tmp_path, stack, "extractor", schema=SCHEMA) == ARTIFACT
+
+
+def test_probe_failure_surfaces_the_adapters_stderr(tmp_path):
+    role = _probe(tmp_path, 'import sys; print("cannot parse router", file=sys.stderr); sys.exit(1)')
+    with pytest.raises(BadConfig) as caught:
+        run_role(tmp_path, _stack(extractor=role), "extractor", schema=SCHEMA)
+    assert "probe failure" in str(caught.value) and "cannot parse router" in str(caught.value)
+
+
+def test_tool_error_exit_is_distinguished_from_probe_failure(tmp_path):
+    role = _probe(tmp_path, "import sys; sys.exit(3)")
+    with pytest.raises(BadConfig) as caught:
+        run_role(tmp_path, _stack(extractor=role), "extractor", schema=SCHEMA)
+    assert "tool error" in str(caught.value)
+
+
+def test_unparseable_stdout_is_an_error_naming_the_channel_contract(tmp_path):
+    role = _probe(tmp_path, 'print("log line, not an artifact")')
+    with pytest.raises(BadConfig) as caught:
+        run_role(tmp_path, _stack(extractor=role), "extractor", schema=SCHEMA)
+    assert "stderr" in str(caught.value)      # teaches where logs belong
+
+
+def test_unsupported_contract_version_is_named_never_guessed_across(tmp_path):
+    artifact = dict(ARTIFACT, contract_version=2)
+    role = _probe(tmp_path, f"import json\nprint(json.dumps({artifact!r}))")
+    with pytest.raises(BadConfig) as caught:
+        run_role(tmp_path, _stack(extractor=role), "extractor", schema=SCHEMA)
+    assert "contract_version" in str(caught.value) and "1" in str(caught.value)
+
+
+def test_schema_violations_name_the_contract(tmp_path):
+    artifact = {"contract_version": 1, "services": {}}          # generated_by missing
+    role = _probe(tmp_path, f"import json\nprint(json.dumps({artifact!r}))")
+    with pytest.raises(BadConfig) as caught:
+        run_role(tmp_path, _stack(extractor=role), "extractor", schema=SCHEMA)
+    assert "actual-surface contract" in str(caught.value)
+
+
+def test_an_absent_role_is_unavailable_never_silently_skipped(tmp_path):
+    with pytest.raises(RoleUnavailable) as caught:
+        run_role(tmp_path, _stack(), "extractor", schema=SCHEMA)
+    assert "declares no extractor" in str(caught.value)
+
+
+def test_a_missing_binary_names_both_fixes(tmp_path):
+    stack = _stack(extractor=Role(cmd=("./does-not-exist",)))
+    with pytest.raises(BadConfig) as caught:
+        run_role(tmp_path, stack, "extractor", schema=SCHEMA)
+    message = str(caught.value)
+    assert "build the adapter" in message and "artifact" in message
+
+
+# ------------------------------------------------------------ adapter manifest
+
+MANIFEST = """\
+contract_version: 1
+stack: rust
+roles: [extractor]
+config_keys: [trace_scan, service]
+"""
+
+
+def test_manifest_loads_from_the_declared_path(tmp_path):
+    (tmp_path / "adapter.yaml").write_text(MANIFEST)
+    stack = Stack(name="rust", adapter=Adapter(manifest="adapter.yaml"))
+    manifest = load_adapter_manifest(tmp_path, stack)
+    assert manifest["roles"] == ["extractor"]
+
+
+def test_manifest_defaults_to_the_adapters_conventional_home(tmp_path):
+    home = tmp_path / "adapters" / "rust"
+    home.mkdir(parents=True)
+    (home / "adapter.yaml").write_text(MANIFEST)
+    assert load_adapter_manifest(tmp_path, _stack()) is not None
+    assert load_adapter_manifest(tmp_path, Stack(name="jvm")) is None
+
+
+def test_a_declared_manifest_that_resolves_to_nothing_is_an_error(tmp_path):
+    stack = Stack(name="rust", adapter=Adapter(manifest="missing.yaml"))
+    with pytest.raises(BadConfig):
+        load_adapter_manifest(tmp_path, stack)
+
+
+def test_a_manifest_wired_to_the_wrong_stack_is_an_error(tmp_path):
+    (tmp_path / "adapter.yaml").write_text(MANIFEST.replace("stack: rust", "stack: jvm"))
+    stack = Stack(name="rust", adapter=Adapter(manifest="adapter.yaml"))
+    with pytest.raises(BadConfig) as caught:
+        load_adapter_manifest(tmp_path, stack)
+    assert "wrong stack" in str(caught.value)
+
+
+def test_manifest_is_the_typo_detector_for_passthrough_keys(tmp_path):
+    """The typo'd key is named; the key the adapter does read is not."""
+    (tmp_path / "adapter.yaml").write_text(MANIFEST)
+    stack = Stack(name="rust",
+                  adapter=Adapter(manifest="adapter.yaml"),
+                  options={"trace_scam": ["x"], "service": "service-orders"})
+    problems = stack_declaration_problems(tmp_path, stack)
+    assert any("trace_scam" in p for p in problems)
+    assert not any("'service'" in p or "service," in p for p in problems)
+
+
+def test_manifest_catches_a_declared_role_the_adapter_does_not_ship(tmp_path):
+    (tmp_path / "adapter.yaml").write_text(MANIFEST)
+    stack = Stack(name="rust", adapter=Adapter(
+        manifest="adapter.yaml", scanner=Role(cmd=("scan",))))
+    problems = stack_declaration_problems(tmp_path, stack)
+    assert any("scanner" in p for p in problems)
+    assert not any("extractor" in p for p in problems)   # the shipped role is fine
+
+
+# ------------------------------------------------------------ doctor surfacing
+
+def test_doctor_stays_quiet_when_no_manifest_exists_to_judge_against(tmp_path):
+    """A finding whose fix is impossible teaches people to ignore doctor —
+    until a consumer can actually obtain a manifest, no manifest means no
+    judgment and no note."""
+    (tmp_path / "rqunit.toml").write_text('[stacks.rust]\ntrace_scan = ["x"]\n')
+    assert stack_config_health(tmp_path) == []
+
+
+def test_doctor_warns_on_keys_the_adapter_does_not_read(tmp_path):
+    (tmp_path / "adapter.yaml").write_text(MANIFEST)
+    (tmp_path / "rqunit.toml").write_text(
+        '[stacks.rust]\ntrace_scam = ["x"]\n'
+        '[stacks.rust.adapter]\nmanifest = "adapter.yaml"\n')
+    findings = [f for f in stack_config_health(tmp_path) if f.kind == "stack-config"]
+    assert any(f.severity == "warning" and "trace_scam" in f.message for f in findings)
+
+
+# ------------------------------------------------------------ conformance wiring
+
+def test_conformance_runs_a_cmd_mode_extractor_end_to_end(tmp_path):
+    from rqunit.cli.conformance import main as conformance_main
+
+    root = tmp_path / "repo"
+    shutil.copytree(FIXTURES / "store" / "valid", root)
+    script = root / "probe.py"
+    script.write_text(f"import json\nprint(json.dumps({ARTIFACT!r}))")
+    (root / "rqunit.toml").write_text(
+        '[stacks.rust.adapter]\n'
+        f'extractor = {{ cmd = ["{sys.executable}", "probe.py"] }}\n')
+    result = CliRunner().invoke(conformance_main, ["--store", str(root)])
+    assert result.exit_code in (0, 1), result.output       # judged, not tool-errored
+    report = json.loads(result.output)
+    # The store's declared boundary reached provenance: the valid fixture
+    # declares endpoints, so a probe-fed run counts a non-empty boundary.
+    assert report["boundary"]["endpoints"] > 0
+    assert report["summary"]["checked_files"] == 1         # exactly the declared probe
+    # Violations from a cmd probe are attributed to the declaration site an
+    # operator can act on, never to another probe's file.
+    for violation in report["violations"]:
+        assert "probe.py" not in violation.get("path", "")
+        assert "[stacks.rust.adapter] extractor" in violation.get("path", "")

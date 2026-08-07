@@ -66,7 +66,7 @@ at the repo root — the tools carry no consumer paths in code.
 | `rqunit check [--only C4]` | consistency C1–C13 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
-| `rqunit conformance` | manifest ↔ code surfaces (CF1–CF11) — reads each stack's `actual-surface.json`; never runs an extractor | after changing routes/messages; every gate |
+| `rqunit conformance` | manifest ↔ code surfaces (CF1–CF11) — reads each stack's declared extractor output (a committed artifact, or a prebuilt adapter core execs as a black box); never invokes a language toolchain | after changing routes/messages; every gate |
 | `rqunit doctor [--strict]` | structural health: lost RUs (id gaps), orphaned artifacts, dangling review records, a branch stale enough to make activation collide. Advisory — exit 0 unless `--strict` | after merges; before a Gate 1 sitting |
 | `rqunit report [--out F] [--format html\|json]` | a self-contained HTML snapshot for review audiences — coverage, status, verification completeness, Gate activity, burn-down, health. `--format json` emits the underlying data contract | before a steering review; on demand |
 | `rqunit activate batch --feature F --reviewer H` | Gate 1 activation (atomic, refuses on red, commits) | end of a Gate 1 sitting |
@@ -310,9 +310,10 @@ the migration; the two numbering spaces are never mixed in one report.
 Manifest ↔ code, per §5.6/§5.8. A per-stack **extractor** writes what the code
 exposes into `actual-surface.json`; the framework owns every judgment about
 what a difference means, so a new language costs an extractor, not a
-reconciler. Extraction runs in the stack's own build system (the toolchain
-never invokes a compiler), and that stack's currency test proves the artifact
-still matches the code.
+reconciler. The adapter is built in the stack's own build system (the
+toolchain never invokes a compiler or build tool); core either reads the
+committed artifact or execs the prebuilt adapter as an opaque black box, and
+the stack's currency test proves the artifact still matches the code.
 
 | Code | Severity | What it means |
 |---|---|---|

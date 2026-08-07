@@ -1,0 +1,3 @@
+# Stack participation is always an explicit declaration: this store declares
+# a rust stack so generation targets the (default) conformance crate.
+[stacks.rust]

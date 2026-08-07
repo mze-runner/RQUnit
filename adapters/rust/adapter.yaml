@@ -1,0 +1,19 @@
+# Adapter self-declaration (contract: rqunit interfaces/adapter-manifest.schema.json).
+# Read by core, never by this adapter. Roles grow as they move out of core:
+# the scanner and emitter are still in-core transitional builtins.
+contract_version: 1
+stack: rust
+roles: [extractor]
+config_keys:
+  # Read by extract.rs.
+  - service
+  - routers
+  - messages
+  - audit
+  # Core-read transitional keys: the in-core scanner (trace_scan, trace_diff)
+  # and emitter (conformance_crate) still consume these. They move to this
+  # adapter with their roles; listing them here keeps a consumer's working
+  # config from warning in the meantime.
+  - trace_scan
+  - trace_diff
+  - conformance_crate

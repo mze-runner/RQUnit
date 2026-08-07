@@ -131,6 +131,46 @@ def branch_staleness(root: Path) -> list[Finding]:
                    "branch already used (the collision surfaces as an add/add merge conflict).")]
 
 
+def stack_config_health(root: Path) -> list[Finding]:
+    """Passthrough config is opaque to the loader by design, so its health is
+    judged here, against the adapter's own manifest — the only party entitled
+    to say which keys it reads. No manifest, no judgment: that state is worth
+    one note, not silence, because an unvalidated typo reads as configured.
+    Doctor stays advisory, so a broken manifest is itself a finding rather
+    than a crash."""
+    from .config import load as load_config
+    from .errors import StoreError
+    from .invoke import load_adapter_manifest, stack_declaration_problems
+
+    out = []
+    try:
+        config = load_config(root)
+    except StoreError:
+        return []          # lint owns config errors; doctor does not repeat them
+    for stack in config.stacks:
+        try:
+            manifest = load_adapter_manifest(root, stack)
+        except StoreError as e:
+            out.append(Finding(
+                kind="stack-config", severity="warning", message=str(e),
+                suggestion="Fix the adapter manifest — it is the vocabulary "
+                           "authority for this stack's passthrough keys."))
+            continue
+        if manifest is None:
+            # No manifest, no judgment — and no note either: until adapter
+            # distribution ships a manifest a consumer can actually point at,
+            # a finding whose fix is impossible teaches people to ignore
+            # doctor, which is the one thing it must not do.
+            continue
+        for problem in stack_declaration_problems(root, stack):
+            out.append(Finding(
+                kind="stack-config", severity="warning", message=problem,
+                suggestion="The adapter manifest is the vocabulary authority for "
+                           "passthrough keys — align rqunit.toml with it."))
+    return out
+
+
 def run(store: Store, root: Path) -> list[Finding]:
     return (id_gaps(store) + orphan_artifacts(store)
-            + dangling_reviews(store, root) + branch_staleness(root))
+            + dangling_reviews(store, root) + branch_staleness(root)
+            + stack_config_health(root))

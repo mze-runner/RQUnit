@@ -426,6 +426,20 @@ they are properties of one repository, not of a language: an extractor that
 guessed a composition would report a surface nobody declared, and the
 reconciler would believe it.
 
+**Adapter manifest** (`adapter.yaml`, contract:
+`interfaces/adapter-manifest.schema.json`) — the adapter package's
+self-declaration, read by core and never by the adapter. Located at the
+declared `adapter.manifest` path, or `adapters/<name>/adapter.yaml` by
+convention; a stack may run without one, forfeiting passthrough typo
+detection.
+
+```yaml
+contract_version: 1
+stack: rust                      # must match the [stacks.<name>] wired to it
+roles: [extractor]               # a declared role the manifest lacks is surfaced before the exec fails
+config_keys: [service, routers]  # the passthrough keys this adapter reads
+```
+
 ## 16. Shared artifacts
 
 `artifacts` in `spec/manifests/shared.manifest.yaml` — structures minted
