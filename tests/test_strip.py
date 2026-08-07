@@ -166,6 +166,27 @@ def test_a_stack_without_a_stripper_is_reported_not_skipped(tmp_path):
     assert "declares no stripper role" in result.output
 
 
+def test_a_stack_nothing_observed_is_reported_as_blind_not_clean(tmp_path):
+    """The failure this whole design is against, found in it: a stack with no
+    scanner was skipped before the stripper check, so the run reported a
+    confident "nothing to remove" over a tree full of annotations nothing had
+    looked at. A blind sweep must never read like a clean one."""
+    root = _store(tmp_path)
+    toml = root / "rqunit.toml"
+    toml.write_text(toml.read_text().replace(
+        'scanner = { artifact = "scanned-checks.json" }', ""))
+
+    decided = plan(Store.load(root), root)
+    assert decided.unobserved == ["rust"]
+    assert decided.total == 0
+
+    result = CliRunner().invoke(trace_main, ["--store", str(root), "--strip"])
+    assert result.exit_code == 0
+    assert "declares no scanner role" in result.output
+    assert "blind, not clean" in result.output
+    assert "nothing to remove" not in result.output
+
+
 def test_all_and_apply_are_meaningless_without_strip(tmp_path):
     root = _store(tmp_path)
     for flag in ("--all", "--apply"):

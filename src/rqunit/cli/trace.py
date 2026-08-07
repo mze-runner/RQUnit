@@ -26,6 +26,10 @@ def _strip(store_path: Path | None, everything: bool, write: bool) -> None:
         click.echo(f"rqunit trace --strip: tool error: {e}", err=True)
         sys.exit(2)
 
+    for name in decided.unobserved:
+        click.echo(f"note: stack '{name}' declares no scanner role — nothing observed its "
+                   f"tests, so nothing could be judged stale ([stacks.{name}.adapter] "
+                   "scanner in rqunit.toml). This run was blind, not clean.", err=True)
     for name in decided.unavailable:
         click.echo(f"note: stack '{name}' declares no stripper role — its annotations "
                    f"were NOT removed ([stacks.{name}.adapter] stripper in rqunit.toml). "
@@ -34,7 +38,12 @@ def _strip(store_path: Path | None, everything: bool, write: bool) -> None:
 
     scope = "every annotation" if everything else "annotations naming no active RU"
     if not decided.total:
-        click.echo(f"trace --strip: nothing to remove ({scope})")
+        # "Nothing to remove" from a run that observed nothing reads exactly
+        # like a clean tree, which is the report this tool exists to not give.
+        blind = decided.unobserved or decided.unavailable
+        click.echo(f"trace --strip: nothing removed — no stack was both observed and "
+                   f"strippable ({scope})" if blind
+                   else f"trace --strip: nothing to remove ({scope})")
         sys.exit(0)
 
     for path in result.written:

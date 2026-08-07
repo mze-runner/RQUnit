@@ -45,6 +45,11 @@ class StripPlan:
     # silently skipped: a stack adoptable but not un-adoptable is a capability
     # statement the operator has to see before they believe a clean sweep.
     unavailable: list[str] = field(default_factory=list)
+    # Declared stacks nothing observed. A separate gap and a worse one: with no
+    # scanner there is nothing to judge stale, so the strip is not merely
+    # incapable — it is blind, and "nothing to remove" from a blind run reads
+    # exactly like a clean tree.
+    unobserved: list[str] = field(default_factory=list)
 
     @property
     def total(self) -> int:
@@ -64,7 +69,8 @@ def plan(store: Store, root: Path, everything: bool = False) -> StripPlan:
 
     for stack in load_config(root).stacks:
         if stack.adapter.scanner is None:
-            continue                       # unobserved; `trace` already says so
+            out.unobserved.append(stack.name)
+            continue
         if stack.adapter.stripper is None:
             out.unavailable.append(stack.name)
             continue
