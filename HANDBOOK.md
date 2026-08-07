@@ -33,10 +33,11 @@ spec/
   projections/   GENERATED, never hand-edit: ru-index.json, test-plan.json,
                  trace-map.json, orphans.{md,json}, suspect-queue.json,
                  surface-sheets/, scope-audit.jsonl
-rqunit.toml        consumer configuration (repo root): which code trees the
-                   trace scanner sweeps, where generated conformance artifacts
-                   land. The store layout itself is never configured (§12.1).
-                   Missing file = generic defaults; unknown keys are errors
+rqunit.toml        consumer configuration (repo root): any [stacks.<name>]
+                   table declares a stack and its adapter roles. The store
+                   layout itself is never configured (§12.1). Missing file =
+                   no stacks (store-only verbs need none); malformed core-read
+                   keys are errors, adapter-owned keys pass through
 rqunit             the CLI — installed, run from anywhere in the store
 <conformance>/     generated conformance suites + the manifest↔code reconciler
                    live in the consumer's application workspace (language-specific)

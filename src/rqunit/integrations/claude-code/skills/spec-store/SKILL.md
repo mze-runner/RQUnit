@@ -9,7 +9,7 @@ Store layout is spec §12.1; the authority for everything here is
 the framework specification.
 For WRITING artifacts, load `ru-authoring` — this skill is about running the machinery.
 
-Every verb runs through one CLI: `rqunit <verb>`, from anywhere at or below the store root. Repo-specific inputs — trace scan globs, diff pathspecs, literal-scan directories, adapter artifact paths — live in the committed `rqunit.toml` at the repo root (strict: unknown keys are errors, because a typo that reads as configured is worse than one that fails).
+Every verb runs through one CLI: `rqunit <verb>`, from anywhere at or below the store root. Repo-specific inputs live in the committed `rqunit.toml`, where any `[stacks.<name>]` table declares a stack — the tool carries no list of supported languages. Core interprets a CLOSED key set per stack (the `adapter` role declarations and `literal_scan`) and errors on a malformed one, because a typo that reads as configured is worse than one that fails. Every OTHER key belongs to that stack's adapter, is passed through untouched, and is checked against the adapter manifest's `config_keys` rather than by core — judging what `routers` means would be language knowledge, and language knowledge lives out of process.
 
 ## The toolchain
 
