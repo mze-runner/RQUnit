@@ -190,26 +190,32 @@ def targets(store: Store, root: Path) -> dict[Path, str]:
                         "conformance_crate must be a non-empty string path")
     out: dict[Path, str] = {}
     crate = root / crate_rel
-    mods = []
-    for service, manifest in store.manifests().items():
-        if manifest.raw.get("values"):
-            mod = f"values_{service.replace('-', '_')}"
-            mods.append(mod)
-            out[crate / "src" / "generated" / f"{mod}.rs"] = render_constants(store, service)
-    mod_lines = [f"// {GENERATED_BANNER}", ""] + [f"pub mod {m};" for m in sorted(mods)]
-    out[crate / "src" / "generated" / "mod.rs"] = "\n".join(mod_lines) + "\n"
     trace_map: dict[str, list[str]] = {}
     package = Path(crate_rel).name  # crate basename = package name (config contract)
-    for model_id in store.models():
-        plan = plan_model_suite(store, model_id)
-        stem = f"generated_mdl_{model_id.replace('-', '_')}"
-        out[crate / "tests" / f"{stem}.rs"] = emit_rust_suite(plan)
-        # Generated suites carry no per-test annotations — their trace is
-        # inherited from the model's RU links via this sidecar (formats §5).
-        # Read from the PLAN, not from the emitted source: check identity is a
-        # property of the plan, and every emitter must preserve it.
-        for check in plan["checks"]:
-            trace_map[f"{package}::{stem}::{check['id']}"] = plan["verified_by"]
+    # Crate artifacts only where a rust stack is declared. `conformance_crate`
+    # has a default so the path is knowable, but a default is not a decision:
+    # writing a Rust crate into a repository that declared no Rust stack
+    # invents a build target nothing builds, and then fails the currency gate
+    # for not having it.
+    if stack is not None:
+        mods = []
+        for service, manifest in store.manifests().items():
+            if manifest.raw.get("values"):
+                mod = f"values_{service.replace('-', '_')}"
+                mods.append(mod)
+                out[crate / "src" / "generated" / f"{mod}.rs"] = render_constants(store, service)
+        mod_lines = [f"// {GENERATED_BANNER}", ""] + [f"pub mod {m};" for m in sorted(mods)]
+        out[crate / "src" / "generated" / "mod.rs"] = "\n".join(mod_lines) + "\n"
+        for model_id in store.models():
+            plan = plan_model_suite(store, model_id)
+            stem = f"generated_mdl_{model_id.replace('-', '_')}"
+            out[crate / "tests" / f"{stem}.rs"] = emit_rust_suite(plan)
+            # Generated suites carry no per-test annotations — their trace is
+            # inherited from the model's RU links via this sidecar (formats §5).
+            # Read from the PLAN, not from the emitted source: check identity is
+            # a property of the plan, and every emitter must preserve it.
+            for check in plan["checks"]:
+                trace_map[f"{package}::{stem}::{check['id']}"] = plan["verified_by"]
     out[root / "spec" / "projections" / "trace-map.json"] = json.dumps(
         {"_": GENERATED_BANNER, "checks": dict(sorted(trace_map.items()))}, indent=2) + "\n"
     out[root / "spec" / "projections" / "test-plan.json"] = render_test_plan(store)
@@ -267,13 +273,29 @@ def write_all(store: Store, root: Path) -> list[Path]:
 
 
 def check_current(store: Store, root: Path) -> list[str]:
-    """Stale or hand-edited generated files (§5.6: stale = red; hand-edit ban)."""
+    """Stale or hand-edited generated files (§5.6: stale = red; hand-edit ban).
+
+    Both messages carry their fix. `missing` is the state a store is in before
+    it has ever generated, and a bare path with no verb sends the reader to the
+    source to find out what produces it.
+    """
     problems = []
     for path, content in targets(store, root).items():
+        try:
+            where = path.relative_to(root)
+        except ValueError:
+            where = path
         if not path.exists():
-            problems.append(f"missing generated file: {path}")
+            problems.append(
+                f"missing generated file: {where}\n"
+                "    Run `rqunit generate all` and commit the result. Generated artifacts are "
+                "committed and currency-checked, so a store that has never generated is "
+                "reported as out of date rather than assumed empty (§5.6).")
         elif path.read_text() != content:
-            problems.append(f"stale or hand-edited generated file: {path}")
+            problems.append(
+                f"stale or hand-edited generated file: {where}\n"
+                "    Run `rqunit generate all` and commit the result. If you edited this file "
+                "by hand, the edit is lost by design — change what generates it (§5.6).")
     return problems
 
 

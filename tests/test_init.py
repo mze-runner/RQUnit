@@ -224,3 +224,17 @@ def test_refresh_rewrites_templates_and_touches_nothing_else(tmp_path):
     assert result.exit_code == 0
     assert skill.read_text() == shipped
     assert pack.read_text() == before
+
+
+def test_a_freshly_scaffolded_store_passes_the_currency_gate(tmp_path):
+    """A scaffold whose very next gate is red teaches people the gate is noise.
+    Projections are committed and currency-checked, so a store that has never
+    generated is reported as out of date — which made `rqunit generate check`
+    fail on a store the operator had done nothing to but create."""
+    from rqunit.cli.generate import main as generate_main
+
+    assert _init(tmp_path).exit_code == 0
+    result = CliRunner().invoke(generate_main, ["check", "--store", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert list((tmp_path / "spec" / "projections").glob("*.json")), \
+        "nothing was generated — the gate passed vacuously"

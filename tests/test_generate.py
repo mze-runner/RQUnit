@@ -85,3 +85,41 @@ def test_literal_scan_is_advisory_and_word_bounded():
     assert isinstance(findings, list)      # advisory: content varies per consumer
     for finding in findings:
         assert "import the generated constant" in finding
+
+
+def test_a_store_with_no_stack_gets_no_crate_artifacts(tmp_path):
+    """`conformance_crate` has a default so the path is knowable, but a default
+    is not a declaration. Emitting a Rust crate into a repository that declared
+    no Rust stack invents a build target nothing builds — and then fails the
+    currency gate for not having it."""
+    from click.testing import CliRunner
+
+    from rqunit.cli.init import main as init_main
+
+    CliRunner().invoke(init_main, ["--store", str(tmp_path)])
+    produced = targets(Store.load(tmp_path), tmp_path)
+    assert produced, "nothing generated at all — this test would pass vacuously"
+    assert all("spec/projections" in str(p) for p in produced), (
+        f"crate artifacts emitted with no stack declared: {sorted(map(str, produced))}")
+    assert not (tmp_path / "spec-conformance-tests").exists()
+
+
+def test_currency_problems_say_how_to_fix_themselves(tmp_path):
+    """Hard rule: a violation the reader has to research is a failure of the
+    rule. `missing` is the state every store is in before it first generates,
+    so a bare path with no verb is the worst possible first contact."""
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    store = Store.load(root)
+    write_all(store, root)
+
+    generated = next(iter(targets(store, root)))
+    generated.unlink()
+    missing = check_current(store, root)
+    assert missing and "rqunit generate all" in missing[0] and "§5.6" in missing[0]
+    assert str(root) not in missing[0], "path should be store-relative, not absolute"
+
+    write_all(store, root)
+    generated.write_text(generated.read_text() + "\n// hand edit\n")
+    stale = check_current(store, root)
+    assert stale and "rqunit generate all" in stale[0] and "§5.6" in stale[0]

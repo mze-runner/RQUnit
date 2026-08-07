@@ -244,6 +244,15 @@ def main(store_path: Path | None, stack_override: str | None,
         if wrote_config:
             config.write_text(RUST_CONFIG if "rust" in stacks else BARE_CONFIG)
         emitted, kept = emit_integrations(root, overwrite=False)
+        # Generate before handing the store over. Projections are committed and
+        # currency-checked, so a store that has never generated is REPORTED as
+        # out of date — which made a freshly scaffolded store fail its own gate
+        # on the first commit, for a reason the operator did nothing to cause.
+        # A scaffold whose next gate is red is a scaffold that teaches people
+        # the gate is noise.
+        from ..generate import write_all
+        from ..store import Store
+        generated = write_all(Store.load(root), root)
     except OSError as e:
         click.echo(f"rqunit init: tool error: {e}", err=True)
         sys.exit(2)
@@ -267,6 +276,8 @@ def main(store_path: Path | None, stack_override: str | None,
     if kept:
         click.echo(f"  agent templates: {len(kept)} already existed — left untouched. "
                    "`rqunit init --refresh-integrations` overwrites them.")
+    click.echo(f"  projections: {len(generated)} generated — commit them with the store; "
+               "they are currency-checked, never hand-edited.")
     if not _in_vcs(root):
         click.echo("  warning: not inside a git repository. The store is meant to travel "
                    "with the code it governs; commit it there.")
