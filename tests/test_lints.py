@@ -16,7 +16,11 @@ from rqunit.store import Store
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 LINTS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9",
          "L10", "L11", "L12", "L13", "L15", "L16", "L17", "L18",
-         "L19", "L20", "L21", "L22", "L24", "L25"]
+         "L19", "L20", "L21", "L22", "L24", "L25",
+         # The statechart dialect family (§6.3): graph facts the schema cannot
+         # express. M5 is deliberately absent — event vocabulary resolves
+         # against manifests, which makes it C8's cross-artifact question.
+         "M1", "M2", "M3", "M4", "M6"]
 # L23 is deliberately absent and never to be issued: the shape-reference case it
 # was reserved for is already L15's ("every manifest reference resolves"), and a
 # field of a declared census IS a manifest reference. L15 carries the sharper
@@ -33,7 +37,8 @@ def _load(root: Path) -> Store:
 
 
 def _dir(code: str, kind: str) -> Path:
-    return FIXTURES / "lints" / f"L{int(code[1:]):02d}" / kind
+    name = f"L{int(code[1:]):02d}" if code.startswith("L") else code
+    return FIXTURES / "lints" / name / kind
 
 
 def _run(code: str, kind: str):
@@ -235,3 +240,81 @@ def test_l17_scans_prose_never_token_interiors(tmp_path):
         "record {audit:orders.cancelled} for", "publish orders.cancelled for"))
     assert [v for v in run_lints(Store.load(root), only="L17")
             if v.rule == "L17" and v.artifact == "RU-0142"]
+
+
+# ------------------------------------------------------------ M dialect family
+
+def test_m_rules_refuse_generation_with_the_same_messages(tmp_path):
+    """One implementation, two surfaces: a model whose violation would make
+    the RENDERED SUITE wrong must not render — an M2 violation used to emit a
+    test asserting a transition to a state that does not exist, failing only
+    at shim runtime. The refusal names the model file, per hard rule 6."""
+    from rqunit.errors import DialectViolation
+    from rqunit.generate import plan_model_suite
+
+    root = tmp_path / "store"
+    shutil.copytree(_dir("M2", "fail"), root)
+    store = _load(root)
+    model_id = next(iter(store.models()))
+    with pytest.raises(DialectViolation) as caught:
+        plan_model_suite(store, model_id)
+    message = str(caught.value)
+    assert "[M2]" in message and "not a declared state" in message and "§6.3" in message
+    assert "spec/models/" in message
+
+
+def test_rules_the_plan_never_reads_report_without_blocking(tmp_path):
+    """M1 and M4 are modeling-quality judgments: the plan reads neither
+    `initial` nor `type: final`, so gating rendering on them would block a
+    consumer for a fact rendering never consults."""
+    from rqunit.generate import plan_model_suite
+
+    for code in ("M1", "M4"):
+        root = tmp_path / code
+        shutil.copytree(_dir(code, "fail"), root)
+        store = _load(root)
+        assert _run(code, "fail"), f"{code} must still be reported"
+        for model_id in store.models():
+            plan_model_suite(store, model_id)      # renders anyway
+
+
+def test_a_model_violation_is_a_violation_on_every_surface(tmp_path):
+    """`lint` and `generate check` must agree on the CATEGORY of the same
+    fact: exit 1 (your model is wrong), never exit 2 (rqunit is broken)."""
+    from click.testing import CliRunner
+
+    from rqunit.cli.generate import main as generate_main
+
+    root = tmp_path / "store"
+    shutil.copytree(FIXTURES / "store" / "valid", root)
+    model = root / "spec" / "models" / "MDL-order-lifecycle.statechart.json"
+    raw = model.read_text().replace('"CANCEL": "cancelling"', '"CANCEL": "nowhere"')
+    model.write_text(raw)
+    result = CliRunner().invoke(generate_main, ["check", "--store", str(root)])
+    assert result.exit_code == 1, result.output
+    assert "[M2]" in result.output
+
+
+def test_m4_does_not_cascade_when_m1_already_fired():
+    """A walk with no lawful start would report one defect under two numbers;
+    the M1 fail store must be red for M1's reason alone."""
+    assert _run("M1", "fail") and _run("M4", "fail")     # both rules do fire on their own stores
+    m1_store = _load(_dir("M1", "fail"))
+    assert [v for v in run_lints(m1_store, only="M4") if v.rule == "M4"] == []
+
+
+def test_m_rules_name_the_model_and_cite_the_section():
+    for code in ("M1", "M2", "M3", "M4", "M6"):
+        violations = _run(code, "fail")
+        assert all(v.artifact.startswith("MDL-") and "§6.3" in v.suggestion
+                   for v in violations)
+
+
+def test_m4_is_visible_debt_not_a_block():
+    """A cyclic lifecycle — a reopenable order, a subscription — legitimately
+    declares no final state, and M3 forbids giving a final one a way out.
+    Erroring on that would block an honest consumer at lint, at generation,
+    and at every unrelated activation."""
+    assert all(v.severity == "warning" for v in _run("M4", "fail"))
+    for code in ("M1", "M2", "M3", "M6"):
+        assert all(v.severity == "error" for v in _run(code, "fail"))

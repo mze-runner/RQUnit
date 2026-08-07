@@ -7,7 +7,7 @@ from pathlib import Path
 
 import click
 
-from ..errors import StoreError
+from ..errors import DialectViolation, StoreError
 from ..generate import check_current, missing_emitter, scan_literals, write_all
 from ..schemas import repo_root
 from ..store import Store
@@ -56,6 +56,12 @@ def check(store_path) -> None:
             click.echo(f"rqunit generate: {problem}", err=True)
             sys.exit(2)
         problems = check_current(store, root)
+    except DialectViolation as e:
+        # A spec-content violation, not a tool failure: `lint` calls this a
+        # violation (exit 1) and so must this surface, or CI reads the same
+        # fact as "rqunit is broken" on one command and "your model is wrong"
+        # on another.
+        problems = [str(e)]
     except StoreError as e:
         click.echo(f"rqunit generate: {e}", err=True)
         sys.exit(2)

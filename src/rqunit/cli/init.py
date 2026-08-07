@@ -19,6 +19,7 @@ from pathlib import Path
 
 import click
 
+from ..errors import StoreError
 from ..schemas import SEED_DIR, SPEC_VERSION
 
 # Agent-runtime templates, emitted into the consumer's own runtime directory.
@@ -257,7 +258,7 @@ def main(store_path: Path | None, stack_override: str | None,
         from ..generate import write_all
         from ..store import Store
         generated = write_all(Store.load(root), root)
-    except OSError as e:
+    except (OSError, StoreError) as e:
         click.echo(f"rqunit init: tool error: {e}", err=True)
         sys.exit(2)
 

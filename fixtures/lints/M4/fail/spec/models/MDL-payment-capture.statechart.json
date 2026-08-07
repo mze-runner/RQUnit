@@ -1,0 +1,19 @@
+{
+  "id": "payment-capture",
+  "kind": "statechart",
+  "initial": "authorized",
+  "undeclared_event_policy": "ignore",
+  "vocabulary": {
+    "RETRY": "internal"
+  },
+  "states": {
+    "authorized": {
+      "on": {
+        "RETRY": "authorized"
+      }
+    },
+    "settled": {
+      "type": "final"
+    }
+  }
+}

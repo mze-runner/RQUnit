@@ -47,3 +47,11 @@ class RoleUnavailable(StoreError):
     """A caller needed an adapter role the stack does not declare. Absence is
     a capability statement, not an error in itself — but whatever needed the
     role reports it rather than silently skipping."""
+
+
+class DialectViolation(StoreError):
+    """A model breaks a statechart dialect rule the generated suite depends
+    on (M2/M3/M6). A distinct class because it is a SPEC-CONTENT violation,
+    not a tool failure: `lint` reports it as a violation and so must every
+    other surface, or CI reads the same fact as 'rqunit is broken' on one
+    command and 'your model is wrong' on another."""

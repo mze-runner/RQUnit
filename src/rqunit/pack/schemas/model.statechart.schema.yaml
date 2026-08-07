@@ -5,14 +5,19 @@
 # optional single correlation parameter, string invariants. Extend by schema
 # revision, never ad hoc.
 #
-# Beyond-schema loader checks (implement in TASK-003 / model loader):
-#   M1: `initial` ∈ states
-#   M2: every transition target ∈ states
-#   M3: final states have no `on`
-#   M4: at least one final state reachable (graph walk)
+# Beyond-schema graph facts, enforced as the M lint family (§6.3, §10.1).
+# Generation refuses a model whose violation would make the rendered suite
+# wrong (M2/M3/M6); M1 and M4 are reported and do not block rendering.
+#   M1: `initial` ∈ states (error)
+#   M2: every transition target ∈ states (error — a generated test would
+#       otherwise assert a transition to nowhere)
+#   M3: final states have no `on` (error)
+#   M4: at least one final state reachable (graph walk; warning — a cyclic
+#       lifecycle legitimately declares none)
 #   M5: every event name resolves to a manifest entry (C8; the mapping is the
 #       model's `vocabulary` block below — explicit, never inferred)
-#   M6: invariant names are unique within the model
+#   M6: invariant names are unique within the model (error — each generates a
+#       probe named after it, and duplicates collapse check identity)
 #
 # Conformance generation contract (TASK-070) derives, mechanically:
 #   one test per declared transition;
@@ -81,4 +86,4 @@ properties:
           propertyNames: { pattern: "^[A-Z][A-Z0-9_]*(\\([a-z_]+\\))?$" }
           additionalProperties:
             type: string
-            description: Target state name (must exist — loader check M2).
+            description: Target state name (must exist — M2).

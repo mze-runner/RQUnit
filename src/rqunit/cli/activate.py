@@ -293,6 +293,11 @@ def reaffirm(store_path, model_ref, ru_ids, reviewer) -> None:
     model = store.models().get(bare)
     if model is None:
         _fail(f"MDL-{bare} does not exist in the store.")
+    # Pre-flight BEFORE any write: this verb runs immediately after a model
+    # edit, which is exactly when a dialect violation is most likely, and
+    # re-stamping RUs against a model that cannot render would leave the
+    # store half-mutated.
+    _require_renderable(store, bare)
     known = {ru.id for ru in store.rus()}
     unknown = [r for r in ru_ids if r not in known]
     if unknown:
@@ -348,6 +353,7 @@ def resolve(pairs, store_path, match_text, reviewer) -> None:
     _validate_reviewer(reviewer)
     root = store_path or repo_root()
     store = Store.load(root)
+    _require_renderable(store)     # regeneration is this verb's last act
     by_id = {ru.id: ru for ru in store.rus()}
 
     test_ids: set[str] | None = None  # scanned lazily, only if a test target appears
@@ -451,6 +457,18 @@ def _remap(value, mapping: dict[str, str]):
     if isinstance(value, dict):
         return {k: _remap(v, mapping) for k, v in value.items()}
     return value
+
+
+def _require_renderable(store: Store, model_id: str | None = None) -> None:
+    """Refuse before writing anything when a model cannot render. Every verb
+    here regenerates projections as its last act; discovering the refusal
+    then would strand a half-written store."""
+    from ..model_rules import require_sound
+    try:
+        for candidate in ([model_id] if model_id else store.models()):
+            require_sound(store, candidate)
+    except StoreError as e:
+        _fail(f"nothing was written — {e}")
 
 
 def _restore(journal: dict[Path, str | None]) -> None:

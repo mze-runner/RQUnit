@@ -32,14 +32,15 @@ def lint(code: str):
 def discover() -> dict[str, Callable]:
     pkg = importlib.import_module("rqunit.lints")
     for mod in pkgutil.iter_modules(pkg.__path__):
-        if mod.name.startswith("l") and mod.name[1:].isdigit():
+        # l* = artifact lints; m* = the statechart dialect family (§6.3).
+        if mod.name[0] in ("l", "m") and mod.name[1:].isdigit():
             importlib.import_module(f"rqunit.lints.{mod.name}")
     return REGISTRY
 
 
 def run_lints(store: Store, only: str | None = None) -> list[Violation]:
     discover()
-    codes = [only] if only else sorted(REGISTRY, key=lambda c: int(c[1:]))
+    codes = [only] if only else sorted(REGISTRY, key=lambda c: (c[0], int(c[1:])))
     out: list[Violation] = []
     for code in codes:
         out.extend(REGISTRY[code](store))

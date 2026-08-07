@@ -30,6 +30,8 @@ def plan_model_suite(store: Store, model_id: str) -> dict:
     idiomatic tests and decides nothing. That split is what lets a second
     language cost an emitter rather than a generator.
     """
+    from .model_rules import require_sound
+    require_sound(store, model_id)   # a model violating the dialect must not render
     model = store.models()[model_id]
     raw = model.raw
     states = raw["states"]

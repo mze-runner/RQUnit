@@ -13,7 +13,10 @@ opaque black box — never a language toolchain or build system) XOR `artifact`
 writes every one, and check identity flows through the response's plan-check
 mapping, never through parsing emitted source); the `adapter-manifest`
 self-declaration carries roles, `config_keys`, and the compliance kit that
-`rqunit adapter verify` runs. L14 newness becomes base-vs-head set difference
+`rqunit adapter verify` runs. The statechart dialect's M1–M4/M6 move from
+prose to enforcement as their own lint family, and generation refuses a
+violating model with the same messages — a wrong model used to render a test
+asserting a transition to nowhere. L14 newness becomes base-vs-head set difference
 over scanner observations, never diff-line inspection (§6.6 states the
 widened-scan and rename consequences). **Consumers MUST act:** declare
 adapter roles in `[stacks.<name>.adapter]` — the extractor's write target
@@ -384,6 +387,19 @@ verification:
 
 **Applicability test:** every node/transition must have exactly one executable meaning with no prose annotation. If a node needs a paragraph, it is a drawing — use `test` + statement instead. Model classes: decision graphs/tables (*diagram-as-source*: executed directly, zero drift possible), statecharts (*diagram-as-oracle*: code hand-owned, tests generated), dataflow topologies (wiring + property checks generated). All model vocabulary resolves to manifests (§5.7).
 
+**Statechart dialect (M1–M6).** Graph facts a JSON Schema cannot express, enforced as their own lint family — one implementation, two surfaces: reported at `lint`, and generation refuses a model whose violation would make the rendered suite wrong.
+
+| Code | Severity | Rule | Why |
+|---|---|---|---|
+| M1 | error | `initial` names a declared state | the machine must start somewhere real |
+| M2 | error | every transition target is a declared state | a generated test would otherwise assert a transition to nowhere and fail only at shim runtime |
+| M3 | error | final states declare no `on` | a state cannot be both an end and a waypoint |
+| M4 | warning | at least one final state is reachable from `initial` | a machine that cannot finish models a process nobody completes — but a genuinely cyclic lifecycle legitimately declares no final state, so this is visible debt, never a block |
+| M5 | error | every event resolves to a manifest entry via `vocabulary` | delivered as C8: it needs manifests, which makes it cross-artifact |
+| M6 | error | invariant names are unique within a model | each generates a probe named after it, and duplicates collapse check identity |
+
+M4 is skipped when M1 already fired: a reachability walk with no lawful start would report one defect under two numbers. Generation refuses on M2, M3 and M6 — the rules the plan's rendering actually depends on; M1 and M4 are judgments the plan never consults, so they are reported without blocking.
+
 ### 6.4 `human`
 Explicitly deferred judgment. Allowed, but: human-only verification is a standing lint warning (visible debt); surfaced as Gate 2 review items with recorded pass/fail + note; agent self-certification FORBIDDEN. Store-wide metric `% human-only` reviewed monthly — a rising trend means the framework is degrading into prose with extra steps.
 
@@ -539,6 +555,7 @@ This section is the framework. Without it, the rest of this document is prose.
 - L21: every RU satisfies the first matching rule in `coverage.policy.yaml` (§6.7); blocking at activation, warning + burn-down for actives after policy tightening.
 - L22: every `planned: true` surface entry's `ru:` link is not-done — for an RU link, computed status ≠ done; for a FEAT link, no member RU computes done (§5.8). Violation → blocking: either the surface shipped without its Gate 1 flip, or verifications pass against a surface that supposedly does not exist.
 - L25: the shall-clause subject resolves to a declared service manifest, and agrees with the service the RU's `scope` owns. `the system` claims no service and is exempt, which is what keeps store-wide and service-scoped behaviour distinguishable. Two claims about which service governs an RU — the subject and `scope.owns` — previously coexisted with nothing reconciling them, so a misfiled RU passed every gate; §5.3's rule that referencing is read coupling rather than governance had no enforcement until this.
+- M1–M4, M6 (statechart dialect, §6.3): `initial` ∈ states; every transition target ∈ states; final states carry no `on`; at least one final state is reachable from `initial` (warning, and skipped when M1 fired — a walk with no lawful start would cascade one defect under two numbers); invariant names unique per model. One implementation, two surfaces: reported at lint, and generation refuses on M2/M3/M6 with the same messages. M5 (every event resolves to a manifest entry via `vocabulary`) is C8's cross-artifact question.
 
 ### 10.2 Consistency checks (CI, blocking)
 - C1: two active RUs on the same normalized trigger (actor–verb–object) that CONTRADICT each other → error; identical responses → duplicate warning. Sharing a trigger is not itself a conflict — §2.1 makes each acceptance criterion exactly one RU, so a dozen RUs may hang off one endpoint, and that is what a well-decomposed feature looks like. Two contradictions are mechanically visible: the same obligation carrying two different bounds, and one response asserting what another denies. A semantic contradiction with neither signal ("shall retry" against "shall abandon") is NOT caught, which extends the paraphrase miss this check already documents — analyst dedupe (§8.1) mitigates; supersession repairs the rest.

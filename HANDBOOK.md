@@ -338,11 +338,14 @@ the stack's currency test proves the artifact still matches the code.
 | CF10 | error | a declared audit event the code never records. A probe proves the emitting call site EXISTS — not that it runs; dead code and never-taken branches pass, which the proof classes report |
 | CF11 | error | an audit code the code records that no manifest declares — evidence with no retention rule and no forbidden-field check |
 
-**Ratified exceptions** live inside the artifact — `{rule, service, target,
+**Ratified exceptions** live in the store at
+`spec/framework/conformance-exceptions.yaml` — `{rule, service, target,
 justification}`, the justification mandatory and substantive — and downgrade a
-divergence to a reported `finding`. They are never silenced: an exception you
-cannot defend in prose is a defect wearing a waiver, and one that outlives its
-reason becomes camouflage.
+divergence to a reported `finding`. An artifact carrying `exceptions` is
+rejected outright: a probe able to author its own waivers could turn its own
+mistakes green. They are never silenced: an exception you cannot defend in
+prose is a defect wearing a waiver, and one that outlives its reason becomes
+camouflage.
 
 ### Hooks (agent runtime)
 
@@ -354,14 +357,28 @@ reason becomes camouflage.
 
 ### Model dialect checks (M1–M6)
 
-Declared in the statechart schema that ships with the tool
-([model.statechart.schema.yaml](src/rqunit/pack/schemas/model.statechart.schema.yaml)):
-M1 `initial` ∈ states · M2 transition targets exist · M3 final states have no
-`on` · M4 a final state is reachable · M5 every event resolves via the
-`vocabulary` block (delivered as C8) · M6 invariant names unique.
-**Status: M5 is enforced (C8); M1–M4/M6 are documented dialect rules whose
-loader enforcement is pending** — a wrong model currently fails at conformance
-generation instead. Honest gap, tracked.
+The statechart dialect's beyond-schema graph facts, declared in the schema
+that ships with the tool
+([model.statechart.schema.yaml](src/rqunit/pack/schemas/model.statechart.schema.yaml))
+and enforced as their own lint family — one implementation, two surfaces:
+`rqunit lint` reports them, and generation refuses a violating model with the
+same messages.
+
+| Code | Severity | Rule |
+|---|---|---|
+| M1 | error | `initial` names a declared state |
+| M2 | error | every transition target is a declared state (a generated test would otherwise assert a transition to nowhere and fail only at shim runtime) |
+| M3 | error | final states declare no `on` transitions |
+| M4 | warning | at least one final state is reachable from `initial` (graph walk; skipped when M1 already fired — a walk with no lawful start would only cascade the same defect). A warning, not an error: a genuinely cyclic lifecycle legitimately declares no final state, and blocking it would teach people to bypass the gate |
+| M6 | error | invariant names are unique within a model (each generates a probe named after it; duplicates collapse check identity) |
+
+Generation refuses on M2, M3 and M6 — the rules the rendered suite depends
+on. M1 and M4 are judgments the plan never consults (it reads neither
+`initial` nor `type: final`), so they are reported without blocking.
+
+M5 — every event resolves to a manifest entry via the `vocabulary` block — is
+deliberately not an M lint: it needs manifests, which makes it C8's
+cross-artifact question.
 
 ### SCHEMA
 
