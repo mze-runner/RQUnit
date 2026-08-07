@@ -17,6 +17,9 @@ from rqunit.store import Store
 from rqunit.trace import scan_tests
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
+# Core-owned: the seam under test is artifact-shaped observation, not Rust
+# parsing — the adapter's kit tree is the adapter's to grow.
+RUSTTREE = Path(__file__).parent.parent / "fixtures" / "scanned-tree"
 REPO = Path(__file__).parent.parent
 
 
@@ -117,7 +120,7 @@ def test_the_shipped_consumer_configs_load(tmp_path):
 
 def test_scan_tests_honors_declared_scanner_roles(tmp_path):
     root = tmp_path / "repo"
-    shutil.copytree(FIXTURES / "rusttree", root)
+    shutil.copytree(RUSTTREE, root)
     assert scan_tests(root), "the fixture tree declares a scanner role"
     (root / "rqunit.toml").write_text("[stacks.rust]\n")     # role removed
     assert scan_tests(root) == []

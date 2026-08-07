@@ -37,6 +37,7 @@ from .lineage import main as _lineage
 from .lint import main as _lint
 from .report import main as _report
 from .review import main as _review
+from .adapter import main as _adapter
 from .trace import main as _trace
 
 
@@ -61,3 +62,4 @@ main.add_command(_lineage, name="lineage")
 main.add_command(_generate, name="generate")
 main.add_command(_index, name="index")
 main.add_command(_hooks, name="hooks")
+main.add_command(_adapter, name="adapter")

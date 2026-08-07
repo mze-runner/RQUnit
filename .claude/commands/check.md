@@ -28,6 +28,10 @@ cargo check --manifest-path adapters/rust/Cargo.toml
 cargo clippy --manifest-path adapters/rust/Cargo.toml --all-targets -- -D warnings
 cargo fmt --manifest-path adapters/rust/Cargo.toml --check
 cargo test --manifest-path adapters/rust/Cargo.toml
+
+# The compliance kit is the executable definition of a correct adapter
+# (binaries were just built by cargo test).
+uv run rqunit adapter verify --stack rust
 ```
 
 Report: pass/fail per stage, and for any failure the exact command that

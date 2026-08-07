@@ -13,3 +13,9 @@ config_keys:
   - trace_scan
   # Read by emit.rs (arrives as request data, not from disk).
   - conformance_crate
+kit:
+  path: kit
+  commands:
+    extractor: [target/debug/extract-surface]
+    scanner: [target/debug/scan-checks]
+    emitter: [target/debug/emit-suite]

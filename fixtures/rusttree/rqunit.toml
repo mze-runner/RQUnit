@@ -1,7 +1,0 @@
-# Stack participation is always an explicit declaration. The scanner is
-# declared artifact-mode: the committed scanned-checks.json is this tree's
-# observation, kept current by the Rust adapter's own golden test.
-[stacks.rust]
-
-[stacks.rust.adapter]
-scanner = { artifact = "scanned-checks.json" }

@@ -460,7 +460,17 @@ contract_version: 1
 stack: rust                      # must match the [stacks.<name>] wired to it
 roles: [extractor]               # a declared role the manifest lacks is surfaced before the exec fails
 config_keys: [service, routers]  # the passthrough keys this adapter reads
+kit:                             # what `rqunit adapter verify` runs (dev-time)
+  path: kit                      # <kit>/<role>/tree/ input, <kit>/<role>/expected.json expectation
+  commands:                      # argv relative to this manifest's directory
+    extractor: [target/debug/extract-surface]
 ```
+
+The kit is the executable definition of a correct adapter: every declared
+role's fixed input must produce byte-deterministic, schema-valid output
+matching the committed expectation, under the stdio exit contract. The
+emitter's kit input ships with the tool (every emitter renders the same
+generic request); probe inputs are the adapter's own trees.
 
 ## 16. Shared artifacts
 

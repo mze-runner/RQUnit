@@ -13,22 +13,25 @@ use std::path::PathBuf;
 use rqunit_adapter_rust::scan::render_checks;
 
 fn fixture(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../fixtures")
-        .join(name)
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(name)
 }
 
 /// verifies: infrastructure
 #[test]
 fn committed_scanned_checks_match_their_trees() {
-    for tree in ["rusttree", "store/traced"] {
-        let root = fixture(tree);
-        let committed = std::fs::read_to_string(root.join("scanned-checks.json"))
-            .unwrap_or_else(|e| panic!("read {tree}/scanned-checks.json: {e}"));
-        let current = render_checks(&root).expect("scan the fixture tree");
+    for (tree, expected) in [
+        ("kit/scanner/tree", "kit/scanner/expected.json"),
+        (
+            "../../fixtures/store/traced",
+            "../../fixtures/store/traced/scanned-checks.json",
+        ),
+    ] {
+        let committed = std::fs::read_to_string(fixture(expected))
+            .unwrap_or_else(|e| panic!("read {expected}: {e}"));
+        let current = render_checks(&fixture(tree)).expect("scan the fixture tree");
         assert_eq!(
             committed, current,
-            "scanned-checks.json is stale for {tree}: rerun `scan-checks --root <tree>` and commit"
+            "{expected} is stale for {tree}: rerun `scan-checks --root <tree>` and commit"
         );
     }
 }
@@ -36,7 +39,7 @@ fn committed_scanned_checks_match_their_trees() {
 /// verifies: infrastructure
 #[test]
 fn scanning_is_deterministic() {
-    let root = fixture("rusttree");
+    let root = fixture("kit/scanner/tree");
     assert_eq!(render_checks(&root).unwrap(), render_checks(&root).unwrap());
 }
 

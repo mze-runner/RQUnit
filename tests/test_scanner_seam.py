@@ -20,7 +20,9 @@ from rqunit.config import Config, Role, Stack
 from rqunit.trace import l14_gate, scan_tests
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
-RUSTTREE = FIXTURES / "rusttree"
+# Core-owned: the seam under test is artifact-shaped observation, not Rust
+# parsing — the adapter's kit tree is the adapter's to grow.
+RUSTTREE = Path(__file__).parent.parent / "fixtures" / "scanned-tree"
 
 # A stand-in scanner obeying the stdio contract: its observation for a tree
 # is whatever scanned-checks.json that tree carries. Reading the --root

@@ -165,3 +165,22 @@ def test_committed_emit_requests_are_current():
         assert committed == emit_request(store, stack), (
             f"{root}/emit-request.json is stale — regenerate it (and pipe it "
             "through emit-suite to refresh emit-response.json)")
+
+
+def test_the_pack_shipped_kit_request_is_inside_the_currency_loop():
+    """`rqunit adapter verify` feeds every emitter this fixture; if the plan
+    format grows and this copy does not, the kit certifies emitters against a
+    request the framework no longer produces. It is pinned to the valid
+    store's request (its source) and to the contract schema — nothing else
+    validates it."""
+    from rqunit.schemas import PACK_DIR
+
+    kit_request = json.loads((PACK_DIR / "kit" / "emit-request.json").read_text())
+    schema = (Path(__file__).parent.parent / "src" / "rqunit" / "interfaces"
+              / "emit-request.schema.json")
+    Draft202012Validator(json.loads(schema.read_text())).validate(kit_request)
+    live = emit_request(Store.load(VALID), load_config(VALID).stack("rust"))
+    assert kit_request == live, (
+        "pack/kit/emit-request.json is stale against its source store — "
+        "regenerate it from fixtures/store/valid (and refresh every adapter "
+        "kit's emitter expectation)")

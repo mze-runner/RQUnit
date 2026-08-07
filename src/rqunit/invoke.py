@@ -82,7 +82,7 @@ def _from_cmd(root: Path, target: Path, stack: Stack, role_name: str,
               cmd: tuple[str, ...], schema: str,
               stdin_payload: str | None = None) -> dict:
     where = f"[stacks.{stack.name}.adapter] {role_name}"
-    argv = [_resolve(root, cmd[0]), *cmd[1:], "--root", str(target)]
+    argv = [resolve_command(root, cmd[0]), *cmd[1:], "--root", str(target)]
     try:
         # The emitter reads its request on stdin; probes get stdin at EOF so
         # one that prompts fails fast instead of hanging the gate.
@@ -115,9 +115,11 @@ def _from_cmd(root: Path, target: Path, stack: Stack, role_name: str,
     return validate_payload(data, schema, where)
 
 
-def _resolve(root: Path, cmd0: str) -> str:
-    """A relative command resolves against the consumer root (where the
-    declared adapter binary lives), falling back to PATH lookup."""
+def resolve_command(root: Path, cmd0: str) -> str:
+    """A relative command resolves against `root` (where the declared adapter
+    binary lives), falling back to PATH lookup — one resolution rule for both
+    the runtime and the compliance kit, or the kit certifies something
+    different from what core runs."""
     path = Path(cmd0)
     if not path.is_absolute() and (root / path).exists():
         return str(root / path)

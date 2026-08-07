@@ -20,6 +20,9 @@ from rqunit.store import Store
 from rqunit.trace import build_report, l14_gate, render_markdown, scan_tests
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
+# Core-owned: the seam under test is artifact-shaped observation, not Rust
+# parsing — the adapter's kit tree is the adapter's to grow.
+RUSTTREE = Path(__file__).parent.parent / "fixtures" / "scanned-tree"
 TRACED = FIXTURES / "store" / "traced"
 
 
@@ -46,7 +49,7 @@ SAMPLE = ("service-x-application", "service-x/tests/sample_tests.rs")
 # ------------------------------------------------------------ observations
 
 def test_scanned_observations_round_trip_annotations_attrs_and_helpers():
-    checks = {c.fn: c for c in scan_tests(FIXTURES / "rusttree")}
+    checks = {c.fn: c for c in scan_tests(RUSTTREE)}
     assert set(checks) == {"traced_single", "traced_multi", "plumbing_probe",
                            "untraced_with_extra_attr", "traced_to_missing_ru"}
     assert checks["traced_single"].verifies == ("RU-0001",)
@@ -128,7 +131,7 @@ def test_a_declared_stack_without_a_scanner_is_reported_not_skipped(tmp_path):
 @pytest.fixture()
 def tree_repo(tmp_path) -> Path:
     root = tmp_path / "repo"
-    shutil.copytree(FIXTURES / "rusttree", root)
+    shutil.copytree(RUSTTREE, root)
     run = lambda *a: subprocess.run(["git", "-C", str(root), *a], check=True, capture_output=True)
     run("init", "-q")
     run("-c", "user.email=t@t", "-c", "user.name=t", "add", "-A")
