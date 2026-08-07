@@ -96,10 +96,19 @@ _CORE_KEYS = {"adapter", "literal_scan"}
 # their own file sees a setting; the tool sees a passthrough it will never
 # read. Naming the successor turns that silent degradation into one line of
 # instruction, and costs a constant.
+# Each value is the COMPLETE instruction, not a fragment a template wraps.
+# Retirement has two shapes — `actual_surface` moved somewhere, `trace_diff`
+# simply died — and one phrasing cannot serve both: wrapping them in "Move it:
+# …" tells a reader to relocate a key that has nowhere to go, and then to
+# "delete the old key" as though a new one existed. A consumer meets this
+# message exactly once, at upgrade, with no context but the sentence.
 RETIRED_KEYS = {
-    "actual_surface": '[stacks.<name>.adapter] extractor = { artifact = "..." }',
-    "trace_diff": "deleted — L14 compares scanner observations between refs, "
-                  "so it needs no pathspecs (§6.6)",
+    "actual_surface":
+        'Declare it as [stacks.<name>.adapter] extractor = { artifact = "..." }, '
+        "and delete the old key in the same edit.",
+    "trace_diff":
+        "Delete it — there is nowhere to move it to. L14 compares scanner "
+        "observations between refs, so it needs no pathspecs (§6.6).",
 }
 
 
@@ -184,8 +193,8 @@ def _role(path: Path, stack: str, role: str, raw: object) -> Role:
 
 
 def retired_key_uses(config: Config) -> list[tuple[str, str, str]]:
-    """(stack, retired key, where it went) for every dead setting a consumer
-    still carries. Reported by `lint`; core reads none of them."""
+    """(stack, retired key, the instruction for it) for every dead setting a
+    consumer still carries. Reported by `lint`; core reads none of them."""
     return [(stack.name, key, RETIRED_KEYS[key])
             for stack in config.stacks
             for key in sorted(stack.options)

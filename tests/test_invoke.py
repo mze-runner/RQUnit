@@ -262,6 +262,40 @@ def test_a_retired_key_is_named_with_where_it_went(tmp_path):
     assert result.exit_code == 0                              # warning, not blocking
 
 
+def test_a_retired_key_with_nowhere_to_go_is_not_told_to_move(tmp_path):
+    """Retirement has two shapes. A key that simply died must not be wrapped
+    in relocation phrasing — "Move it: deleted" sends a reader hunting for a
+    destination that does not exist, and this is the one message a consumer
+    meets at upgrade with no context but the sentence."""
+    from click.testing import CliRunner
+
+    from rqunit.cli.lint import main as lint_main
+
+    root = tmp_path / "store"
+    shutil.copytree(FIXTURES / "store" / "valid", root)
+    (root / "rqunit.toml").write_text('[stacks.rust]\ntrace_diff = ["*/tests/*.rs"]\n')
+
+    result = CliRunner().invoke(lint_main, ["--store", str(root), "--format", "text"])
+    suggestion = next(line for line in result.output.splitlines()
+                      if "suggestion:" in line and "trace_diff" not in line)
+    assert "Delete it" in suggestion and "nowhere to move" in suggestion
+    assert "Move it" not in suggestion
+
+
+def test_every_retired_key_carries_a_whole_instruction():
+    """The values are complete sentences, not fragments a template wraps —
+    that is what lets the two shapes coexist. A new entry that returns to a
+    fragment reintroduces the mismatch this test exists for."""
+    from rqunit.config import RETIRED_KEYS
+
+    assert RETIRED_KEYS
+    for key, instruction in RETIRED_KEYS.items():
+        assert instruction[0].isupper(), f"{key}: not a sentence"
+        assert instruction.rstrip().endswith("."), f"{key}: not a sentence"
+        assert "Delete it" in instruction or "delete the old key" in instruction, (
+            f"{key}: an instruction for a dead key must say to remove it")
+
+
 def test_doctor_reports_a_declared_role_that_resolves_nowhere(tmp_path):
     """`adapter verify` proves an ADAPTER correct; nothing proved a CONSUMER
     wired one correctly. A cmd path that resolves on its author's machine and

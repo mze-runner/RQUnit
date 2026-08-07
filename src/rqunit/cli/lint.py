@@ -47,9 +47,11 @@ def main(store_path: Path | None, only: str | None, fmt: str, strict: bool) -> N
                 path="rqunit.toml",
                 message=(f"[stacks.{stack}] {key} is retired — core no longer reads it, "
                          "so it sits in adapter passthrough configuring nothing."),
-                suggestion=f"Move it: {went}. Delete the old key in the same edit, or "
-                           "the file keeps claiming a setting the tool does not have.")
-            for stack, key, went in retired_key_uses(config)
+                # The instruction comes from the key, whole. Retirement has two
+                # shapes and one template phrasing cannot serve both.
+                suggestion=f"{instruction} While it stays, the file claims a setting "
+                           "the tool does not have.")
+            for stack, key, instruction in retired_key_uses(config)
         ]
         checked = (len(store.rus()) + len(store.features()) + len(store.gaps())
                    + len(store.manifests()) + len(store.models()) + len(store.intents()))
