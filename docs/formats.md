@@ -372,6 +372,28 @@ Adapters may not author these. An artifact carrying an `exceptions` key is
 rejected as a configuration error naming this file, because an extractor
 observes and does not get to excuse what it observed (spec §5.6).
 
+## 14a. Shim registrations
+
+`spec/framework/shims.yaml` — seeded empty by `rqunit init`. Records which
+models have an application-provided subject shim, so their generated suites
+can execute. An absent file means none registered.
+
+```yaml
+shims:
+  - model: MDL-order-lifecycle      # with or without the MDL- prefix
+    registered_by: jane             # stable handle, never an email
+    at: "2026-01-15T09:30:00Z"      # when the shim landed
+    note: subject("order-lifecycle") wired to the domain aggregate   # optional
+```
+
+A registration is a **depth claim**, checked by C15: one per model, naming a
+model the store carries, each entry a table. Until a model is registered its
+suite is rendered unrunnable, contributes zero depth to the coverage policy
+(L21) — including its `types_all`/`types_any` clauses — and is reported
+separately from suites that execute. Registering a shim that does not exist
+is the one way to make the framework overstate what it can prove, which is
+why the claim is a reviewed edit rather than an observation.
+
 ## 15. Stack declarations (`rqunit.toml`)
 
 Any `[stacks.<name>]` table declares a stack (`name` matches

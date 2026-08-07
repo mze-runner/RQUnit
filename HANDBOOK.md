@@ -63,7 +63,7 @@ at the repo root — the tools carry no consumer paths in code.
 | `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`, and the agent-runtime templates into `.claude/`. Reports the stack it detected; refuses a non-empty store; never overwrites a runtime file the consumer already has | once, at adoption |
 | `rqunit init --refresh-integrations` | rewrite the agent-runtime templates and touch nothing else. They teach the current vocabulary, so a store on a newer tool with older templates is being taught the wrong one | after upgrading the tool |
 | `rqunit lint [--only L3]` | lints L1–L25 | after any spec/ edit |
-| `rqunit check [--only C4]` | consistency C1–C13 | same |
+| `rqunit check [--only C4]` | consistency C1–C15 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
 | `rqunit conformance` | manifest ↔ code surfaces (CF1–CF11) — reads each stack's declared extractor output (a committed artifact, or a prebuilt adapter core execs as a black box); never invokes a language toolchain | after changing routes/messages; every gate |
@@ -208,8 +208,15 @@ content hash; conformance suites are generated, never hand-written),
 Model conformance is *diagram-as-oracle*: the generated suite (one test per
 transition, one rejection per undeclared state/event pair, one probe per
 invariant) drives a hand-owned **shim** that wires the real implementation —
-never a parallel re-implementation of the lifecycle. Until a model's shim is
-registered, its generated tests stay ignored-with-reason: pending, not green.
+never a parallel re-implementation of the lifecycle. Registration is a claim
+the store records in `spec/framework/shims.yaml`, checked by C15, and it has
+consequences: until a model's shim is registered its generated tests stay
+ignored-with-reason (pending, not green), its verification contributes **zero**
+depth to the coverage policy (L21 — the mechanical minimum and the
+`types_all`/`types_any` clauses alike), and the report counts it as
+`model (pending shim)` rather than beside suites that execute. That is the
+last place declared depth could exceed provable depth — a suite that cannot
+execute is not depth.
 
 Generation runs in two halves. The framework derives a **test plan** —
 `spec/projections/test-plan.json`, a committed, language-neutral statement of
@@ -308,6 +315,8 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | C11 | error | shape well-formedness: presence vocabulary matches the direction (`always\|never` out, `required\|optional\|forbidden` in), inbound resolves an unknown-field policy, `in` is inbound-only, `nullable` is meaningless on a never/forbidden field, arrays name `items`, objects declare members, bound keys suit the type, dotted children imply declared parents |
 | C12 | error | path placeholders and `in: path` fields reconcile both ways; placeholder names unique within a path |
 | C13 | error | wire-visible names follow the `conventions` declared in the shared manifest (absent table = unenforced) |
+| C14 | finding | a state-changing route declares no audit event (constitutional RU-0002 made checkable; the method is a heuristic, so it reports rather than blocks) |
+| C15 | error | every shim registration names a model the store carries, once each |
 
 ⚠ **Naming collision:** consumers migrating from a pre-existing requirements
 system may carry an unrelated legacy control catalog reusing C-numbers. Legacy

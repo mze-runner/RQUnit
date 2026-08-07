@@ -170,17 +170,26 @@ def test_committed_emit_requests_are_current():
 def test_the_pack_shipped_kit_request_is_inside_the_currency_loop():
     """`rqunit adapter verify` feeds every emitter this fixture; if the plan
     format grows and this copy does not, the kit certifies emitters against a
-    request the framework no longer produces. It is pinned to the valid
-    store's request (its source) and to the contract schema — nothing else
-    validates it."""
+    request the framework no longer produces. It deliberately carries MORE
+    than any one store — both shim_registered branches, so the kit can tell a
+    compliant emitter from one that ignores the field — so it is pinned
+    structurally: schema-valid, and carrying every key a live request
+    produces."""
     from rqunit.schemas import PACK_DIR
 
     kit_request = json.loads((PACK_DIR / "kit" / "emit-request.json").read_text())
     schema = (Path(__file__).parent.parent / "src" / "rqunit" / "interfaces"
               / "emit-request.schema.json")
     Draft202012Validator(json.loads(schema.read_text())).validate(kit_request)
+
     live = emit_request(Store.load(VALID), load_config(VALID).stack("rust"))
-    assert kit_request == live, (
-        "pack/kit/emit-request.json is stale against its source store — "
-        "regenerate it from fixtures/store/valid (and refresh every adapter "
-        "kit's emitter expectation)")
+    assert set(kit_request) == set(live), "kit request is missing a top-level key"
+    live_keys = {k for m in live["plan"]["models"] for k in m}
+    for model in kit_request["plan"]["models"]:
+        assert set(model) == live_keys, (
+            f"pack/kit/emit-request.json model '{model.get('model')}' is stale "
+            "against the plan the framework produces — regenerate it (and refresh "
+            "every adapter kit's emitter expectation)")
+    # The whole point of the fixture: an emitter that ignores shim_registered
+    # must be distinguishable from one that honors it.
+    assert {m["shim_registered"] for m in kit_request["plan"]["models"]} == {True, False}

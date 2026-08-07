@@ -13,9 +13,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["model", "model_hash", "undeclared_event_policy", "checks", "verified_by"],
+        "required": ["model", "model_hash", "undeclared_event_policy", "checks", "verified_by", "shim_registered"],
         "properties": {
           "model": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "shim_registered": {
+            "type": "boolean",
+            "description": "Whether the application has registered a subject shim for this model (spec §6.3). False means the suite cannot execute: an emitter must render it unrunnable — ignored-with-reason, or the stack's equivalent — because a suite that cannot execute must not look like one that passed."
+          },
           "model_hash": {
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$",

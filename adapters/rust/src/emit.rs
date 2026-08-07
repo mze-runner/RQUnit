@@ -142,6 +142,21 @@ fn render_suite(plan: &Value) -> Result<String> {
     let policy = plan["undeclared_event_policy"]
         .as_str()
         .ok_or("plan entry without undeclared_event_policy")?;
+    // A registered shim means the suite can execute; until then every test is
+    // ignored-with-reason, because a suite that cannot execute must not look
+    // like one that passed.
+    let registered = plan["shim_registered"]
+        .as_bool()
+        .ok_or("plan entry without shim_registered")?;
+    let shim_note = if registered {
+        "// generated. The application has registered its StatechartSubject shim\n\
+         // for this model, so the suite runs: a failure here is a real divergence\n\
+         // between the implementation and the model."
+    } else {
+        "// generated. Every test is #[ignore]d until the application provides the\n\
+         // StatechartSubject shim for this model — running with --ignored panics\n\
+         // with the shim TODO rather than passing vacuously."
+    };
     let mut out = vec![
         format!("// {BANNER}"),
         format!("// source: spec/models/MDL-{model}.statechart.json"),
@@ -149,9 +164,7 @@ fn render_suite(plan: &Value) -> Result<String> {
         format!("// undeclared_event_policy: {policy}"),
         "//".to_string(),
         "// Diagram-as-oracle (RU spec §6.3): code stays hand-owned, this suite is".to_string(),
-        "// generated. Every test is #[ignore]d until the application provides the".to_string(),
-        "// StatechartSubject shim for this model (plan D-P6.4) — running with".to_string(),
-        "// --ignored panics with the shim TODO rather than passing vacuously.".to_string(),
+        shim_note.to_string(),
         "// Test bodies are #[rustfmt::skip]: identifier lengths come from the".to_string(),
         "// model, so rustfmt stability is declared, never chased per-name.".to_string(),
         String::new(),
@@ -209,7 +222,9 @@ fn render_suite(plan: &Value) -> Result<String> {
             )],
         };
         out.push("#[test]".to_string());
-        out.push(ignore.to_string());
+        if !registered {
+            out.push(ignore.to_string());
+        }
         out.push(skip.to_string());
         out.push(format!("fn {}() {{", text("id")?));
         out.extend(body);

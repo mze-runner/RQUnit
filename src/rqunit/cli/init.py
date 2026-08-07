@@ -44,6 +44,7 @@ SEEDS = {
     "actors.yaml": "framework",
     "coverage.policy.yaml": "framework",
     "conformance-exceptions.yaml": "framework",
+    "shims.yaml": "framework",
     "shared.manifest.yaml": "manifests",
 }
 

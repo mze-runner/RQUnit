@@ -65,18 +65,34 @@ def first_matching_rule(policy: dict, ru) -> dict:
     return policy.get("default") or {"require": {"min_verifications": 1}}
 
 
-def violation_reason(rule: dict, entries: list, shape_bound: bool = True) -> str | None:
+def violation_reason(rule: dict, entries: list, shape_bound: bool = True,
+                     unshimmed: frozenset[str] = frozenset()) -> str | None:
     require = rule.get("require") or {}
     if require.get("binds_shape") and not shape_bound:
         return ("requires the statement to bind a declared shape — an {endpoint:<id>.<direction>"
                 "[.<field>]}, {audit:<code>} or {artifact:<id>} reference. Naming a surface is "
                 "not describing what it carries")
-    types = [e.get("type") for e in entries]
+    # A model whose shim is unregistered contributes ZERO depth to every
+    # requirement clause, not just the mechanical minimum: its suite is
+    # rendered unrunnable, and a suite that cannot execute is not depth.
+    # Counting it would let declared depth exceed provable depth — the same
+    # overstatement removing `contract` from MECHANICAL fixed.
+    def counts(entry: dict) -> bool:
+        return not (entry.get("type") == "model"
+                    and str(entry.get("ref", "")).removeprefix("MDL-") in unshimmed)
+
+    types = [e.get("type") for e in entries if counts(e)]
     mechanical = [t for t in types if t in MECHANICAL]
     if "min_mechanical" in require and len(mechanical) < require["min_mechanical"]:
+        pending = [str(e.get("ref")) for e in entries
+                   if e.get("type") == "model"
+                   and str(e.get("ref", "")).removeprefix("MDL-") in unshimmed]
+        note = (f" ({', '.join(pending)} has no registered shim, so its generated "
+                "suite cannot execute and counts as no depth — register it in "
+                "spec/framework/shims.yaml when the shim lands)" if pending else "")
         return (f"requires ≥{require['min_mechanical']} mechanical verifications "
                 f"(test|model), found {len(mechanical)} — human never satisfies a "
-                "mechanical minimum")
+                f"mechanical minimum{note}")
     if "types_all" in require:
         missing = [t for t in require["types_all"] if t not in types]
         if missing:
@@ -93,6 +109,8 @@ def run(store):
     policy = load_policy(store)
     if policy is None:
         return []
+    from ..shims import registered_models
+    unshimmed = frozenset(set(store.models()) - registered_models(store.root))
     out = []
     for ru in store.rus():
         if ru.status not in ("active", "draft"):
@@ -100,7 +118,8 @@ def run(store):
         rule = first_matching_rule(policy, ru)
         needs_shape = (rule.get("require") or {}).get("binds_shape")
         reason = violation_reason(rule, ru.raw.get("verification") or [],
-                                  shape_bound=binds_shape(store, ru) if needs_shape else True)
+                                  shape_bound=binds_shape(store, ru) if needs_shape else True,
+                                  unshimmed=unshimmed)
         if reason:
             severity = "warning" if ru.status == "active" else "error"
             out.append(Violation(

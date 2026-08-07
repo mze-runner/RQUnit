@@ -7,6 +7,7 @@
         "model": "order-lifecycle",
         "model_hash": "sha256:e3e73f60006278893ab0bb5a1225707014de51b5953855387b2dca04217a2a16",
         "undeclared_event_policy": "ignore",
+        "shim_registered": false,
         "verified_by": [
           "RU-0142"
         ],
@@ -58,6 +59,37 @@
             "id": "invariant_no_new_shipments_dispatched",
             "state": "cancelling",
             "name": "no_new_shipments_dispatched"
+          }
+        ]
+      },
+      {
+        "model": "payment-capture",
+        "model_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "undeclared_event_policy": "error",
+        "shim_registered": true,
+        "verified_by": [
+          "RU-0001"
+        ],
+        "checks": [
+          {
+            "kind": "transition",
+            "id": "transition_authorized_on_capture_to_captured",
+            "from": "authorized",
+            "event": "CAPTURE",
+            "to": "captured"
+          },
+          {
+            "kind": "rejection",
+            "id": "rejects_captured_on_capture",
+            "state": "captured",
+            "event": "CAPTURE",
+            "expect": "error"
+          },
+          {
+            "kind": "invariant",
+            "id": "invariant_ledger_balanced",
+            "state": "captured",
+            "name": "ledger_balanced"
           }
         ]
       }

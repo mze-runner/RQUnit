@@ -5,8 +5,8 @@
 //
 // Diagram-as-oracle (RU spec §6.3): code stays hand-owned, this suite is
 // generated. Every test is #[ignore]d until the application provides the
-// StatechartSubject shim for this model (plan D-P6.4) — running with
-// --ignored panics with the shim TODO rather than passing vacuously.
+// StatechartSubject shim for this model — running with --ignored panics
+// with the shim TODO rather than passing vacuously.
 // Test bodies are #[rustfmt::skip]: identifier lengths come from the
 // model, so rustfmt stability is declared, never chased per-name.
 

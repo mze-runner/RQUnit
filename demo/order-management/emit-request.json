@@ -7,6 +7,7 @@
         "model": "order-lifecycle",
         "model_hash": "sha256:8d9f1f8a86f4c04fae5fd8c9f07259005c247caf0fe19e2f119c56d6cb507d1b",
         "undeclared_event_policy": "error",
+        "shim_registered": false,
         "verified_by": [
           "RU-0002",
           "RU-0006"

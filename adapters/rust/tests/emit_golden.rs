@@ -82,7 +82,7 @@ fn paths_and_check_ids_honor_the_declared_conformance_crate() {
       "contract_version": 1,
       "plan": { "contract_version": 1, "models": [
         { "model": "order-lifecycle", "model_hash": "sha256:0", "undeclared_event_policy": "error",
-          "verified_by": [], "checks": [
+          "shim_registered": false, "verified_by": [], "checks": [
             { "kind": "invariant", "id": "invariant_no_open_orders", "state": "closed", "name": "no_open_orders" } ] } ] },
       "constants": {},
       "options": { "conformance_crate": "tools/conf" }

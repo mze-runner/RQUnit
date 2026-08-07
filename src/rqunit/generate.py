@@ -68,10 +68,16 @@ def plan_model_suite(store: Store, model_id: str) -> dict:
                 "state": state, "name": invariant,
             })
 
+    from .shims import registered_models
     return {
         "model": model_id,
         "model_hash": model.content_hash,
         "undeclared_event_policy": policy,
+        # Whether the application's StatechartSubject exists. An emitter drops
+        # the ignore marker when it does — until then the suite is rendered
+        # unrunnable on purpose, because a suite that cannot execute must not
+        # look like one that passed.
+        "shim_registered": model_id in registered_models(store.root),
         "verified_by": sorted(
             ru.id for ru in store.rus() if ru.status == "active"
             and any(e.get("type") == "model" and e.get("ref") == f"MDL-{model_id}"

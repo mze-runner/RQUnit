@@ -16,9 +16,16 @@ self-declaration carries roles, `config_keys`, and the compliance kit that
 `rqunit adapter verify` runs. The statechart dialect's M1–M4/M6 move from
 prose to enforcement as their own lint family, and generation refuses a
 violating model with the same messages — a wrong model used to render a test
-asserting a transition to nowhere. L14 newness becomes base-vs-head set difference
+asserting a transition to nowhere. Shim registration becomes a recorded claim
+(`spec/framework/shims.yaml`, checked by C15): an unregistered model's suite
+is rendered unrunnable, contributes zero depth to the coverage policy, and is
+reported apart from suites that execute — the last place
+declared depth could exceed provable depth. L14 newness becomes base-vs-head set difference
 over scanner observations, never diff-line inspection (§6.6 states the
-widened-scan and rename consequences). **Consumers MUST act:** declare
+widened-scan and rename consequences). **Consumers MUST act:** register a
+shim in `spec/framework/shims.yaml` for every model whose suite really runs —
+an unregistered one counts as no depth, so a draft relying on it can no longer
+activate under a `min_mechanical` rule until the shim lands — declare
 adapter roles in `[stacks.<name>.adapter]` — the extractor's write target
 moves to `extractor = { artifact = "…" }` — delete `trace_diff`, and wire a
 scanner role before using `rqunit trace --against`;
@@ -381,6 +388,8 @@ verification:
     conformance: generated          # generated | manual (manual requires justification)
 ```
 
+**Shim registration (MANDATORY for depth).** A generated suite drives a hand-owned **shim** the APPLICATION provides. Until the store records that shim in `spec/framework/shims.yaml` — a human claim, checked by C15 — the suite is rendered unrunnable (ignored-with-reason), contributes **zero** depth to the coverage policy (§6.7, L21) — the mechanical minimum and the type clauses alike — and is reported apart from suites that execute. A suite that cannot execute is not depth: this is the last place declared depth could exceed provable depth.
+
 **Anti-drift rule (MANDATORY):** CI recomputes the hash every run; a mismatch makes the verification **stale** and the RU *failing* until conformance is regenerated. Green against a stale hash is red. The same hash discipline applies to manifests (§5.6).
 
 **Model evolution (v0.10.5):** editing a referenced model is lawful through **re-affirmation** — a Gate 1 act (`reaffirm`, reviewer-gated) that updates each active dependent's `model_hash` to the current model, re-stamps under the reviewer's id, and regenerates conformance. The reviewer's judgment is the gate: an RU whose *meaning* the model change alters is superseded instead of re-affirmed. Superseded and retired RUs keep their historical hashes untouched — provenance, never a currency claim — and re-stamping moves `gate1_stamp.at`, so prior Gate 2 records for re-affirmed RUs stop counting (the thing they judged was verified against a different model). Hand-editing a hash without the ceremony remains an L19 error.
@@ -571,6 +580,8 @@ This section is the framework. Without it, the rest of this document is prose.
 - C11: declared shapes are well-formed → error. Presence vocabulary matches the slot's direction (`always|never` outbound, `required|optional|forbidden` inbound); an inbound shape resolves an unknown-field policy; `in` is inbound-only; `nullable` is meaningless on a field that never appears; `type: array` names its `items`; `type: object` declares at least one member; bound keys suit the declared type; a dotted child implies a declared parent, and a `never`/`forbidden` parent carries no children.
 - C12: path placeholders and `in: path` fields reconcile in both directions, and placeholder names are unique within a path → error.
 - C13: wire-visible names follow the `conventions` declared in the shared manifest → error where a convention is declared; absent table means unenforced.
+- C14: a state-changing route declaring no audit event → finding. Constitutional RU-0002 made checkable; the HTTP method is a heuristic rather than proof, so it reports rather than blocks.
+- C15: every shim registration names a model the store carries, once each → error. A registration is a depth claim (§6.3): one naming a model the store does not carry proves nothing, and a duplicate makes "is this registered" ambiguous the moment two entries disagree about who registered it and when.
 
 ### 10.3 Hooks (runtime, blocking)
 - H1 (pre-write): writes matching in-context `must_not_touch` globs → blocked.
@@ -607,6 +618,8 @@ Dashboards render computed status only. No manual status field exists — includ
 spec/
   framework/pack.yaml                  # SPEC version this store was authored against
   framework/coverage.policy.yaml       # verification-depth policy (L21, §6.7)
+  framework/conformance-exceptions.yaml # ratified divergences (§5.6; formats §14)
+  framework/shims.yaml                 # registered statechart shims (§6.3, C15)
   framework/tags.yaml                  # controlled tag vocabulary (L10)
   framework/actors.yaml                # controlled actor registry (L12)
   intent/INT-XXXX.*                    # immutable, verbatim

@@ -12,7 +12,7 @@ from rqunit.checks.normalize import content_words, lemma
 from rqunit.store import Store
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "checks"
-CHECKS = [f"C{i}" for i in range(1, 15)]
+CHECKS = [f"C{i}" for i in range(1, 16)]
 
 
 def _run(code: str, kind: str):
@@ -254,3 +254,48 @@ def test_c13_survives_a_none_census(tmp_path):
         "    outbound: { status: 204, fields: none }"))
     violations = [v for v in run_checks(Store.load(root), only="C13") if v.rule == "C13"]
     assert violations == []          # nothing to name, and nothing to crash on
+
+
+# ------------------------------------------------------------ C15 / shims
+
+def test_c15_names_every_defect_class():
+    violations = _run("C15", "fail")
+    assert any("not a model in this store" in v.message for v in violations)
+    assert any("registered more than once" in v.message for v in violations)
+    assert any("is not a table" in v.message for v in violations)
+    assert all("§6.3" in v.suggestion for v in violations)
+
+
+def test_a_malformed_registration_is_reported_never_dropped():
+    """A bare `- MDL-x` is the shape a hurried consumer writes. Filtering it
+    out would leave the model reading as unregistered and the consumer
+    chasing an L21 warning about a shim they believe they just registered."""
+    from rqunit.shims import load_shims, registered_models
+
+    root = FIXTURES / "C15" / "fail"
+    assert any(not isinstance(e, dict) for e in load_shims(root))   # kept
+    assert "payment-capture" not in registered_models(root)          # registers nothing
+    assert any("is not a table" in v.message for v in _run("C15", "fail"))
+
+
+def test_c15_accepts_the_mdl_prefix_either_way(tmp_path):
+    """`MDL-order-lifecycle` and `order-lifecycle` name one model; a store
+    that spells them differently in two entries has still registered it
+    twice."""
+    from rqunit.shims import registered_models
+
+    assert registered_models(FIXTURES / "C15" / "pass") == {"order-lifecycle",
+                                                            "payment-capture"}
+
+
+def test_an_unregistered_model_contributes_no_mechanical_depth():
+    """The last place declared depth could exceed provable depth: a suite
+    that cannot execute is not depth, and L21 must say so by name."""
+    from rqunit.lints.l21 import violation_reason
+
+    rule = {"require": {"min_mechanical": 2}}
+    entries = [{"type": "test", "ref": "svc::t::a"},
+               {"type": "model", "ref": "MDL-order-lifecycle"}]
+    assert violation_reason(rule, entries) is None            # shim registered
+    reason = violation_reason(rule, entries, unshimmed=frozenset({"order-lifecycle"}))
+    assert reason and "no registered shim" in reason and "shims.yaml" in reason
