@@ -112,3 +112,47 @@ def test_tool_and_spec_versions_are_allowed_to_differ():
     from rqunit.schemas import SPEC_VERSION, installed_version
 
     assert SPEC_VERSION and installed_version()          # both exist, independently
+
+
+def test_no_shipped_text_advertises_a_stale_conformance_range():
+    """A rule catalogue quoted as a range rots the moment a rule is added, and
+    the quote is what a consumer reads BEFORE the rules — the CLI's own help,
+    the handbook, the skills the tool emits into a consumer repository. This
+    fired for real: two audit rules shipped and `rqunit conformance --help`
+    still advertised the ceiling from before them, so the newest capability was
+    invisible at the surface that introduces it. Assert the ceiling, not the
+    census: the highest rule the reconciler can actually emit.
+
+    Dated design papers are exempt, as everywhere else — a snapshot describes
+    the ceiling of its own day, and editing one to satisfy a linter would make
+    it lie about when it was written."""
+    import re
+    import subprocess
+
+    from rqunit.conformance import _SUGGESTION
+
+    highest = max(int(rule[2:]) for rule in _SUGGESTION)
+    root = Path(__file__).parent.parent
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z", "*.py", "*.md", "*.yaml"],
+        cwd=root, capture_output=True, text=True, check=True,
+    ).stdout.split("\0")
+    pattern = re.compile(r"CF1\s*[–-]\s*CF(\d+)")
+    dated = re.compile(r"\*\*Status:\*\*\s*written \d{4}-\d{2}-\d{2}")
+
+    stale = []
+    for name in filter(None, tracked):
+        path = root / name
+        if not path.is_file():
+            continue
+        text = path.read_text()
+        if dated.search("\n".join(text.splitlines()[:8])):
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
+            for m in pattern.finditer(line):
+                if int(m.group(1)) != highest:
+                    stale.append(f"{name}:{lineno} says {m.group(0)}")
+    assert not stale, (
+        f"the reconciler emits up to CF{highest}; these advertise a different ceiling:\n  "
+        + "\n  ".join(stale)
+    )

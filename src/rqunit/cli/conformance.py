@@ -30,7 +30,7 @@ from ..violations import build_report, exit_code, render_text
 @click.option("--format", "fmt", type=click.Choice(["json", "text"]), default="json")
 @click.option("--strict", is_flag=True, help="Findings also fail the run.")
 def main(store_path: Path | None, artifacts: tuple[Path, ...], fmt: str, strict: bool) -> None:
-    """Report CF1–CF9 divergences between the manifests and the code."""
+    """Report CF1–CF11 divergences between the manifests and the code."""
     try:
         root = Path(store_path or repo_root())
         store = Store.load(root)
