@@ -65,10 +65,12 @@ class Adapter:
 class Stack:
     name: str
     adapter: Adapter = Adapter()
-    # Globs to tests/ DIRECTORIES for the hardcoded-bound advisory
-    # (`rqunit generate scan-literals`). Core-read, but the sweep itself is
-    # still Rust-specific (it globs *.rs), so only the rust stack's globs are
-    # honored until the advisory moves behind an adapter role.
+    # Globs naming the FILES the hardcoded-bound advisory sweeps
+    # (`rqunit generate scan-literals`) — e.g. `**/tests/*.rs`,
+    # `**/__tests__/*.js`, `src/test/java/**/*.java`. Core-read and
+    # language-neutral: the glob carries the only language-specific fact the
+    # sweep needs, leaving core a word-boundary numeric match. Every declared
+    # stack participates.
     literal_scan: tuple[str, ...] = ()
     # Everything else under [stacks.<name>] — adapter-owned, opaque to core.
     options: dict[str, object] = field(default_factory=dict)

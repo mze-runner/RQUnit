@@ -119,3 +119,38 @@ def test_currency_problems_say_how_to_fix_themselves(tmp_path):
     generated.write_text(generated.read_text() + "\n// hand edit\n")
     stale = check_current(store, root)
     assert stale and "rqunit generate all" in stale[0] and "§5.6" in stale[0]
+
+
+def test_literal_scan_serves_every_declared_stack_not_just_rust(tmp_path):
+    """The advisory used to hardcode `stack("rust")` and glob `*.rs`, so a
+    Node or JVM consumer got silence rather than findings. `literal_scan` now
+    names FILES: the consumer's glob carries the only language-specific fact,
+    leaving core a word-boundary numeric match that knows no language."""
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    (root / "rqunit.toml").write_text(
+        '[stacks.node]\nliteral_scan = ["**/__tests__/*.js"]\n'
+        '[stacks.jvm]\nliteral_scan = ["src/test/java/**/*.java"]\n')
+    (root / "__tests__").mkdir()
+    (root / "__tests__" / "a.test.js").write_text("expect(x).toBe(90);\n")
+    java = root / "src" / "test" / "java" / "com"
+    java.mkdir(parents=True)
+    (java / "T.java").write_text("assertEquals(90, x);\n")
+
+    findings = scan_literals(Store.load(root), root)
+    assert any("a.test.js" in f for f in findings), findings
+    assert any("T.java" in f for f in findings), findings
+
+
+def test_literal_scan_survives_a_glob_that_catches_a_binary(tmp_path):
+    """A consumer's glob is theirs to narrow; an unreadable file must not
+    take the advisory down with it."""
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    (root / "rqunit.toml").write_text('[stacks.node]\nliteral_scan = ["blobs/*"]\n')
+    (root / "blobs").mkdir()
+    (root / "blobs" / "x.bin").write_bytes(b"\x00\x81\xfe binary 90 \x00")
+    (root / "blobs" / "y.js").write_text("expect(x).toBe(90);\n")
+
+    findings = scan_literals(Store.load(root), root)
+    assert any("y.js" in f for f in findings)

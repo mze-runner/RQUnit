@@ -7,8 +7,9 @@
 
 [stacks.rust]
 
-# tests/ directories swept by the hardcoded-bound advisory (core-read).
-literal_scan = ["**/tests"]
+# Files swept by the hardcoded-bound advisory (core-read) — the glob names
+# the files, so core needs to know nothing about Rust.
+literal_scan = ["**/tests/*.rs"]
 
 # ---- adapter-owned configuration ---------------------------------------------
 # Core passes everything below through untouched; the Rust adapter reads it.

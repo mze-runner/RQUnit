@@ -276,6 +276,14 @@ def check_current(store: Store, root: Path) -> list[str]:
 # ------------------------------------------------------------ literal scan (advisory)
 
 def scan_literals(store: Store, root: Path) -> list[str]:
+    """Numeric literals in a consumer's tests that equal a manifest value.
+
+    Every declared stack participates. `literal_scan` names FILES, not
+    directories, so the consumer's own globs carry the only language-specific
+    fact this sweep needs — which files are source. What remains in core is a
+    word-boundary numeric match, which knows nothing about any language. That
+    is what lets a Node stack write `**/__tests__/*.js` and a JVM stack
+    `src/test/java/**/*.java` without core learning either word."""
     from .config import load as load_config
     from .lints.base import manifest_value_leaves
     findings = []
@@ -284,20 +292,19 @@ def scan_literals(store: Store, root: Path) -> list[str]:
         for dotted, value in manifest_value_leaves(manifest.raw.get("values") or {}).items():
             if isinstance(value, int) and not isinstance(value, bool) and abs(value) >= 10:
                 values.setdefault(value, []).append(f"{service}:{dotted}")
-    # The sweep globs *.rs, so only the rust stack's literal_scan participates
-    # until the advisory moves behind an adapter role — unioning every stack's
-    # globs here would report clean for stacks the sweep never looked at.
-    stack = load_config(root).stack("rust")
-    dirs = sorted({d for pattern in (stack.literal_scan if stack else ())
-                   for d in Path(root).glob(pattern) if d.is_dir()})
-    for tests_dir in dirs:
-        for rs in sorted(tests_dir.glob("*.rs")):
-            text = rs.read_text()
-            for value, keys in values.items():
-                for m in re.finditer(rf"\b{value}\b", text):
-                    line = text.count("\n", 0, m.start()) + 1
-                    findings.append(
-                        f"{rs.relative_to(root)}:{line}: literal {value} equals manifest "
-                        f"value {', '.join(keys)} — import the generated constant instead")
-                    break  # one advisory per (file, value)
+    files = sorted({path for stack in load_config(root).stacks
+                    for pattern in stack.literal_scan
+                    for path in Path(root).glob(pattern) if path.is_file()})
+    for path in files:
+        try:
+            text = path.read_text()
+        except (OSError, UnicodeDecodeError):
+            continue  # a glob that catches a binary is the consumer's to narrow
+        for value, keys in values.items():
+            for m in re.finditer(rf"\b{value}\b", text):
+                line = text.count("\n", 0, m.start()) + 1
+                findings.append(
+                    f"{path.relative_to(root)}:{line}: literal {value} equals manifest "
+                    f"value {', '.join(keys)} — import the generated constant instead")
+                break  # one advisory per (file, value)
     return findings

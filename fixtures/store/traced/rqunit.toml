@@ -1,5 +1,5 @@
 [stacks.rust]
-literal_scan = ["*/tests"]
+literal_scan = ["*/tests/*.rs"]
 # Adapter-owned (passthrough): which crates the rust scanner walks when it
 # runs over this tree — the committed artifact below is that scan's output.
 trace_scan = ["*/Cargo.toml"]

@@ -437,7 +437,7 @@ own configuration, passed through opaquely and never read by core.
 |---|---|
 | `adapter.extractor` / `adapter.scanner` / `adapter.emitter` | role declarations — each `{ cmd = ["..."] }` XOR `{ artifact = "path" }` |
 | `adapter.manifest` | path to the adapter's manifest |
-| `literal_scan` | globs to tests/ directories for the hardcoded-bound advisory |
+| `literal_scan` | globs naming the FILES the hardcoded-bound advisory sweeps (`**/tests/*.rs`, `**/__tests__/*.js`) — the glob carries the language-specific fact, so core stays a word-boundary numeric match |
 
 A role declares `cmd` (argv core execs, no shell) or `artifact` (a file an
 earlier pipeline step produced) — exactly one. An undeclared role means that
@@ -446,7 +446,7 @@ skipped.
 
 ```toml
 [stacks.rust]
-literal_scan = ["**/tests"]
+literal_scan = ["**/tests/*.rs"]
 
 # ---- adapter-owned: core passes these through untouched --------------------
 service = "service-orders"          # manifest slug the artifact is keyed by; never guessed

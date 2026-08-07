@@ -72,8 +72,10 @@ RUST_CONFIG = """\
 
 [stacks.rust]
 
-# tests/ directories swept by the hardcoded-bound advisory (core-read).
-literal_scan = ["**/tests"]
+# Files swept by the hardcoded-bound advisory (core-read). Name the FILES,
+# not the directories: the glob carries the only language-specific fact the
+# sweep needs, so core stays a word-boundary numeric match.
+literal_scan = ["**/tests/*.rs"]
 
 # ---- adapter-owned configuration ---------------------------------------------
 # Core passes everything from here to the adapter table through untouched; the

@@ -43,7 +43,7 @@ def test_any_stack_name_is_accepted_core_has_no_language_list(tmp_path):
 def test_core_keys_parse_and_the_rest_passes_through_opaquely(tmp_path):
     cfg = load(_toml(tmp_path, """
 [stacks.rust]
-literal_scan = ["**/tests"]
+literal_scan = ["**/tests/*.rs"]
 trace_scan = ["crates/*/Cargo.toml"]
 conformance_crate = "tools/conformance"
 service = "service-orders"
@@ -57,7 +57,7 @@ extractor = { artifact = "actual-surface.json" }
 scanner = { cmd = ["adapters/rust/target/release/scan-checks", "--flag"] }
 """))
     stack = cfg.stack("rust")
-    assert stack.literal_scan == ("**/tests",)
+    assert stack.literal_scan == ("**/tests/*.rs",)
     assert stack.adapter.extractor == Role(artifact="actual-surface.json")
     assert stack.adapter.scanner == Role(cmd=("adapters/rust/target/release/scan-checks",
                                               "--flag"))
