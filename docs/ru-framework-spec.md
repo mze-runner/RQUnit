@@ -24,7 +24,7 @@ declared depth could exceed provable depth. Packets gain a `mode`: `check-author
 instruction to write the checks before the implementation and record their
 first red — discipline the framework states rather than polices, made
 checkable by the ledger below. A fourth probe role, `evidence`, and an append-only ledger at
-`spec/evidence/` record which checks have demonstrated they can fail; L26
+`spec/check-evidence/` record which checks have demonstrated they can fail; L26
 reports the ones that never have (§6.8). L14 newness becomes base-vs-head set difference
 over scanner observations, never diff-line inspection (§6.6 states the
 widened-scan and rename consequences). **Consumers MUST act:** register a
@@ -461,7 +461,7 @@ Rules:
 
 Depth counts checks. It cannot tell whether a check *distinguishes* anything. An agent that has read the implementation and then writes a test asserting that implementation's shape produces a check that is green on its first run, stays green through every change preserving the shape, and is indistinguishable at rest from a check that earns its green. Coverage rises; nothing is proved.
 
-What separates them is history. A check that has **ever** been observed failing has demonstrated it can fail; one that has only ever been green has demonstrated nothing. So the framework keeps an append-only ledger of firsts at `spec/evidence/check-evidence.jsonl`: one line per check per *first* pass and *first* failure.
+What separates them is history. A check that has **ever** been observed failing has demonstrated it can fail; one that has only ever been green has demonstrated nothing. So the framework keeps an append-only ledger of firsts at `spec/check-evidence/check-evidence.jsonl`: one line per check per *first* pass and *first* failure.
 
 > **Vocabulary.** This is the framework's evidence about its own checks. It is not the AUDIT record — the consumer system's evidence to its operators (§5.10). The two never share a file, a key, or a rule.
 
@@ -654,7 +654,7 @@ spec/
   gaps/GAP-XXXX.yaml                   # open ambiguities & conflicts
   rationale/ADR-<slug>.md              # decision records behind rationale_ref (§7.3; formats §10)
   reviews/RU-XXXX/*.yaml               # append-only Gate 2 records (§7.2)
-  evidence/check-evidence.jsonl        # append-only ledger of check firsts (§6.8)
+  check-evidence/check-evidence.jsonl  # append-only ledger of check firsts (§6.8)
   packets/TASK-XXXX.packet.md          # materialized assembly, immutable post-task
   projections/                         # generated only
 ```

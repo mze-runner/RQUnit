@@ -27,7 +27,7 @@ Every verb runs through one CLI: `rqunit <verb>`, from anywhere at or below the 
 | `rqunit review record RU-XXXX …` | Append-only Gate 2 verdicts (ONLY entry path — agent writes to spec/reviews/ are hook-blocked) | Human verifications |
 | `rqunit review guard --against REF` | Append-only guard for records + packets | CI (PRs) |
 | `rqunit assemble build TASK --ru … [--arm] [--mode M]` / `disarm` | Materialize a task packet; `--arm` points `spec/packets/.active` at it → H1 blocks `must_not_touch` writes, H2 audits out-of-owns. `--mode check-authoring` assembles a packet for writing the checks BEFORE the implementation exists, and says so in the packet | Start/end of packet-scoped implementation |
-| `rqunit evidence record [--from F]` | Fold a test run's observations into `spec/evidence/check-evidence.jsonl`, recording only firsts (first pass, first failure per check). This is the framework's evidence about its own CHECKS — never the audit record, which is the system's evidence to its operators. Without it nothing distinguishes a check that has demonstrated it can fail from one that has only ever been green (L26) | Wherever the suite runs; CI |
+| `rqunit evidence record [--from F]` | Fold a test run's observations into `spec/check-evidence/check-evidence.jsonl`, recording only firsts (first pass, first failure per check). This is the framework's evidence about its own CHECKS — never the audit record, which is the system's evidence to its operators. Without it nothing distinguishes a check that has demonstrated it can fail from one that has only ever been green (L26) | Wherever the suite runs; CI |
 | `rqunit lineage FEAT-<slug>` (or an RU id) | Feature elaboration timeline: intent sources, Gate 1 sittings, supersessions, Gate 2 records, gaps, current states. Read-only query — writes nothing | Disputes, audits, onboarding |
 | `rqunit conformance` | Manifest ↔ code surfaces (CF1–CF11) from each stack's declared extractor output — a committed `actual-surface.json`, or a prebuilt adapter the tool execs as a black box (it never invokes your build). The adapter is built in the stack's own build (its test proves the artifact is current). Each artifact declares which surface families it examined; ratified exceptions live in `spec/framework/conformance-exceptions.yaml` — an extractor observes, and does not get to excuse what it observed — and still report as findings | After route/message changes; every gate |
 | `rqunit doctor [--strict]` | Structural health: id gaps (an RU lost in a bad merge resolve), orphaned models/ADRs, FEATs grouping no RUs, dangling review records, branch behind upstream (activation-collision risk). Advisory: exit 0 unless `--strict` | After merges; before a Gate 1 sitting |
@@ -45,7 +45,7 @@ Generated (NEVER hand-edit — `rqunit generate check` fails on drift): everythi
 `spec/projections/`, `spec-conformance-tests/{src/generated,tests/generated_*}`.
 Append-only (guard-enforced by `rqunit review guard`): `spec/reviews/`, committed
 `spec/packets/*.packet.md` (re-runs version as `.v2`), and
-`spec/evidence/check-evidence.jsonl` — written only by `rqunit evidence record`,
+`spec/check-evidence/check-evidence.jsonl` — written only by `rqunit evidence record`,
 which appends firsts and never rewrites. Evidence is added to, never edited: a
 first that can be deleted proves nothing.
 

@@ -28,7 +28,7 @@ from pathlib import Path
 
 from .errors import BadConfig
 
-LEDGER_PATH = ("spec", "evidence", "check-evidence.jsonl")
+LEDGER_PATH = ("spec", "check-evidence", "check-evidence.jsonl")
 
 FIRST_GREEN = "first_green"
 FIRST_RED = "first_red"

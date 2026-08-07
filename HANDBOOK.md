@@ -28,8 +28,8 @@ spec/
                  linked from RUs via rationale_ref (format: formats §10)
   reviews/       append-only Gate 2 verdicts (written ONLY via `rqunit review`)
   packets/       materialized task contexts; immutable, re-runs version .v2
-  evidence/      append-only check-evidence ledger — which checks have been
-                 observed failing (written ONLY via `rqunit evidence record`)
+  check-evidence/  append-only ledger — which checks have been observed
+                 failing (written ONLY via `rqunit evidence record`)
   projections/   GENERATED, never hand-edit: ru-index.json, test-plan.json,
                  trace-map.json, orphans.{md,json}, suspect-queue.json,
                  surface-sheets/, scope-audit.jsonl
@@ -70,7 +70,7 @@ at the repo root — the tools carry no consumer paths in code.
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
 | `rqunit conformance` | manifest ↔ code surfaces (CF1–CF11) — reads each stack's declared extractor output (a committed artifact, or a prebuilt adapter core execs as a black box); never invokes a language toolchain | after changing routes/messages; every gate |
 | `rqunit doctor [--strict]` | structural health: lost RUs (id gaps), orphaned artifacts, dangling review records, a branch stale enough to make activation collide. Advisory — exit 0 unless `--strict` | after merges; before a Gate 1 sitting |
-| `rqunit evidence record [--from F]` | fold a test run's observations into `spec/evidence/check-evidence.jsonl`, recording only firsts. Without it nothing can tell a check that has demonstrated it can fail from one that has only ever been green (L26) | wherever the suite runs; CI |
+| `rqunit evidence record [--from F]` | fold a test run's observations into `spec/check-evidence/check-evidence.jsonl`, recording only firsts. Without it nothing can tell a check that has demonstrated it can fail from one that has only ever been green (L26) | wherever the suite runs; CI |
 | `rqunit adapter verify --stack <name>` | the adapter compliance kit: every declared role runs against its fixed kit input — byte-deterministic, schema-valid, matching the committed expectation, under the stdio exit contract | adapter development; the adapter's own CI |
 | `rqunit report [--out F] [--format html\|json]` | a self-contained HTML snapshot for review audiences — coverage, status, verification completeness, Gate activity, burn-down, health. `--format json` emits the underlying data contract | before a steering review; on demand |
 | `rqunit activate batch --feature F --reviewer H` | Gate 1 activation (atomic, refuses on red, commits) | end of a Gate 1 sitting |

@@ -406,7 +406,7 @@ why the claim is a reviewed edit rather than an observation.
 
 ## 14b. The check-evidence ledger
 
-`spec/evidence/check-evidence.jsonl` — append-only, written only by
+`spec/check-evidence/check-evidence.jsonl` — append-only, written only by
 `rqunit evidence record`. One JSON object per line, one line per check per
 first:
 

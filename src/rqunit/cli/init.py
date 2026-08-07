@@ -35,7 +35,8 @@ INTEGRATIONS = {
 # Empty ones carry a .gitkeep: an absent directory and an empty one mean the
 # same thing to the tools, but only one of them survives a clone.
 STORE_DIRS = ("framework", "intent", "ru", "features", "manifests", "models",
-              "gaps", "rationale", "reviews", "packets", "projections", "evidence")
+              "gaps", "rationale", "reviews", "packets", "projections",
+              "check-evidence")
 
 # Seed file → destination within spec/. Vocabularies and policy are consumer
 # data (they are edited); schemas are not (they ship in the wheel).
