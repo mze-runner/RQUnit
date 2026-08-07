@@ -323,3 +323,40 @@ def test_doctor_stays_quiet_about_artifact_roles_and_resolvable_commands(tmp_pat
         'extractor = { artifact = "never-generated-yet.json" }\n'
         'scanner = { cmd = ["probe"] }\n')
     assert role_wiring(tmp_path) == []
+
+
+# ------------------------------------------------------- permanent-id ceiling
+
+def test_doctor_warns_with_runway_before_the_id_ceiling():
+    """Widening the id width is a store-wide migration, so the only useful
+    moment to hear about it is well before the sitting that needs it."""
+    from rqunit.doctor import _HEADROOM_WARN, id_headroom
+    from rqunit.store import ID_CEILING
+
+    class FakeRu:
+        def __init__(self, rid): self.id = rid
+
+    class FakeStore:
+        def __init__(self, top): self._top = top
+        def rus(self): return [FakeRu(f"RU-{self._top:04d}")]
+
+    assert id_headroom(FakeStore(ID_CEILING - _HEADROOM_WARN - 1)) == []   # quiet
+    findings = id_headroom(FakeStore(ID_CEILING - 1))
+    assert len(findings) == 1 and findings[0].kind == "id-headroom"
+    assert "1 permanent id(s) left" in findings[0].message
+    assert "migration" in findings[0].suggestion
+
+
+def test_the_ceiling_message_never_prints_an_impossible_id():
+    """`f"{n:04d}"` pads but never truncates, so the over-ceiling number
+    renders as a plausible-looking id. Printing it invites the reader to go
+    looking for RU-10000, which cannot exist."""
+    from rqunit.store import ID_CEILING
+
+    over = f"RU-{ID_CEILING + 1}"
+    source = (Path(__file__).parent.parent / "src" / "rqunit" / "cli"
+              / "activate.py").read_text()
+    ceiling_block = source.split("permanent id ceiling reached")[1].split('")')[0]
+    assert "highest" in ceiling_block
+    assert "{highest}" not in ceiling_block, (
+        f"the refusal renders the over-ceiling number ({over}) as an id")

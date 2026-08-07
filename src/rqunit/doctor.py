@@ -20,9 +20,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import ROLES
-from .store import Store
+from .store import ID_CEILING, ID_WIDTH, Store
 
-_PERMANENT = re.compile(r"^RU-([0-9]{4})$")
+_PERMANENT = re.compile(rf"^RU-([0-9]{{{ID_WIDTH}}})$")
+
+# Ids left before the ceiling is worth warning about. Generous on purpose:
+# the fix is a store-wide migration, so the warning has to arrive with enough
+# runway to schedule one, and it must never fire on an ordinary store.
+_HEADROOM_WARN = 100
 
 
 @dataclass(frozen=True)
@@ -57,6 +62,32 @@ def id_gaps(store: Store) -> list[Finding]:
         suggestion="Ids are allocated consecutively, so a gap usually means an activated RU "
                    "was dropped — check `git log --diff-filter=D -- spec/ru/` around the "
                    "missing ids. A deliberate deletion is fine; an unnoticed merge loss is not.")]
+
+
+def id_headroom(store: Store) -> list[Finding]:
+    """Runway left before the permanent-id ceiling.
+
+    Widening the id width is a store-wide migration in one commit, not a flag
+    — so the only useful moment to learn about it is well BEFORE the sitting
+    that would need it. The threshold is deliberately generous for that
+    reason: a store activating a dozen units a sitting still gets months of
+    notice, and no ordinary store trips it at all."""
+    numbers = [int(m.group(1)) for ru in store.rus() if (m := _PERMANENT.match(ru.id))]
+    if not numbers:
+        return []
+    remaining = ID_CEILING - max(numbers)
+    if remaining > _HEADROOM_WARN:
+        return []
+    return [Finding(
+        kind="id-headroom", severity="warning",
+        message=(f"{remaining} permanent id(s) left: the highest is "
+                 f"RU-{max(numbers):0{ID_WIDTH}d} and the {ID_WIDTH}-digit ceiling is "
+                 f"RU-{ID_CEILING}."),
+        suggestion="Plan the width migration before a sitting needs it. The width is "
+                   "compiled into every schema pattern, filename and cross-reference, "
+                   "so it changes store-wide in ONE commit — every id renamed, every "
+                   "reference rewritten, never mixed widths (formats §1). Activation "
+                   "refuses rather than crossing it, so this is runway, not breakage.")]
 
 
 def orphan_artifacts(store: Store) -> list[Finding]:
@@ -215,6 +246,6 @@ def role_wiring(root: Path) -> list[Finding]:
 
 
 def run(store: Store, root: Path) -> list[Finding]:
-    return (id_gaps(store) + orphan_artifacts(store)
+    return (id_gaps(store) + id_headroom(store) + orphan_artifacts(store)
             + dangling_reviews(store, root) + branch_staleness(root)
             + stack_config_health(root) + role_wiring(root))

@@ -36,7 +36,7 @@ from ..impact import build_report, diff_manifests, manifest_at_ref, render
 from ..lints.base import run_lints
 from ..lints.l21 import first_matching_rule, load_policy, violation_reason
 from ..schemas import repo_root
-from ..store import Store
+from ..store import ID_CEILING, ID_WIDTH, Store
 
 
 @click.group()
@@ -123,7 +123,24 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
     ru_dir = Path(root) / "spec" / "ru"
     taken = [int(p.stem.split("-")[1]) for p in ru_dir.glob("RU-[0-9]*.yaml")]
     next_id = (max(taken) + 1) if taken else 1
-    mapping = {ru.id: f"RU-{next_id + i:04d}" for i, ru in enumerate(members)}
+    highest = next_id + len(members) - 1
+    if highest > ID_CEILING:
+        # `f"{n:04d}"` pads but never truncates, so allocation would happily
+        # produce RU-10000 and only the SCHEMA would reject it — surfacing at
+        # the end of a sitting as "unknown artifact", which names neither the
+        # ceiling nor the fix.
+        room = max(ID_CEILING - next_id + 1, 0)
+        # Never print the over-ceiling number as though it were an id: it is
+        # not one, and showing "RU-10000" invites the reader to look for it.
+        _fail(f"permanent id ceiling reached — nothing was written. The highest id this "
+              f"store can allocate is RU-{ID_CEILING} ({ID_WIDTH} digits); it has room "
+              f"for {room} more, and this batch needs {len(members)}.\n"
+              "    Ids are a published shape: the width is compiled into every schema "
+              "pattern, filename, and cross-reference, so widening it is a store-wide "
+              "migration in ONE commit — every id renamed, every reference rewritten, "
+              "never mixed widths (formats §1). Split this batch to fit, or run that "
+              "migration first.")
+    mapping = {ru.id: f"RU-{next_id + i:0{ID_WIDTH}d}" for i, ru in enumerate(members)}
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     # ---- compute every mutation in memory first

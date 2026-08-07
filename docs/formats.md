@@ -19,8 +19,11 @@ for tooling; changes are schema-revision events, not edits.
 | ADR | `spec/rationale/ADR-<slug>.md` | `ADR-<slug>` (pattern `ADR-[A-Za-z0-9-]+`) |
 | Packet | `spec/packets/TASK-<id>.packet.md` (re-runs: `.v2`, `.v3` suffix before `.packet.md`) | task id from the operator's task system |
 
-Filename ↔ `id` field mismatch is an L9 error. IDs beyond 9999: widen padding
-store-wide in one commit (a tooling migration, documented, never mixed widths).
+Filename ↔ `id` field mismatch is an L9 error. The four-digit width is a
+CEILING, not a default: it is compiled into every schema pattern, filename and
+cross-reference, so widening it is a store-wide migration in one commit — every
+id renamed, every reference rewritten, never mixed widths. Activation refuses
+rather than crossing it, and `rqunit doctor` warns while there is still runway.
 
 ## 2. Reference token grammar (EBNF)
 

@@ -31,6 +31,15 @@ from .schemas import validator
 
 _IGNORED = {"README.md", ".gitkeep", ".DS_Store"}
 
+# The permanent-id width (formats §1). Four digits is the PUBLISHED id shape —
+# it is compiled into every schema pattern, every filename regex, and every
+# reference that names an RU, so it is a ceiling, not a tunable default.
+# Widening it is a store-wide migration in one commit (never mixed widths),
+# and the verbs that allocate ids refuse before crossing it rather than
+# writing a store their own loader would reject.
+ID_WIDTH = 4
+ID_CEILING = 10 ** ID_WIDTH - 1                 # RU-9999, INT-9999
+
 _RU_FILE = re.compile(r"^RU-(draft-[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})\.yaml$")
 _FEAT_FILE = re.compile(r"^FEAT-[a-z0-9-]+\.yaml$")
 _GAP_FILE = re.compile(r"^GAP-[0-9A-HJKMNP-TV-Z]{26}\.yaml$")
