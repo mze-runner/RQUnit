@@ -32,6 +32,7 @@ ROLE_SCHEMAS = {
     "extractor": "actual-surface.schema.json",
     "scanner": "scanned-checks.schema.json",
     "emitter": "emitted-files.schema.json",
+    "evidence": "check-evidence.schema.json",
 }
 
 EMIT_REQUEST = PACK_DIR / "kit" / "emit-request.json"

@@ -142,6 +142,7 @@ depend on it):
 ```
 ---                                  # YAML front matter
 task: TASK-0007
+mode: implementation                 # implementation | check-authoring
 generated_at: <iso8601>              # the only nondeterministic field
 store_commit: <sha>
 hashes:
@@ -159,7 +160,16 @@ hashes:
 #                                        then "Further: RU-…, RU-…" id list)
 # 5. Boundaries                         (owns / must_not_touch union, verbatim
 #                                        globs H1 will enforce)
+# 6. Authoring discipline               (check-authoring packets ONLY: write the
+#                                        checks before the implementation, do not
+#                                        read the owned files, record the first red)
 ```
+
+`mode` records which discipline produced the packet. `check-authoring` appends
+section 6 and nothing else: no hook gates reads, and the packet says so. What
+makes the discipline checkable afterwards is the evidence ledger (spec §6.8) —
+a check authored before its implementation is observed red first, and one that
+was only ever green is reported by L26 whatever the packet instructed.
 
 An RU render = id, statement (resolved), verification list with current
 computed status, tags. Resolution provenance format is fixed: `⟨{ref} = value⟩`.
@@ -394,6 +404,23 @@ separately from suites that execute. Registering a shim that does not exist
 is the one way to make the framework overstate what it can prove, which is
 why the claim is a reviewed edit rather than an observation.
 
+## 14b. The check-evidence ledger
+
+`spec/evidence/check-evidence.jsonl` — append-only, written only by
+`rqunit evidence record`. One JSON object per line, one line per check per
+first:
+
+```json
+{"at": "2026-01-15T09:30:00+00:00", "check_id": "svc::orders::rejects_cancel_after_ship", "observation": "first_red", "source": "spec-conformance-tests/check-evidence.json"}
+```
+
+`observation` is `first_red` or `first_green`. Only firsts are recorded: a
+second red proves nothing a first red did not. `check_id` shares the scanner's
+identity space (`scanned-checks.schema.json`), which is what lets evidence
+attach to a check an RU verifies against. A check carrying `first_green` and no
+`first_red` is what L26 reports (spec §6.8) — the framework's evidence about
+its own checks, never the consumer's audit record (§5.10).
+
 ## 15. Stack declarations (`rqunit.toml`)
 
 Any `[stacks.<name>]` table declares a stack (`name` matches
@@ -469,6 +496,11 @@ regenerate the response from the current request and compare — exactly as an
 artifact-mode extractor does: the census catches a dropped or added check,
 but a semantic change that keeps every check id (a flipped
 `undeclared_event_policy`) only the currency test catches.
+
+**Check evidence** (contract: `interfaces/check-evidence.schema.json`) — the
+evidence probe's output: one entry per check the run executed, `passed` or
+`failed`. It carries no timestamp, because a probe's bytes must be a
+deterministic function of its input; core stamps the recording time.
 
 **Adapter manifest** (`adapter.yaml`, contract:
 `interfaces/adapter-manifest.schema.json`) — the adapter package's

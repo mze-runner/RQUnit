@@ -16,7 +16,7 @@ from rqunit.store import Store
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 LINTS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9",
          "L10", "L11", "L12", "L13", "L15", "L16", "L17", "L18",
-         "L19", "L20", "L21", "L22", "L24", "L25",
+         "L19", "L20", "L21", "L22", "L24", "L25", "L26",
          # The statechart dialect family (§6.3): graph facts the schema cannot
          # express. M5 is deliberately absent — event vocabulary resolves
          # against manifests, which makes it C8's cross-artifact question.

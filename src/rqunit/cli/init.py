@@ -35,7 +35,7 @@ INTEGRATIONS = {
 # Empty ones carry a .gitkeep: an absent directory and an empty one mean the
 # same thing to the tools, but only one of them survives a clone.
 STORE_DIRS = ("framework", "intent", "ru", "features", "manifests", "models",
-              "gaps", "rationale", "reviews", "packets", "projections")
+              "gaps", "rationale", "reviews", "packets", "projections", "evidence")
 
 # Seed file → destination within spec/. Vocabularies and policy are consumer
 # data (they are edited); schemas are not (they ship in the wheel).
@@ -106,6 +106,11 @@ extractor = { artifact = "spec-conformance-tests/actual-surface.json" }
 # that runs the gate.
 # scanner = { cmd = ["adapters/rust/target/release/scan-checks"] }
 # emitter = { cmd = ["adapters/rust/target/release/emit-suite"] }
+# The evidence probe reads your runner's output and reports which checks
+# passed and which failed; `rqunit evidence record` folds a run into the
+# ledger. Without it nothing can tell a check that has demonstrated it can
+# fail from one that has only ever been green (L26).
+# evidence = { artifact = "spec-conformance-tests/check-evidence.json" }
 # The adapter's manifest, declaring its roles and the config keys it reads.
 # manifest = "adapters/rust/adapter.yaml"
 

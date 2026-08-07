@@ -12,6 +12,7 @@ VALID = FIXTURES / "store" / "valid"
 DECLARED = {
     "framework", "intent", "ru", "features", "manifests",
     "models", "contracts", "gaps", "rationale", "reviews", "packets", "projections",
+    "evidence",
 }
 
 

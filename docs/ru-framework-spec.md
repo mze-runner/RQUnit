@@ -20,15 +20,22 @@ asserting a transition to nowhere. Shim registration becomes a recorded claim
 (`spec/framework/shims.yaml`, checked by C15): an unregistered model's suite
 is rendered unrunnable, contributes zero depth to the coverage policy, and is
 reported apart from suites that execute — the last place
-declared depth could exceed provable depth. L14 newness becomes base-vs-head set difference
+declared depth could exceed provable depth. Packets gain a `mode`: `check-authoring` assembles the same context plus the
+instruction to write the checks before the implementation and record their
+first red — discipline the framework states rather than polices, made
+checkable by the ledger below. A fourth probe role, `evidence`, and an append-only ledger at
+`spec/evidence/` record which checks have demonstrated they can fail; L26
+reports the ones that never have (§6.8). L14 newness becomes base-vs-head set difference
 over scanner observations, never diff-line inspection (§6.6 states the
 widened-scan and rename consequences). **Consumers MUST act:** register a
-shim in `spec/framework/shims.yaml` for every model whose suite really runs —
-an unregistered one counts as no depth, so a draft relying on it can no longer
-activate under a `min_mechanical` rule until the shim lands — declare
+shim in `spec/framework/shims.yaml` for every model whose suite really runs
+(an unregistered one counts as no depth, so a draft relying on it can no longer
+activate under a `min_mechanical` rule until the shim lands), declare
 adapter roles in `[stacks.<name>.adapter]` — the extractor's write target
 moves to `extractor = { artifact = "…" }` — delete `trace_diff`, and wire a
-scanner role before using `rqunit trace --against`;
+scanner role before using `rqunit trace --against`. Recording runs with
+`rqunit evidence record` is optional: without it L26 simply has nothing to
+report, which is the honest answer for a store that has observed nothing;
 v0.14.0: one vocabulary — the manifest IS the
 contract. `spec/contracts/` and the `contract` verification type retire; a shape
 is a manifest fact and an RU binds to one by addressing it in the statement.
@@ -450,6 +457,20 @@ Rules:
 - Policy violations are blocking at activation (a draft cannot activate under-covered) and warnings on already-active RUs after a policy tightening — tightening generates a burn-down list, never a mass red build.
 - The policy file itself is Gate-1-governed (it changes what "adequately verified" means store-wide — that is a human decision with an impact report, same discipline as a shared-manifest edit).
 
+### 6.8 Check evidence — whether a check discriminates
+
+Depth counts checks. It cannot tell whether a check *distinguishes* anything. An agent that has read the implementation and then writes a test asserting that implementation's shape produces a check that is green on its first run, stays green through every change preserving the shape, and is indistinguishable at rest from a check that earns its green. Coverage rises; nothing is proved.
+
+What separates them is history. A check that has **ever** been observed failing has demonstrated it can fail; one that has only ever been green has demonstrated nothing. So the framework keeps an append-only ledger of firsts at `spec/evidence/check-evidence.jsonl`: one line per check per *first* pass and *first* failure.
+
+> **Vocabulary.** This is the framework's evidence about its own checks. It is not the AUDIT record — the consumer system's evidence to its operators (§5.10). The two never share a file, a key, or a rule.
+
+A per-stack **evidence probe** reads its runner's output and reports which checks passed and which failed (contract: `interfaces/check-evidence.schema.json`); `rqunit evidence record` folds a run into the ledger. The split is the adapter rule applied unchanged: a probe reports outcomes, and deciding that an outcome is a *first* requires history, which is a judgment. Probes emit no timestamps — their output must be a byte-deterministic function of their input, so the recording time is core's to stamp.
+
+Only firsts are recorded. A second red proves nothing a first red did not, and recording it would make an append-only file grow with every CI run while saying the same thing.
+
+**L26** reports a `test`-type verification whose check has been observed green and never red. It is `finding`-class and must never be promoted to `error`: a check may legitimately never have been observed failing — it was written before the code, and the ledger only begins when recording begins — and blocking that case rewards theatrical failure (break it once, record the red, restore it). A check with no evidence at all is never reported: absence of evidence is not evidence of absence. The rule is scoped to `test` refs, because a `model` suite is generated from the statechart and cannot be shaped by the implementation it checks.
+
 ---
 
 ## 7. Lifecycle
@@ -531,8 +552,9 @@ Every assembly is written to `spec/packets/TASK-XXXX.packet.md`, committed with 
 
 - The packet is the complete and exact store-derived context the agent received; nothing bypasses it.
 - Manifest references are recorded **resolved** — the actual values and surface entries the agent saw — together with the **manifest and model hashes** at assembly time. The flight recorder is therefore immune to later manifest edits: "why did the agent do that?" is answered by the packet, deterministically.
-- Packet generation is a pure function of `(task refs, store state)`; byte-identical modulo a generated-at header, regression-testable.
+- Packet generation is a pure function of `(task refs, store state, mode)`; byte-identical modulo a generated-at header, regression-testable.
 - Hand-editing FORBIDDEN; immutable once the task completes; re-runs produce new versions.
+- A packet declares its **mode**, recorded in the header. `implementation` is the default. `check-authoring` appends one section: write the checks from the statements, do not read the files the task owns, run them expecting red, and record that run (§6.8). An agent authoring checks with the implementation in context writes assertions shaped by it — not disobedience, salience — and instructions do not counteract salience. So the framework states the discipline and does not pretend to enforce it: no hook gates reads, any out-of-band retrieval would defeat one, and a guardrail that reads as a guarantee is worse than a stated rule. What makes the discipline checkable is evidence, not policing — a check authored before its implementation is observed red first, and one that was only ever green is reported by L26 whatever the packet instructed.
 
 ---
 
@@ -564,6 +586,7 @@ This section is the framework. Without it, the rest of this document is prose.
 - L21: every RU satisfies the first matching rule in `coverage.policy.yaml` (§6.7); blocking at activation, warning + burn-down for actives after policy tightening.
 - L22: every `planned: true` surface entry's `ru:` link is not-done — for an RU link, computed status ≠ done; for a FEAT link, no member RU computes done (§5.8). Violation → blocking: either the surface shipped without its Gate 1 flip, or verifications pass against a surface that supposedly does not exist.
 - L25: the shall-clause subject resolves to a declared service manifest, and agrees with the service the RU's `scope` owns. `the system` claims no service and is exempt, which is what keeps store-wide and service-scoped behaviour distinguishable. Two claims about which service governs an RU — the subject and `scope.owns` — previously coexisted with nothing reconciling them, so a misfiled RU passed every gate; §5.3's rule that referencing is read coupling rather than governance had no enforcement until this.
+- L26: a `test`-type verification whose check has been observed green and never red → finding. A check that has never failed has not demonstrated it can; never promoted to error, because a check written before its code legitimately has no red, and blocking that rewards theatrical failure (§6.8).
 - M1–M4, M6 (statechart dialect, §6.3): `initial` ∈ states; every transition target ∈ states; final states carry no `on`; at least one final state is reachable from `initial` (warning, and skipped when M1 fired — a walk with no lawful start would cascade one defect under two numbers); invariant names unique per model. One implementation, two surfaces: reported at lint, and generation refuses on M2/M3/M6 with the same messages. M5 (every event resolves to a manifest entry via `vocabulary`) is C8's cross-artifact question.
 
 ### 10.2 Consistency checks (CI, blocking)
@@ -631,6 +654,7 @@ spec/
   gaps/GAP-XXXX.yaml                   # open ambiguities & conflicts
   rationale/ADR-<slug>.md              # decision records behind rationale_ref (§7.3; formats §10)
   reviews/RU-XXXX/*.yaml               # append-only Gate 2 records (§7.2)
+  evidence/check-evidence.jsonl        # append-only ledger of check firsts (§6.8)
   packets/TASK-XXXX.packet.md          # materialized assembly, immutable post-task
   projections/                         # generated only
 ```

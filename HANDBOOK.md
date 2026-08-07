@@ -28,6 +28,8 @@ spec/
                  linked from RUs via rationale_ref (format: formats §10)
   reviews/       append-only Gate 2 verdicts (written ONLY via `rqunit review`)
   packets/       materialized task contexts; immutable, re-runs version .v2
+  evidence/      append-only check-evidence ledger — which checks have been
+                 observed failing (written ONLY via `rqunit evidence record`)
   projections/   GENERATED, never hand-edit: ru-index.json, test-plan.json,
                  trace-map.json, orphans.{md,json}, suspect-queue.json,
                  surface-sheets/, scope-audit.jsonl
@@ -62,12 +64,13 @@ at the repo root — the tools carry no consumer paths in code.
 |---|---|---|
 | `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`, and the agent-runtime templates into `.claude/`. Reports the stack it detected; refuses a non-empty store; never overwrites a runtime file the consumer already has | once, at adoption |
 | `rqunit init --refresh-integrations` | rewrite the agent-runtime templates and touch nothing else. They teach the current vocabulary, so a store on a newer tool with older templates is being taught the wrong one | after upgrading the tool |
-| `rqunit lint [--only L3]` | lints L1–L25 | after any spec/ edit |
+| `rqunit lint [--only L3]` | lints L1–L26 + the M dialect family | after any spec/ edit |
 | `rqunit check [--only C4]` | consistency C1–C15 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
 | `rqunit conformance` | manifest ↔ code surfaces (CF1–CF11) — reads each stack's declared extractor output (a committed artifact, or a prebuilt adapter core execs as a black box); never invokes a language toolchain | after changing routes/messages; every gate |
 | `rqunit doctor [--strict]` | structural health: lost RUs (id gaps), orphaned artifacts, dangling review records, a branch stale enough to make activation collide. Advisory — exit 0 unless `--strict` | after merges; before a Gate 1 sitting |
+| `rqunit evidence record [--from F]` | fold a test run's observations into `spec/evidence/check-evidence.jsonl`, recording only firsts. Without it nothing can tell a check that has demonstrated it can fail from one that has only ever been green (L26) | wherever the suite runs; CI |
 | `rqunit adapter verify --stack <name>` | the adapter compliance kit: every declared role runs against its fixed kit input — byte-deterministic, schema-valid, matching the committed expectation, under the stdio exit contract | adapter development; the adapter's own CI |
 | `rqunit report [--out F] [--format html\|json]` | a self-contained HTML snapshot for review audiences — coverage, status, verification completeness, Gate activity, burn-down, health. `--format json` emits the underlying data contract | before a steering review; on demand |
 | `rqunit activate batch --feature F --reviewer H` | Gate 1 activation (atomic, refuses on red, commits) | end of a Gate 1 sitting |
@@ -77,7 +80,7 @@ at the repo root — the tools carry no consumer paths in code.
 | `rqunit impact --against REF` | additive vs mutating manifest diff + affected RUs | before approving manifest edits |
 | `rqunit review record RU-XXXX --verdict … --criterion … --reviewer H` | append-only Gate 2 verdict | human verifications |
 | `rqunit review guard --against REF` | append-only guard (reviews + packets) | CI, PRs |
-| `rqunit assemble build TASK --ru … [--arm]` / `disarm` | materialize a task packet; arm/disarm the scope hooks | packet-scoped implementation |
+| `rqunit assemble build TASK --ru … [--arm] [--mode M]` / `disarm` | materialize a task packet; arm/disarm the scope hooks. `--mode check-authoring` assembles a packet for writing the checks BEFORE the implementation exists | packet-scoped implementation |
 | `rqunit lineage FEAT-<slug>` (or an RU id) | print a feature's elaboration timeline — intent sources, Gate 1 sittings, supersessions, Gate 2 records, gaps, current unit states. Read-only query; writes nothing | disputes, audits, onboarding |
 | `rqunit index` | just the index + surface sheets | rarely (`rqunit generate` covers) |
 | `rqunit hooks h1/h2 --path P` | the scope-hook logic (wired into the operator's agent runtime) | not run by hand |
@@ -184,6 +187,17 @@ Hand-editing a hash without the ceremony is an L19 error.
 give the agent ONLY the packet. Questions the packet can't answer are GAPs, not
 guesses. New tests carry the language's `verifies` trace annotation (formats §5). `disarm` when done; the packet
 stays as the immutable flight record of exactly what the agent saw.
+
+**Author the checks first (recommended for anything you intend to prove).**
+`rqunit assemble build TASK-… --ru … --mode check-authoring` assembles the same
+packet plus a discipline section: write the checks from the statements, do not
+read the files the task owns, run them, and expect RED. Then
+`rqunit evidence record` puts that first red on the ledger. A check written
+against an implementation it has already read can assert that implementation's
+shape and never fail — it reads as coverage and proves nothing. Nothing gates
+the reading; what makes the discipline checkable is the evidence: a check that
+was only ever green is reported by L26 (§6.8) whatever the packet instructed.
+Assemble the implementation packet afterwards, in the default mode.
 
 **Migrate a legacy area** (consumers adopting over an existing requirements
 corpus; ownership tracked in an area ledger such as MIGRATION.md): capture the
@@ -297,6 +311,7 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | L22 | error | a `planned: true` surface must be governed by a not-done RU (FEAT link = no member done) — either it shipped without its Gate 1 flip, or its verifications lie |
 | L24 | finding | a bound literal that restates a registered `values` entry — reference it instead; `finding` because two numbers can coincide innocently |
 | L25 | error | the shall-clause subject names a declared service, and the same one the RU's scope owns. `the system` claims no service and is exempt |
+| L26 | finding | a `test`-type verification whose check has been observed green and never red — it has not demonstrated it can fail. Never an error: a check written before its code legitimately has no red, and blocking that rewards theatrical failure (§6.8) |
 
 ### Consistency checks (`rqunit check`)
 

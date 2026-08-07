@@ -169,3 +169,49 @@ def test_bounds_and_nullability_reach_the_packet():
     strict = render_field({"name": "email", "presence": "always", "type": "string",
                            "nullable": False})
     assert "never null" in strict
+
+
+# ------------------------------------------------------------ authoring mode
+
+def test_default_mode_is_implementation_and_is_recorded():
+    """The mode is provenance: a packet must say which discipline produced
+    it, or a reader cannot tell an ordinary packet from an authoring one."""
+    packet = render_packet(Store.load(ASSEMBLY), ASSEMBLY, "TASK-0100", TASK_RUS, now=NOW)
+    assert "mode: implementation" in packet.split("---")[1]
+    assert "# 6. Authoring discipline" not in packet
+
+
+def test_check_authoring_mode_names_the_files_it_asks_you_not_to_read():
+    packet = render_packet(Store.load(ASSEMBLY), ASSEMBLY, "TASK-0100", TASK_RUS,
+                           now=NOW, mode="check-authoring")
+    assert "mode: check-authoring" in packet.split("---")[1]
+    discipline = packet.split("# 6. Authoring discipline")[1]
+    assert "not to be read while authoring" in discipline
+    assert "service-orders/fulfilment" in discipline      # the task's owns glob
+
+
+def test_check_authoring_mode_points_at_the_thing_that_makes_it_checkable():
+    """The instruction alone proves nothing — the packet says so, and names
+    the recording that does (§6.8)."""
+    packet = render_packet(Store.load(ASSEMBLY), ASSEMBLY, "TASK-0100", TASK_RUS,
+                           now=NOW, mode="check-authoring")
+    discipline = packet.split("# 6. Authoring discipline")[1]
+    assert "rqunit evidence record" in discipline
+    assert "should FAIL" in discipline
+
+
+def test_an_unknown_mode_is_refused():
+    with pytest.raises(ValueError, match="unknown packet mode"):
+        render_packet(Store.load(ASSEMBLY), ASSEMBLY, "TASK-0100", TASK_RUS, mode="vibes")
+
+
+def test_mode_does_not_disturb_the_boundaries_the_hooks_parse(tmp_path):
+    """H1/H2 read the `# 5.` yaml block; an authoring packet must still arm
+    exactly like any other."""
+    for mode in ("implementation", "check-authoring"):
+        packet = tmp_path / f"TASK-mode-{mode}.packet.md"
+        packet.write_text(render_packet(Store.load(ASSEMBLY), ASSEMBLY, "TASK-0100",
+                                        TASK_RUS, now=NOW, mode=mode))
+        boundaries = load_boundaries(packet)
+        assert boundaries.task == "TASK-0100"
+        assert "service-orders/fulfilment" in boundaries.owns

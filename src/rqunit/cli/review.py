@@ -63,7 +63,10 @@ def guard(store_path, against) -> None:
     """CI guard: any modification or deletion of an EXISTING review record OR
     committed task packet relative to the base ref fails the run — both are
     append-only (§7.2 records; §9.1 packets, plan D-P8.4: re-runs version,
-    never overwrite)."""
+    never overwrite). The check-evidence ledger is append-only too, but by a
+    different test: it legitimately grows on every recording, so what must
+    hold is that the base content is still a PREFIX of the current one
+    (§6.8)."""
     root = store_path or repo_root()
     proc = subprocess.run(
         ["git", "-C", str(root), "diff", "--name-status", against,
@@ -72,13 +75,39 @@ def guard(store_path, against) -> None:
     if proc.returncode != 0:
         click.echo(f"spec-review guard: git diff failed: {proc.stderr.strip()}", err=True)
         sys.exit(2)
-    tampered = [line for line in proc.stdout.splitlines()
+    tampered = [f"append-only artifact tampered: {line}"
+                for line in proc.stdout.splitlines()
                 if line and not line.startswith("A")]
+    tampered += _ledger_rewritten(Path(root), against)
     if tampered:
         for line in tampered:
-            click.echo(f"append-only artifact tampered: {line}", err=True)
+            click.echo(line, err=True)
         sys.exit(1)
-    click.echo("review records + packets: append-only holds")
+    click.echo("review records + packets + evidence ledger: append-only holds")
+
+
+def _ledger_rewritten(root: Path, against: str) -> list[str]:
+    """The evidence ledger's own append-only test. `git show` the base copy and
+    require it to be a line-prefix of the current one: appending is the whole
+    point, so the name-status rule the records use would fire on every honest
+    recording."""
+    from ..evidence import LEDGER_PATH
+
+    relative = "/".join(LEDGER_PATH)
+    shown = subprocess.run(
+        ["git", "-C", str(root), "show", f"{against}:./{relative}"],
+        capture_output=True, text=True)
+    if shown.returncode != 0:
+        return []          # absent at the base ref: everything in it is new
+    base = shown.stdout.splitlines()
+    path = root / relative
+    current = path.read_text().splitlines() if path.is_file() else []
+    if current[:len(base)] == base:
+        return []
+    return [f"append-only artifact tampered: {relative} — its recorded history "
+            f"at {against} is no longer a prefix of the current file. Evidence is "
+            "added to, never rewritten: a first that can be deleted proves "
+            "nothing (§6.8)."]
 
 
 def _fail(message: str) -> None:

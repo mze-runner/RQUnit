@@ -30,7 +30,7 @@ from .errors import BadConfig
 
 _STACK_NAME = re.compile(r"^[a-z][a-z0-9_-]*$")
 
-ROLES = ("extractor", "scanner", "emitter")
+ROLES = ("extractor", "scanner", "emitter", "evidence")
 
 
 @dataclass(frozen=True)
@@ -53,6 +53,7 @@ class Adapter:
     extractor: Role | None = None
     scanner: Role | None = None
     emitter: Role | None = None
+    evidence: Role | None = None
 
 
 @dataclass(frozen=True)
