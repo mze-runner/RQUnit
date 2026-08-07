@@ -60,7 +60,8 @@ at the repo root — the tools carry no consumer paths in code.
 
 | Command | Purpose | Typical moment |
 |---|---|---|
-| `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`. Reports the stack it detected; refuses a non-empty store | once, at adoption |
+| `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`, and the agent-runtime templates into `.claude/`. Reports the stack it detected; refuses a non-empty store; never overwrites a runtime file the consumer already has | once, at adoption |
+| `rqunit init --refresh-integrations` | rewrite the agent-runtime templates and touch nothing else. They teach the current vocabulary, so a store on a newer tool with older templates is being taught the wrong one | after upgrading the tool |
 | `rqunit lint [--only L3]` | lints L1–L25 | after any spec/ edit |
 | `rqunit check [--only C4]` | consistency C1–C13 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |

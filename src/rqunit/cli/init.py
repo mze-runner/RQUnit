@@ -21,6 +21,15 @@ import click
 
 from ..schemas import SEED_DIR, SPEC_VERSION
 
+# Agent-runtime templates, emitted into the consumer's own runtime directory.
+# They ship here rather than in the handbook because guidance nobody installs
+# is guidance that drifts: these files describe the CURRENT vocabulary, and a
+# consumer holding a hand-copied edition of them is holding whatever the
+# vocabulary was on the day they copied it.
+INTEGRATIONS = {
+    "claude-code": ".claude",
+}
+
 # Every directory the loader reads, plus the ones the gates write into.
 # Empty ones carry a .gitkeep: an absent directory and an empty one mean the
 # same thing to the tools, but only one of them survives a clone.
@@ -125,6 +134,39 @@ pack: "{version}"
 """
 
 
+INTEGRATION_DIR = Path(__file__).parent.parent / "integrations"
+
+
+def emit_integrations(root: Path, overwrite: bool) -> tuple[list[str], list[str]]:
+    """Copy the agent-runtime templates into the consumer repository.
+
+    Returns (written, skipped) as repo-relative paths. Without `overwrite` an
+    existing file is never touched: these land in a directory the consumer also
+    authors in, and a scaffold that silently replaces someone's edited hook is
+    a scaffold nobody runs twice.
+    """
+    written, skipped = [], []
+    for source_name, destination_name in INTEGRATIONS.items():
+        source = INTEGRATION_DIR / source_name
+        if not source.is_dir():
+            continue
+        for path in sorted(source.rglob("*")):
+            if not path.is_file():
+                continue
+            target = root / destination_name / path.relative_to(source)
+            relative = str(target.relative_to(root))
+            if target.exists() and not overwrite:
+                skipped.append(relative)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            # copy2 rather than copyfile: the hooks are executed by the agent
+            # runtime, and a hook that arrives without its executable bit fails
+            # in a way that looks like the guard passing.
+            shutil.copy2(path, target)
+            written.append(relative)
+    return written, skipped
+
+
 def _detect(root: Path) -> list[str]:
     return sorted({stack for marker, stack in MARKERS.items() if (root / marker).is_file()})
 
@@ -138,11 +180,31 @@ def _in_vcs(root: Path) -> bool:
               help="Where to create the store. Defaults to the current directory.")
 @click.option("--stack", "stack_override", type=click.Choice(sorted(set(MARKERS.values()))),
               default=None, help="Skip detection and configure this stack.")
-def main(store_path: Path | None, stack_override: str | None) -> None:
+@click.option("--refresh-integrations", is_flag=True,
+              help="Rewrite the agent-runtime templates in place and touch nothing else. "
+                   "The upgrade path: they teach the vocabulary, so a store on a newer tool "
+                   "with older templates is being taught the wrong one.")
+def main(store_path: Path | None, stack_override: str | None,
+         refresh_integrations: bool) -> None:
     """Scaffold a spec store: directories, seed vocabularies, coverage policy,
-    the shared manifest, a pack pin, and rqunit.toml."""
+    the shared manifest, a pack pin, rqunit.toml, and the agent-runtime
+    templates."""
     root = Path(store_path or Path.cwd()).resolve()
     spec = root / "spec"
+
+    if refresh_integrations:
+        try:
+            written, _ = emit_integrations(root, overwrite=True)
+        except OSError as e:
+            click.echo(f"rqunit init: tool error: {e}", err=True)
+            sys.exit(2)
+        click.echo(f"rqunit init · refreshed {len(written)} template(s) under {root}")
+        for name in written:
+            click.echo(f"  {name}")
+        click.echo("\nLocal edits to these files were overwritten — that is what --refresh-"
+                   "integrations means. Re-apply them, or keep them somewhere the refresh "
+                   "does not reach.")
+        return
 
     if spec.exists() and any(spec.iterdir()):
         click.echo(f"rqunit init: {spec} already exists and is not empty — refusing to "
@@ -168,6 +230,7 @@ def main(store_path: Path | None, stack_override: str | None) -> None:
         wrote_config = not config.exists()
         if wrote_config:
             config.write_text(RUST_CONFIG if "rust" in stacks else BARE_CONFIG)
+        emitted, kept = emit_integrations(root, overwrite=False)
     except OSError as e:
         click.echo(f"rqunit init: tool error: {e}", err=True)
         sys.exit(2)
@@ -184,6 +247,13 @@ def main(store_path: Path | None, stack_override: str | None) -> None:
                    "no [stacks] table — store verification and both gates work regardless.")
     if not wrote_config:
         click.echo("  rqunit.toml already existed — left untouched.")
+    if emitted:
+        click.echo(f"  agent templates: {len(emitted)} written under .claude/ "
+                   "(skills, agents, hooks). The hooks are inert until a packet is armed; "
+                   "wire them with .claude/settings-hook-snippet.jsonc.")
+    if kept:
+        click.echo(f"  agent templates: {len(kept)} already existed — left untouched. "
+                   "`rqunit init --refresh-integrations` overwrites them.")
     if not _in_vcs(root):
         click.echo("  warning: not inside a git repository. The store is meant to travel "
                    "with the code it governs; commit it there.")

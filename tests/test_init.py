@@ -163,3 +163,57 @@ def test_emitted_guidance_names_only_directories_the_store_has():
         "emitted guidance names directories the scaffold never creates:\n  "
         + "\n  ".join(stray)
     )
+
+
+def test_agent_templates_land_in_the_consumer_runtime(tmp_path):
+    """Guidance the tool ships but never installs is guidance that drifts: the
+    retired contract kind survived its own removal for exactly as long as these
+    files were hand-copied. Emission is what makes them the tool's problem."""
+    from rqunit.cli.init import INTEGRATION_DIR
+
+    assert _init(tmp_path).exit_code == 0
+    shipped = {p.relative_to(INTEGRATION_DIR / "claude-code")
+               for p in (INTEGRATION_DIR / "claude-code").rglob("*") if p.is_file()}
+    assert shipped, "no templates ship — this test would pass vacuously"
+    for relative in shipped:
+        assert (tmp_path / ".claude" / relative).is_file(), f"{relative} was not emitted"
+
+
+def test_emitted_hooks_stay_executable(tmp_path):
+    """A hook that arrives without its executable bit fails in the one way that
+    looks like the guard passing."""
+    _init(tmp_path)
+    hooks = list((tmp_path / ".claude" / "hooks").glob("*.sh"))
+    assert hooks
+    for hook in hooks:
+        assert hook.stat().st_mode & 0o111, f"{hook.name} is not executable"
+
+
+def test_adoption_never_overwrites_the_consumers_own_runtime_files(tmp_path):
+    """`.claude/` is a directory the consumer also authors in. A scaffold that
+    replaces someone's edited agent is a scaffold nobody runs twice."""
+    mine = tmp_path / ".claude" / "agents" / "requirements-analyst.md"
+    mine.parent.mkdir(parents=True)
+    mine.write_text("my own agent\n")
+
+    result = _init(tmp_path)
+    assert result.exit_code == 0
+    assert mine.read_text() == "my own agent\n"
+    assert "left untouched" in result.output
+    assert (tmp_path / ".claude" / "skills" / "spec-store" / "SKILL.md").is_file()
+
+
+def test_refresh_rewrites_templates_and_touches_nothing_else(tmp_path):
+    """The upgrade path. It must work on a store that already exists — which is
+    the whole point, since `init` refuses to scaffold over one."""
+    _init(tmp_path)
+    skill = tmp_path / ".claude" / "skills" / "spec-store" / "SKILL.md"
+    shipped = skill.read_text()
+    skill.write_text("stale copy\n")
+    pack = tmp_path / "spec" / "framework" / "pack.yaml"
+    before = pack.read_text()
+
+    result = _init(tmp_path, "--refresh-integrations")
+    assert result.exit_code == 0
+    assert skill.read_text() == shipped
+    assert pack.read_text() == before
