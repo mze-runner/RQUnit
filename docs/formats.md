@@ -514,7 +514,7 @@ own configuration, passed through opaquely and never read by core.
 |---|---|
 | `adapter.extractor` / `adapter.scanner` / `adapter.emitter` | role declarations — each `{ cmd = ["..."] }` XOR `{ artifact = "path" }` |
 | `adapter.manifest` | path to the adapter's manifest |
-| `literal_scan` | globs naming the FILES the hardcoded-bound advisory sweeps (`**/tests/*.rs`, `**/__tests__/*.js`) — the glob carries the language-specific fact, so core stays a word-boundary numeric match |
+| `literal_scan` | globs naming the files the hardcoded-bound advisory sweeps, or the directories holding them (`**/tests/*.rs`, `**/__tests__`, `src/test/java`) — a match that is a directory is walked. Either way the glob carries the language-specific fact, so core stays a word-boundary numeric match. No default: a default would be a claim about repository layout, and absent means the sweep does not run |
 
 A role declares `cmd` (argv core execs, no shell) or `artifact` (a file an
 earlier pipeline step produced) — exactly one. An undeclared role means that

@@ -75,7 +75,7 @@ RUST_CONFIG = """\
 # Files swept by the hardcoded-bound advisory (core-read). Name the FILES,
 # not the directories: the glob carries the only language-specific fact the
 # sweep needs, so core stays a word-boundary numeric match.
-literal_scan = ["**/tests/*.rs"]
+literal_scan = ["**/tests/*.rs"]      # or a directory: ["**/tests"]
 
 # ---- adapter-owned configuration ---------------------------------------------
 # Core passes everything from here to the adapter table through untouched; the

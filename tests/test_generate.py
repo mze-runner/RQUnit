@@ -192,3 +192,34 @@ def test_the_index_never_stores_a_second_copy_of_the_segment(tmp_path):
     index = json.loads(targets(store, root)[root / "spec" / "projections" / "ru-index.json"])
     assert all("segment" not in ru.raw for ru in store.rus())
     assert all("segment" in record for record in index["rus"])
+
+
+def test_literal_scan_accepts_a_directory_as_well_as_a_file_glob(tmp_path):
+    """The key originally meant DIRECTORIES. Narrowing it to files made every
+    config written against the old meaning validate cleanly and sweep nothing —
+    configured, passing and dead, which no warning could catch because the key
+    still existed. Both shapes work, and neither teaches core a language: naming
+    files says which are source, naming a directory says everything here is."""
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    (root / "crate" / "tests").mkdir(parents=True)
+    (root / "crate" / "tests" / "a.rs").write_text("assert_eq!(x, 90);\n")
+
+    for pattern in ('["**/tests"]', '["**/tests/*.rs"]'):
+        (root / "rqunit.toml").write_text(f"[stacks.rust]\nliteral_scan = {pattern}\n")
+        findings = scan_literals(Store.load(root), root)
+        assert any("crate/tests/a.rs" in f for f in findings), (pattern, findings)
+
+
+def test_literal_scan_has_no_default(tmp_path):
+    """A default is a claim about repository layout. The one this key used to
+    carry (`**/tests`) is a Cargo convention that would sweep nothing for a Node
+    or JVM consumer while looking configured — absent must mean the sweep does
+    not run, visibly."""
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    (root / "crate" / "tests").mkdir(parents=True)
+    (root / "crate" / "tests" / "a.rs").write_text("assert_eq!(x, 90);\n")
+    (root / "rqunit.toml").write_text("[stacks.rust]\n")
+
+    assert scan_literals(Store.load(root), root) == []

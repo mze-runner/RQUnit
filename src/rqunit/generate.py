@@ -294,12 +294,25 @@ def check_current(store: Store, root: Path) -> list[str]:
 def scan_literals(store: Store, root: Path) -> list[str]:
     """Numeric literals in a consumer's tests that equal a manifest value.
 
-    Every declared stack participates. `literal_scan` names FILES, not
-    directories, so the consumer's own globs carry the only language-specific
-    fact this sweep needs — which files are source. What remains in core is a
-    word-boundary numeric match, which knows nothing about any language. That
-    is what lets a Node stack write `**/__tests__/*.js` and a JVM stack
-    `src/test/java/**/*.java` without core learning either word."""
+    Every declared stack participates. `literal_scan` names files or the
+    directories holding them — a match that is a directory is walked. Both
+    shapes keep the language knowledge in the consumer's glob: naming files
+    says which ones are source, naming a directory says everything in here is,
+    and core learns neither answer. What remains here is a word-boundary
+    numeric match that knows nothing about any language, which is what lets a
+    Node stack write `**/__tests__` or `**/__tests__/*.js` and a JVM stack
+    `src/test/java`, without core learning either word.
+
+    Directories are accepted for a second reason worth recording: the key
+    originally meant directories, and narrowing it to files would have made
+    every config written against the old meaning validate cleanly and sweep
+    nothing — configured, passing, and dead. A key that survives a revision
+    must not quietly change what it means.
+
+    There is NO default. A default is a claim about repository layout, and the
+    one this key used to carry (`**/tests`) is a Cargo convention that would
+    sweep nothing for a Node or JVM consumer while looking configured. Absent
+    means the sweep does not run, which is visible."""
     from .config import load as load_config
     from .lints.base import manifest_value_leaves
     findings = []
@@ -308,9 +321,12 @@ def scan_literals(store: Store, root: Path) -> list[str]:
         for dotted, value in manifest_value_leaves(manifest.raw.get("values") or {}).items():
             if isinstance(value, int) and not isinstance(value, bool) and abs(value) >= 10:
                 values.setdefault(value, []).append(f"{service}:{dotted}")
-    files = sorted({path for stack in load_config(root).stacks
-                    for pattern in stack.literal_scan
-                    for path in Path(root).glob(pattern) if path.is_file()})
+    matched = {path for stack in load_config(root).stacks
+               for pattern in stack.literal_scan
+               for path in Path(root).glob(pattern)}
+    files = sorted({found for path in matched
+                    for found in ([path] if path.is_file()
+                                  else sorted(p for p in path.rglob("*") if p.is_file()))})
     for path in files:
         try:
             text = path.read_text()
