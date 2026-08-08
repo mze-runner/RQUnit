@@ -29,7 +29,7 @@
           "verified_by": {
             "type": "array",
             "description": "Active RUs whose verification cites this model. Generated suites carry no per-test annotations; their traceability is inherited through this list (formats §5).",
-            "items": { "type": "string", "pattern": "^RU-[0-9]{4}$" }
+            "items": { "type": "string", "pattern": "^RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})$" }
           },
           "checks": {
             "type": "array",

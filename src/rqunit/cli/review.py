@@ -15,6 +15,7 @@ from pathlib import Path
 import click
 import yaml
 
+from .. import ids
 from ..schemas import repo_root
 
 
@@ -33,8 +34,9 @@ def main() -> None:
 @click.option("--reviewer", required=True)
 @click.option("--packet", default="", help="The TASK packet whose output was judged.")
 def record(ru_id, store_path, verdict, criterion, note, reviewer, packet) -> None:
-    if not re.match(r"^RU-[0-9]{4}$", ru_id):
-        _fail("Gate 2 records attach to permanent ids (RU-XXXX) — drafts are not reviewable.")
+    if not re.match(ids.permanent_pattern("RU"), ru_id):
+        _fail("Gate 2 records attach to permanent ids (RU-<SEQUENCE> or "
+              "RU-<SEGMENT>-<SEQUENCE>) — drafts are not reviewable.")
     if "@" in reviewer:
         _fail(f"reviewer '{reviewer}' looks like contact info — use a stable handle; "
               "the store is published, emails never enter it (formats §9).")

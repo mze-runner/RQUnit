@@ -18,9 +18,10 @@ properties:
   id:
     type: string
     description: >
-      Draft stage: RU-draft-<ULID>. Active/superseded/retired: RU-XXXX.
+      Draft stage: RU-draft-<ULID>. Active/superseded/retired:
+      RU-<SEQUENCE> or RU-<SEGMENT>-<SEQUENCE> (formats §1).
       Cross-stage constraint enforced in allOf below.
-    pattern: "^RU-(draft-[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})$"
+    pattern: "^(RU-draft-[0-9A-HJKMNP-TV-Z]{26}|RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4}))$"
 
   draft_id:
     type: string
@@ -57,7 +58,7 @@ properties:
 
   supersedes:
     type: string
-    pattern: "^RU-[0-9]{4}$"
+    pattern: "^RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})$"
 
   rationale_ref:
     type: string
@@ -142,7 +143,7 @@ properties:
   link_fingerprints:
     type: object
     description: Cross-artifact reference fingerprints at activation (§7.3).
-    propertyNames: { pattern: "^(RU-[0-9]{4}|ADR-[A-Za-z0-9-]+)$" }
+    propertyNames: { pattern: "^(RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})|ADR-[A-Za-z0-9-]+)$" }
     additionalProperties: { type: string, pattern: "^sha256:[0-9a-f]{64}$" }
 
 allOf:
@@ -150,7 +151,7 @@ allOf:
   - if:
       properties: { status: { enum: [active, superseded, retired] } }
     then:
-      properties: { id: { pattern: "^RU-[0-9]{4}$" } }
+      properties: { id: { pattern: "^RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})$" } }
   # Draft status must use draft id.
   - if:
       properties: { status: { const: draft } }

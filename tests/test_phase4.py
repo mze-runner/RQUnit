@@ -275,3 +275,24 @@ def test_refused_commit_rolls_back_every_written_file(repo):
     assert (repo / "spec" / "ru" / f"RU-draft-{ULID_A}.yaml").exists()  # drafts restored
     assert not list((repo / "spec" / "ru").glob("RU-0101*"))
     assert _git(repo, "status", "--porcelain").stdout == before      # byte-identical state
+
+
+def test_activation_refuses_a_store_holding_ids_it_cannot_allocate_against(repo):
+    """The grammar accepts base-32 permanent ids before the allocator mints
+    them, and `RU-A1B2` is invisible to a decimal listing — so allocation would
+    quietly mint an id sorting BELOW one that already exists, and ids are never
+    rewritten. Refusing is the only outcome that stays repairable."""
+    ru_dir = repo / "spec" / "ru"
+    source = next(ru_dir.glob("RU-0*.yaml"))
+    data = yaml.safe_load(source.read_text())
+    data["id"] = "RU-A1B2"
+    (ru_dir / "RU-A1B2.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+    before = {p.name for p in ru_dir.iterdir()}
+
+    result = CliRunner().invoke(activate_cli, [
+        "batch", "--store", str(repo), "--feature", "FEAT-pilot", "--reviewer", "test-op"])
+    assert result.exit_code != 0
+    assert "RU-A1B2" in result.output and "nothing was written" in result.output
+    assert "sorts" in result.output, "the refusal must say what the damage would be"
+    assert {p.name for p in ru_dir.iterdir()} == before, (
+        "the store was mutated by a run that refused")

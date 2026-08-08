@@ -28,7 +28,7 @@ $defs:
   ru_link:
     type: string
     description: Governing RU or FEAT (bidirectional traceability, §6.6).
-    pattern: "^(RU-[0-9]{4}|FEAT-[a-z0-9-]+)$"
+    pattern: "^(RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})|FEAT-[a-z0-9-]+)$"
   ident:
     type: string
     pattern: "^[a-z][a-z0-9_]*$"

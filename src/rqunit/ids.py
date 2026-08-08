@@ -65,7 +65,11 @@ BASE = len(ALPHABET)
 SEQ_WIDTH = 4
 SEQ_CEILING = BASE ** SEQ_WIDTH - 1              # RU-ZZZZ
 
-SEQ_PATTERN = rf"[{ALPHABET}]{{{SEQ_WIDTH}}}"
+# The alphabet as a regex, written in RANGES rather than by interpolating
+# ALPHABET: it is embedded in checked-in schema patterns a human reads, and
+# `[0-9A-HJKMNP-TV-Z]` is the spelling this codebase already uses for ULIDs.
+# Two spellings of one set is a drift class, so a test pins them together.
+SEQ_PATTERN = rf"[0-9A-HJKMNP-TV-Z]{{{SEQ_WIDTH}}}"
 
 # A segment is a NAME, not a number, so it uses the full alphabet — excluding O
 # from "ORDERS" would be absurd. It carries exactly one prohibition: it may not
@@ -91,16 +95,26 @@ _VALUE = {char: value for value, char in enumerate(ALPHABET)}
 _CONFUSABLE = {"I": "1", "L": "1", "O": "0", "U": "V"}
 
 
+def permanent_body(kind: str) -> str:
+    """The unanchored shape, for embedding in a larger alternation.
+
+    Several schemas accept an RU id *or* a draft *or* a FEAT, so they need the
+    shape without anchors. The capture groups ride along — JSON Schema ignores
+    them, and one spelling that is slightly noisy in YAML beats two spellings
+    that agree by hand."""
+    return rf"{kind}-(?:({SEGMENT_PATTERN})-)?({SEQ_PATTERN})"
+
+
 def permanent_pattern(kind: str) -> str:
     """The regex for one kind's permanent ids, segmented or not.
 
-    INTENDED as the single source for the shape: the filename matchers in
-    `store.py`, the `RU-…` patterns in the pack schemas, and every read-site
-    that matches an id by hand. They do NOT derive from it yet — the schema
-    patterns are literal strings in checked-in YAML and nothing generates them
-    — so the meta-test that pins them against this function lands with the
-    commit that moves the first caller, not after."""
-    return rf"^{kind}-(?:({SEGMENT_PATTERN})-)?({SEQ_PATTERN})$"
+    The single source for the shape: the filename matchers in `store.py`, the
+    `RU-…` patterns in the pack schemas, and every read-site that matches an id
+    by hand. The schema patterns are literal strings in checked-in YAML and
+    nothing generates them, so agreement is enforced by a meta-test rather than
+    by construction — the same arrangement the field-charset patterns use, and
+    for the same reason: they drifted once."""
+    return rf"^{permanent_body(kind)}$"
 
 
 def encode(number: int) -> str:

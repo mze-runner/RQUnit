@@ -123,3 +123,82 @@ def test_malformed_tokens_are_distinct_from_unresolved(store, token):
 def test_unresolved_reference_raises(store):
     with pytest.raises(UnresolvedRef):
         store.resolve_ref("{endpoint:launch_missiles}", "service-orders")
+
+
+# ------------------------------------------------- permanent id grammar
+
+def _clone_ru(root: Path, source_id: str, new_id: str) -> Path:
+    import yaml
+    data = yaml.safe_load((root / "spec" / "ru" / f"{source_id}.yaml").read_text())
+    data["id"] = new_id
+    path = root / "spec" / "ru" / f"{new_id}.yaml"
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    return path
+
+
+@pytest.mark.parametrize("new_id", [
+    "RU-ORD-01A2",          # segmented
+    "RU-01A2",              # unsegmented, base-32
+    "RU-ORDERMGT-ZZZZ",     # longest segment, highest sequence
+])
+def test_the_loader_accepts_every_permanent_id_shape(tmp_path, new_id):
+    """The grammar is one shape in one place; a store may carry segmented and
+    unsegmented ids at once, because a requirement that governs everything
+    belongs to no domain."""
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    _clone_ru(root, "RU-0142", new_id)
+    assert new_id in {ru.id for ru in Store.load(root).rus()}
+
+
+BAD_IDS = [
+    "RU-01O2",              # O is excluded so it cannot be read as 0
+    "RU-01a2",              # case is never folded
+    "RU-012",               # short of the sequence width
+    "RU-CART-0001",         # a segment the sequence alphabet can spell
+    "RU-ord-0001",          # segments are uppercase
+]
+
+
+@pytest.mark.parametrize("bad_id", BAD_IDS)
+def test_the_filename_layer_refuses_an_id_outside_the_grammar(tmp_path, bad_id):
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    _clone_ru(root, "RU-0142", bad_id)
+    with pytest.raises(UnknownArtifact):
+        Store.load(root)
+
+
+@pytest.mark.parametrize("bad_id", BAD_IDS)
+def test_the_schema_layer_refuses_the_same_ids_independently(tmp_path, bad_id):
+    """Filename and `id:` field are separate gates, and `_clone_ru` moves them
+    in lockstep — so every case above stops at the filename and the schema
+    pattern is never reached. Give the file a LEGAL name and a bad field, and
+    the widened pattern gets the fail coverage a rule is required to ship."""
+    import shutil
+
+    import yaml
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    path = _clone_ru(root, "RU-0142", "RU-0143")
+    data = yaml.safe_load(path.read_text())
+    data["id"] = bad_id
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    with pytest.raises(SchemaInvalid):
+        Store.load(root)
+
+
+def test_the_refusal_names_the_character_and_the_digit_it_was_meant_to_be(tmp_path):
+    """Hard rule: error messages are the teaching surface. Excluding O from the
+    alphabet earns nothing unless the reader who typed one is told which digit
+    they meant — a message merely mentioning base-32 does not do that."""
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    _clone_ru(root, "RU-0142", "RU-01O2")
+    with pytest.raises(UnknownArtifact) as caught:
+        Store.load(root)
+    message = str(caught.value)
+    assert "O" in message and "excludes" in message and "0" in message

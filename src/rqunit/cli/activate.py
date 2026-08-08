@@ -19,6 +19,7 @@ committed and the tree is restorable.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -121,6 +122,24 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
 
     # ---- allocate ids from the directory listing (§7.1)
     ru_dir = Path(root) / "spec" / "ru"
+
+    # The loader accepts base-32 and segmented ids; this allocator still mints
+    # decimal ones. A store carrying both is a store this verb cannot serve:
+    # `RU-A1B2` is invisible to a decimal listing, so the next id would come out
+    # small and sort BELOW an id that already exists — and ids are never
+    # rewritten, so that is permanent. Refuse rather than mint into it.
+    foreign = sorted(p.stem for p in ru_dir.glob("RU-*.yaml")
+                     if not p.stem.startswith("RU-draft-")
+                     and not re.fullmatch(rf"RU-[0-9]{{{ID_WIDTH}}}", p.stem))
+    if foreign:
+        _fail(f"this store carries permanent id(s) this build cannot allocate against "
+              f"({', '.join(foreign[:5])}) — nothing was written.\n"
+              "    They are legal store contents (formats §1), but allocation here is "
+              "still decimal, and minting beside them would produce an id that sorts "
+              "BEFORE one that already exists. Ids are never rewritten, so that "
+              "damage is permanent. Use a build whose allocator matches the ids the "
+              "store already holds.")
+
     taken = [int(p.stem.split("-")[1]) for p in ru_dir.glob("RU-[0-9]*.yaml")]
     next_id = (max(taken) + 1) if taken else 1
     highest = next_id + len(members) - 1

@@ -34,7 +34,7 @@ properties:
     items:
       type: string
       description: RU/FEAT ids, manifest keys (service:section.key), or model ids this gap holds.
-      pattern: "^(RU-(draft-[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})|FEAT-[a-z0-9-]+|MDL-[a-z0-9-]+|[a-z0-9-]+:[a-z_.]+)$"
+      pattern: "^(RU-draft-[0-9A-HJKMNP-TV-Z]{26}|RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})|FEAT-[a-z0-9-]+|MDL-[a-z0-9-]+|[a-z0-9-]+:[a-z_.]+)$"
   status:    { enum: [open, resolved, withdrawn] }
   resolution:
     type: object

@@ -24,6 +24,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import ids
 from .checks.base import run_checks
 from .config import Stack, load as load_config
 from .invoke import run_role, validate_payload
@@ -118,7 +119,7 @@ def build_report(store: Store, root: Path,
             continue
         if check.verifies:
             for ru_id in check.verifies:
-                if not re.match(r"^RU-[0-9]{4}$", ru_id):
+                if not re.match(ids.permanent_pattern("RU"), ru_id):
                     report.invalid_annotations.append(
                         f"{check.id}: verifies '{ru_id}' is not an RU id (formats §5)")
                 elif ru_id not in active:
@@ -157,14 +158,14 @@ def _base_ids(root: Path, against: str) -> set[str]:
     repository top level, so both transports resolve store paths through the
     repo prefix — `REF:path` alone resolves from the top level and would
     read the wrong tree."""
-    ids: set[str] = set()
+    observed: set[str] = set()
     for stack in _scanner_stacks(root):
         role = stack.adapter.scanner
         if role.artifact:
-            ids |= _artifact_ids_at(root, against, role.artifact)
+            observed |= _artifact_ids_at(root, against, role.artifact)
         else:
-            ids |= _worktree_ids(root, against, stack)
-    return ids
+            observed |= _worktree_ids(root, against, stack)
+    return observed
 
 
 def _artifact_ids_at(root: Path, against: str, artifact: str) -> set[str]:

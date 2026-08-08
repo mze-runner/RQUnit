@@ -6,10 +6,13 @@ ships an internal contradiction no consumer can work around.
 Representative shapes are sampled from the schema's own patterns; if a schema
 pattern widens, add its new shape here in the same change."""
 
+import re
+import string
 from pathlib import Path
 
 import pytest
 
+from rqunit import ids
 from rqunit.errors import MalformedRef
 from rqunit.parser.tokens import _KEY_ENDPOINT, extract
 from rqunit.schemas import load_schema
@@ -156,3 +159,117 @@ def test_no_shipped_text_advertises_a_stale_conformance_range():
         f"the reconciler emits up to CF{highest}; these advertise a different ceiling:\n  "
         + "\n  ".join(stale)
     )
+
+
+# --------------------------------------------------------------- id shape
+# `ids` is the single source for what a permanent id looks like, but the
+# schema patterns are literal strings in checked-in YAML/JSON that nothing
+# generates. "Single source" is therefore a claim these tests enforce rather
+# than something construction guarantees — the same arrangement, and the same
+# reason, as the field-charset coupling above.
+
+def _shipped_schema_texts() -> dict[str, str]:
+    """Every schema this pack ships — the checked-in pack YAML AND the pinned
+    adapter interface contracts. Discovered, never enumerated: a hand-kept list
+    of sites is the thing most likely to go stale, which would defeat the
+    coupling it exists to provide."""
+    import rqunit
+    base = Path(rqunit.__file__).parent
+    found = {}
+    for directory in (base / "pack" / "schemas", base / "interfaces"):
+        for path in sorted(directory.glob("*.json")) + sorted(directory.glob("*.yaml")):
+            found[str(path.relative_to(base))] = path.read_text()
+    return found
+
+
+def _ru_patterns() -> list[tuple[str, str]]:
+    """(where, pattern) for every shipped pattern that mentions a PERMANENT RU
+    id. Draft-only patterns are the ULID grammar wearing the same prefix and
+    are legitimately narrower, so they are excluded by shape rather than by a
+    list of exceptions."""
+    permanent_mention = re.compile(r"RU-(?!draft-)")
+    quoted = re.compile(r'"pattern":\s*"((?:[^"\\]|\\.)*)"'      # JSON
+                        r"|pattern:\s*\"((?:[^\"\\]|\\.)*)\"")   # YAML flow scalar
+    out = []
+    for where, text in _shipped_schema_texts().items():
+        for match in quoted.finditer(text):
+            raw = match.group(1) or match.group(2)
+            pattern = raw.encode().decode("unicode_escape") if "\\\\" in raw else raw
+            if permanent_mention.search(pattern):
+                out.append((where, pattern))
+    return out
+
+
+# A corpus wide enough that a pattern edited by hand cannot agree with `ids` by
+# accident: legal shapes, near-misses, and the confusables the alphabet drops.
+ID_CORPUS = [
+    "RU-0001", "RU-0142", "RU-01A2", "RU-ZZZZ", "RU-A1B2",
+    "RU-ORD-0001", "RU-ORD-01A2", "RU-ORDERMGT-ZZZZ", "RU-AUTH-0001",
+    "RU-CART-0001", "RU-PYMT-0001",            # segment the sequence can spell
+    "RU-01O2", "RU-01I2", "RU-01L2", "RU-01U2",  # excluded characters
+    "RU-01a2", "RU-ord-0001", "RU-012", "RU-00012", "RU-",
+    "RU-abc123", "RU-0001-ORD", "RU-ORD-ORD-0001", "RU-ORDERMGMT-0001",
+    "RU-draft-01J3F8KQZ2ABCDEFGHJKMNPQRS",
+]
+
+
+def test_every_shipped_id_pattern_accepts_exactly_what_the_loader_accepts():
+    """The invariant, stated as behaviour rather than as text: for every RU-ish
+    string, a schema must reach the same verdict as `ids`. Substring containment
+    would pass a pattern hand-widened with an extra alternative — which is the
+    drift this exists to catch, so the corpus is compared verdict by verdict.
+
+    Patterns that legitimately accept more than RU ids (a GAP subject may name a
+    FEAT; a draft is not a permanent id) are compared only on the RU-permanent
+    subset, which is the part `ids` owns."""
+    found = _ru_patterns()
+    assert found, "no shipped schema mentions an RU id — the sweep found nothing to check"
+
+    truth = re.compile(ids.permanent_pattern("RU"))
+    problems = []
+    for where, pattern in found:
+        compiled = re.compile(pattern)
+        for candidate in ID_CORPUS:
+            if candidate.startswith("RU-draft-"):
+                continue          # drafts are the ULID grammar, not this one
+            if bool(truth.fullmatch(candidate)) or not compiled.fullmatch(candidate):
+                continue
+            problems.append(f"{where} accepts {candidate!r}, which is not a permanent RU id")
+    assert not problems, (
+        "shipped schema pattern(s) drifted from `ids.permanent_pattern('RU')`:\n  "
+        + "\n  ".join(problems)
+        + "\n  Regenerate them from `ids` in the change that alters the grammar.")
+
+
+def test_every_shipped_id_pattern_still_accepts_every_legal_id():
+    """The other direction: a NARROWED pattern refuses ids the loader admits,
+    which is how a store becomes unloadable by its own schema."""
+    truth = re.compile(ids.permanent_pattern("RU"))
+    legal = [c for c in ID_CORPUS if truth.fullmatch(c)]
+    problems = [f"{where} refuses {candidate!r}"
+                for where, pattern in _ru_patterns()
+                for candidate in legal
+                if not re.compile(pattern).fullmatch(candidate)]
+    assert not problems, "shipped schema pattern(s) narrower than the grammar:\n  " + "\n  ".join(problems)
+
+
+def test_the_status_conditional_pins_the_permanent_shape_too():
+    """The `allOf` branch that forbids a draft id on an active RU is the rule
+    that makes activation meaningful; it is also the easiest one to miss when
+    the grammar moves, because it lives away from `properties`."""
+    branches = load_schema("ru")["allOf"]
+    permanent = [b for b in branches
+                 if b.get("if", {}).get("properties", {}).get("status", {}).get("enum")]
+    assert permanent, "the active/superseded/retired id branch is gone"
+    for branch in permanent:
+        assert branch["then"]["properties"]["id"]["pattern"] == ids.permanent_pattern("RU")
+
+
+def test_the_regex_alphabet_and_the_string_alphabet_are_the_same_set():
+    """`SEQ_PATTERN` spells the alphabet in ranges for readability inside
+    schema patterns; `ALPHABET` spells it out for the arithmetic. Two spellings
+    of one set is a drift class, so they are coupled here rather than by eye."""
+    sequence = re.compile(f"^{ids.SEQ_PATTERN}$")
+    for char in string.digits + string.ascii_uppercase + string.ascii_lowercase:
+        run = char * ids.SEQ_WIDTH
+        assert bool(sequence.match(run)) == (char in ids.ALPHABET), char

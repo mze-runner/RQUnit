@@ -11,7 +11,7 @@ for tooling; changes are schema-revision events, not edits.
 | Artifact | Filename | Id form |
 |---|---|---|
 | RU (draft) | `spec/ru/RU-draft-<ULID>.yaml` | `RU-draft-<ULID>` (Crockford base32, 26 chars) |
-| RU (permanent) | `spec/ru/RU-XXXX.yaml` | `RU-` + zero-padded 4-digit monotonic |
+| RU (permanent) | `spec/ru/RU-<SEQ>.yaml` or `spec/ru/RU-<SEGMENT>-<SEQ>.yaml` | `RU-` + optional segment + 4-character base-32 sequence |
 | FEAT | `spec/features/FEAT-<slug>.yaml` | `FEAT-<slug>` |
 | GAP | `spec/gaps/GAP-<ULID>.yaml` | `GAP-<ULID>` |
 | Manifest | `spec/manifests/<service>.manifest.yaml` | service slug; `shared` reserved |
@@ -19,11 +19,24 @@ for tooling; changes are schema-revision events, not edits.
 | ADR | `spec/rationale/ADR-<slug>.md` | `ADR-<slug>` (pattern `ADR-[A-Za-z0-9-]+`) |
 | Packet | `spec/packets/TASK-<id>.packet.md` (re-runs: `.v2`, `.v3` suffix before `.packet.md`) | task id from the operator's task system |
 
-Filename ↔ `id` field mismatch is an L9 error. The four-digit width is a
-CEILING, not a default: it is compiled into every schema pattern, filename and
-cross-reference, so widening it is a store-wide migration in one commit — every
-id renamed, every reference rewritten, never mixed widths. Activation refuses
-rather than crossing it, and `rqunit doctor` warns while there is still runway.
+Filename ↔ `id` field mismatch is an L9 error.
+
+**The sequence** is exactly four characters from the Crockford base-32 alphabet
+`0123456789ABCDEFGHJKMNPQRSTVWXYZ`, zero-padded. I, L, O and U are excluded so
+they cannot be read as 1 and 0; the alphabet ascends in ASCII order, so
+lexicographic sort is allocation order. Case is never folded and the excluded
+characters are never accepted: an id has exactly one legal spelling.
+
+**The segment** is optional: 2–8 characters, uppercase, beginning with a letter,
+and never anything the sequence alphabet can spell — `CART` would make `RU-CART`
+ambiguous, while `AUTH` and `ORDS` are fine because U and O are not in the
+alphabet.
+
+The four-character width is a CEILING, not a default: it is compiled into every
+schema pattern, filename and cross-reference, so widening it is a store-wide
+migration in one commit — every id renamed, every reference rewritten, never
+mixed widths. Activation refuses rather than crossing it, and `rqunit doctor`
+warns while there is still runway.
 
 ## 2. Reference token grammar (EBNF)
 
@@ -134,7 +147,7 @@ derived from the JSON, never a separate code path.
 | Generated conformance suites | no per-test annotations — a sidecar `spec/projections/trace-map.json` `{ "check_id": ["RU-…"] }` emitted by the generator from the model's RU links |
 | Infrastructure tests | `verifies: infrastructure` (audited bucket, §6.6) |
 
-`spec-trace` resolves all four sources; an id failing the `RU-XXXX` pattern or
+`spec-trace` resolves all four sources; an id failing the permanent-id pattern (§1) or
 resolving to no active RU is an L14 error.
 
 ## 6. Task packet layout
@@ -242,7 +255,7 @@ fingerprints: sha256 of the raw file bytes. One canonicalizer implementation,
 exported by the store loader — L19, L20, and `spec-activate` MUST share it
 (three implementations of "canonical" is how canonical dies).
 
-**Gate 2 record** — `spec/reviews/RU-XXXX/<iso8601-basic>-<slug>.yaml`,
+**Gate 2 record** — `spec/reviews/<RU id>/<iso8601-basic>-<slug>.yaml`,
 append-only (CI rejects modification/deletion of existing records):
 
 ```yaml
