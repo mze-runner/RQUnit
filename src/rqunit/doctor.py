@@ -258,10 +258,28 @@ def stack_config_health(root: Path) -> list[Finding]:
                            "authority for this stack's passthrough keys."))
             continue
         if manifest is None:
-            # No manifest, no judgment — and no note either: until adapter
-            # distribution ships a manifest a consumer can actually point at,
-            # a finding whose fix is impossible teaches people to ignore
-            # doctor, which is the one thing it must not do.
+            # No manifest, no judgment. This used to be silent too, on the
+            # grounds that no consumer could point at one — an adapter shipped
+            # only as source in this repository. That premise is gone: the
+            # adapter is obtainable, so `manifest = "…"` is a fix a reader can
+            # actually apply, and withholding the note now hides the fact that
+            # a whole table of their configuration is unchecked.
+            #
+            # Scoped to stacks that HAVE passthrough keys. A stack with none
+            # loses nothing by having no manifest, and a note whose subject is
+            # empty is the noise that teaches people to skim doctor.
+            if stack.options:
+                keys = ", ".join(sorted(stack.options)[:6])
+                out.append(Finding(
+                    kind="stack-config", severity="info",
+                    message=(f"[stacks.{stack.name}] declares {len(stack.options)} "
+                             f"adapter-owned key(s) that nothing validates ({keys}) — "
+                             "no adapter manifest is wired."),
+                    suggestion="Point `manifest = \"…\"` at the adapter's adapter.yaml. It "
+                               "is the vocabulary authority for this stack's passthrough "
+                               "keys, and core deliberately never interprets them — so "
+                               "until it is wired, a typo reads as configured and surfaces "
+                               "as the role that needed the key behaving oddly."))
             continue
         for problem in stack_declaration_problems(root, stack):
             out.append(Finding(

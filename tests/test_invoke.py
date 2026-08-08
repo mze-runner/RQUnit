@@ -174,11 +174,26 @@ def test_manifest_catches_a_declared_role_the_adapter_does_not_ship(tmp_path):
 
 # ------------------------------------------------------------ doctor surfacing
 
-def test_doctor_stays_quiet_when_no_manifest_exists_to_judge_against(tmp_path):
-    """A finding whose fix is impossible teaches people to ignore doctor —
-    until a consumer can actually obtain a manifest, no manifest means no
-    judgment and no note."""
+def test_doctor_says_when_a_whole_config_table_is_unchecked(tmp_path):
+    """Core deliberately never interprets passthrough keys, so without a
+    manifest NOTHING validates them and a typo reads as configured. This note
+    was withheld while no consumer could obtain a manifest — a finding whose
+    fix is impossible teaches people to ignore doctor — and that premise no
+    longer holds."""
     (tmp_path / "rqunit.toml").write_text('[stacks.rust]\ntrace_scan = ["x"]\n')
+    findings = [f for f in stack_config_health(tmp_path) if f.kind == "stack-config"]
+    assert len(findings) == 1 and findings[0].severity == "info"
+    assert "trace_scan" in findings[0].message
+    assert "manifest" in findings[0].suggestion
+
+
+def test_doctor_says_nothing_about_a_stack_with_nothing_to_validate(tmp_path):
+    """A stack declaring no passthrough keys loses nothing by having no
+    manifest. A note whose subject is empty is the noise that teaches people to
+    skim doctor, which costs more than the note earns."""
+    (tmp_path / "rqunit.toml").write_text(
+        '[stacks.rust]\nliteral_scan = ["**/tests/*.rs"]\n'
+        '[stacks.rust.adapter]\nextractor = { artifact = "surface.json" }\n')
     assert stack_config_health(tmp_path) == []
 
 
