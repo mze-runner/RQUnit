@@ -12,7 +12,7 @@ from ..checks.base import run_checks
 from ..errors import StoreError
 from ..schemas import repo_root
 from ..store import Store
-from ..violations import Violation, build_report, exit_code, render_text
+from ..violations import build_report, exit_code, render_text, schema_violation
 
 
 @click.command()
@@ -33,10 +33,7 @@ def main(store_path: Path | None, only: str | None, fmt: str, strict: bool) -> N
         checked = (len(store.rus()) + len(store.features()) + len(store.gaps())
                    + len(store.manifests()) + len(store.models()) + len(store.intents()))
     except StoreError as e:
-        violations = [Violation(
-            rule="SCHEMA", severity="error", artifact=Path(e.path).name if e.path else "store",
-            path=e.path or str(root), message=str(e),
-        )]
+        violations = [schema_violation(e, root)]
         checked = 0
     except Exception as e:
         click.echo(f"spec-check: tool error: {e}", err=True)

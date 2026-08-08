@@ -13,7 +13,7 @@ from ..errors import BadConfig, StoreError
 from ..lints.base import run_lints
 from ..schemas import repo_root
 from ..store import Store
-from ..violations import Violation, build_report, exit_code, render_text
+from ..violations import Violation, build_report, exit_code, render_text, schema_violation
 
 
 @click.command()
@@ -75,10 +75,7 @@ def main(store_path: Path | None, only: str | None, fmt: str, strict: bool) -> N
     except StoreError as e:
         # A store that cannot load is itself the finding (schema stage red),
         # not a tool error.
-        violations = [Violation(
-            rule="SCHEMA", severity="error", artifact=Path(e.path).name if e.path else "store",
-            path=e.path or str(root), message=str(e),
-        )]
+        violations = [schema_violation(e, root)]
         checked = 0
     except Exception as e:  # tool failure — exit 2 per the CLI contract
         click.echo(f"spec-lint: tool error: {e}", err=True)

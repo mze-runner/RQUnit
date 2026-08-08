@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
-from jsonschema import ValidationError
+from jsonschema.exceptions import best_match
 
 from . import ids
 from .errors import (
@@ -28,7 +28,7 @@ from .errors import (
     UnresolvedRef,
 )
 from .parser.tokens import TokenError, parse_one
-from .schemas import validator
+from .schemas import describe_violation, validator
 
 _IGNORED = {"README.md", ".gitkeep", ".DS_Store"}
 
@@ -152,10 +152,9 @@ def _validate(kind: str, data: dict, path: Path) -> None:
     # Schemas are framework-level: they always come from the repo's
     # spec/framework/, never from the store being loaded — a fixture store
     # carries content artifacts only.
-    try:
-        validator(kind).validate(data)
-    except ValidationError as e:
-        raise SchemaInvalid(str(path), e.message) from e
+    error = best_match(validator(kind).iter_errors(data))
+    if error is not None:
+        raise SchemaInvalid(str(path), describe_violation(error))
 
 
 @dataclass
