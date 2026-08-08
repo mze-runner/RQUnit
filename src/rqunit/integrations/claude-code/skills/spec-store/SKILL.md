@@ -76,7 +76,9 @@ is visible debt, not a broken build. Read the current census from the tool, neve
 Drafting never collides (ULID draft ids). Activation can: permanent ids come
 from the local listing, so **merge drafts first, activate once** — `activate
 batch` refuses from a branch behind its upstream (`--allow-stale-branch`
-overrides). If two branches did activate independently, git raises an add/add
+overrides). Segments narrow the window rather than closing it: each is its own
+sequence, so two sittings in different domains cannot collide, but two in the
+same one still can. If two branches did activate independently, git raises an add/add
 conflict; recover by reverting the losing activation commit (one atomic commit
 by design — the revert restores its drafts), rebasing, and re-running
 activation. Never hand-renumber. Generated artifacts (`spec/projections/`,

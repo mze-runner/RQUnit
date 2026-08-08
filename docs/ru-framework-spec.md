@@ -32,7 +32,8 @@ stale; the adapter rewrites its own sources. A fourth probe role, `evidence`, an
 `spec/check-evidence/` record which checks have demonstrated they can fail; L26
 reports the ones that never have (§6.8). L14 newness becomes base-vs-head set difference
 over scanner observations, never diff-line inspection (§6.6 states the
-widened-scan and rename consequences). **Consumers MUST act:** register a
+widened-scan and rename consequences). Permanent ids gain a base-32 sequence and an optional
+segment: `RU-ORD-01A2`, four Crockford characters per segment rather than four decimal digits store-wide, with the segments a store allocates into declared in `spec/framework/segments.yaml` and guarded by C16. Segments bound ALLOCATION and ownership, never verification — every rule stays store-wide, because a domain able to contradict another unnoticed is what a single shared store exists to prevent. A segment name is the one vocabulary here that is permanent: add and close, never rename or merge. Absence of a segment is a positive claim — this governs the store — which is the constitutional tier, and L27 reports a draft whose declaration contradicts its tier while the choice is still free (§7.1, formats §1). Gap-in-the-sequence detection retires with the decimal scheme, because under one base a gap between consecutive allocations is an artefact of the alphabet; `rqunit doctor` now compares what version control records as deleted against what the store still carries. **Consumers MUST act:** register a
 shim in `spec/framework/shims.yaml` for every model whose suite really runs
 (an unregistered one counts as no depth, so a draft relying on it can no longer
 activate under a `min_mechanical` rule until the shim lands), declare
@@ -40,7 +41,11 @@ adapter roles in `[stacks.<name>.adapter]` — the extractor's write target
 moves to `extractor = { artifact = "…" }` — delete `trace_diff`, and wire a
 scanner role before using `rqunit trace --against`. Recording runs with
 `rqunit evidence record` is optional: without it L26 simply has nothing to
-report, which is the honest answer for a store that has observed nothing;
+report, which is the honest answer for a store that has observed nothing. **No id
+migration is required and none is supported:** decimal ids are already valid base-32
+ids whose reinterpretation preserves order, so every existing id keeps its spelling
+and its place and the next allocation lands after all of them. Segments are opt-in —
+a store that declares none carries none, and its drafts omit the field;
 v0.14.0: one vocabulary — the manifest IS the
 contract. `spec/contracts/` and the `contract` verification type retire; a shape
 is a manifest fact and an RU binds to one by addressing it in the statement.

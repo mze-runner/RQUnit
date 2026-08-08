@@ -470,7 +470,9 @@ segments:
 ```
 
 Checked by C16: each entry a table, each `name` legal under §1 and declared
-once, each with a stated `domain`, and every segment an id uses declared here.
+once, each with a stated `domain` (a warning — nothing reads it), and every
+segment an id uses declared here. Once this file exists, L27 reports a draft
+whose segment declaration contradicts its tier, in either direction.
 
 **Two edits are supported: add a segment, and close one.** Activation refuses to
 allocate into a segment this file does not declare, and refuses a closed one —

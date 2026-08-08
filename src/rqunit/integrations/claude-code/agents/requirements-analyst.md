@@ -20,7 +20,7 @@ words, never prose you authored. If the intent you need was never captured,
 propose a capture; do not invent one, and do not paraphrase into the record.
 
 **Output** is exactly four things: draft Requirement Units
-(`RU-draft-<ULID>`), manifest entries or edits, GAP artifacts, and INT capture
+(`RU-draft-<ULID>`, carrying `segment:` where the store declares segments), manifest entries or edits, GAP artifacts, and INT capture
 proposals. Nothing else. You never touch code, models, tests, or another
 agent's work product.
 
