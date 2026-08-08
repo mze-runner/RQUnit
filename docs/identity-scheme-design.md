@@ -79,6 +79,13 @@ lexicographic sort is allocation order — `0000 → 0001 → 000Z → 0010 → 
 **Capacity: 1,048,576 per segment** in the same four characters that hold
 10,000 today, multiplied again by the number of segments.
 
+A segment name is 2–8 uppercase characters starting with a letter, and carries
+exactly one prohibition: **it may not be something the sequence alphabet can
+spell**, or `RU-CART` would read as an id whose sequence is `CART`. The
+prohibition is narrow on purpose — the alphabet's own exclusions already make
+`AUTH`, `ORDS`, `RISK` and `BILL` unambiguous, and refusing by length instead
+would bar those four forever for a collision they cannot have.
+
 A store's first thousand ids look almost decimal (`RU-ORD-0034` is the 100th),
 with letters appearing gradually. This is pleasant for adoption and carries one
 trap: `RU-0142` read as decimal is 142, read as base-32 is 1,346. The existing
@@ -194,15 +201,35 @@ design, not a compromise being tolerated.
 
 ## 5. What this costs
 
-**Migration of an existing store is a supersession-scale event** and should be
-avoided rather than performed. `canonical_hash` covers `statement`, `scope`,
-`verification` and `tier` — not the id — so re-identifying does not by itself
-invalidate stamps. But the id lives in filenames, `verifies:` annotations in
-consumer source, Gate 2 review directory names, and committed packets, none of
-which can be rewritten without breaking history that is append-only by design.
+**The base change costs no migration at all.** A decimal id is already a valid
+base-32 id: `0142` re-read in base-32 is 1346. Because the decimal digits are
+the first ten characters of the alphabet, that reinterpretation is
+order-preserving and injective, and never reads an id as *smaller* than it
+meant — so every legacy id keeps its spelling, keeps its place in the sort, and
+the next allocation lands after all of them. Nothing is rewritten: not
+filenames, not `verifies:` annotations in consumer source, not Gate 2 review
+directory names, not committed packets.
 
-The honest path for existing stores is therefore: **keep existing ids, allocate
-new ones under the new scheme.** Which is what §4.4 already requires.
+That matters because rewriting any of those would break history that is
+append-only by design. (`canonical_hash` covers `statement`, `scope`,
+`verification` and `tier` — not the id — so re-identifying would not invalidate
+stamps; the cost was never the hash.) Segments are then purely additive, which
+is what §4.4 already requires.
+
+**Density-based gap detection is a casualty, and it is a semantic change rather
+than a width one.** `doctor.id_gaps` reports every integer between the lowest
+and highest id that no RU carries, on the reasoning that allocation is dense so
+a hole means a lost RU. Under base-32 a decimal-spelled store is *sparse by
+construction* — `0009` is 9 and `0010` is 32 — so a perfectly healthy store
+would be told it has thousands of gaps and sent to hunt merge losses in
+`git log`. Nothing distinguishes the two regimes per id, because `RU-0142` is a
+legal spelling under both; no flag repairs this.
+
+So `id_gaps` must be decided in the same commit that flips decoding, not ported.
+The invariant it was reaching for — *every id ever allocated is still present* —
+is knowable from review records and packet history, which are evidence rather
+than arithmetic. Either re-found it on those or retire it. `id_headroom` is
+unaffected and survives as-is.
 
 **Two live allocators.** A segmented store allocates per segment *and*
 continues allocating unsegmented ids for new constitutional requirements. A new
@@ -214,8 +241,12 @@ with a nicer name.
 (`store.py`, `doctor.py`, `trace.py`, `cli/review.py`, `cli/activate.py`,
 `lints/l04.py`) and 10 schema patterns (`ru`, `gap`, `feat`, `manifest`). All
 must move together; a half-applied width is how a migration becomes permanent
-damage. `ID_WIDTH` and `ID_CEILING` in `store.py` are already the single source
-for the current width and should remain so.
+damage — and the two widths are both 4, so a half-applied one keeps *passing*
+until a store crosses 9,999. `ids.py` owns the new arithmetic; `store.py`'s
+`ID_WIDTH`/`ID_CEILING` describe the decimal scheme and must not be compared
+against it. A meta-test pinning every shipped `RU-…` schema pattern to
+`ids.permanent_pattern` lands with the first moved caller, because "one source"
+that nothing enforces is exactly the drift this framework exists to catch.
 
 ## 6. Deliberately not decided
 
@@ -246,6 +277,7 @@ Gate-1-governed like every other vocabulary.
 5. Segments are **optional**, and absence means *store-wide*, matching the
    constitutional tier the store already has.
 6. Segment names are **permanent**: add and close, never rename or merge.
-7. Existing ids are **not migrated**. Mixed forms coexist by design; mixed
-   *bases* never do.
+7. Existing ids are **not migrated** — and need not be, because decimal ids are
+   valid base-32 ids whose reinterpretation preserves order. Mixed forms
+   coexist by design; mixed *bases* never do.
 8. Logical grouping stays in **FEAT and tags**, where re-cutting is free.
