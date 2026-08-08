@@ -16,7 +16,7 @@ from rqunit.store import Store
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 LINTS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9",
          "L10", "L11", "L12", "L13", "L15", "L16", "L17", "L18",
-         "L19", "L20", "L21", "L22", "L24", "L25", "L26",
+         "L19", "L20", "L21", "L22", "L24", "L25", "L26", "L27",
          # The statechart dialect family (§6.3): graph facts the schema cannot
          # express. M5 is deliberately absent — event vocabulary resolves
          # against manifests, which makes it C8's cross-artifact question.
@@ -318,3 +318,85 @@ def test_m4_is_visible_debt_not_a_block():
     assert all(v.severity == "warning" for v in _run("M4", "fail"))
     for code in ("M1", "M2", "M3", "M6"):
         assert all(v.severity == "error" for v in _run(code, "fail"))
+
+
+def test_l27_is_silent_in_a_store_that_never_adopted_segments(tmp_path):
+    """Segments are optional and a store may legitimately never take them up.
+    A rule that fires on a shape nobody opted into is not enforcing a decision,
+    it is demanding one."""
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(FIXTURES / "lints" / "L27" / "fail", root)
+    (root / "spec" / "framework" / "segments.yaml").unlink()
+    assert [v for v in run_lints(Store.load(root)) if v.rule == "L27"] == []
+
+
+def test_l27_leaves_permanent_ids_alone():
+    """An active RU minted before its store adopted segments can never acquire
+    one — ids are never rewritten. Reporting it would be a warning with no
+    available fix, which is how a tool teaches people to ignore it."""
+    store = Store.load(FIXTURES / "lints" / "L27" / "fail")
+    flagged = {v.artifact for v in _run("L27", "fail")}
+    actives = {ru.id for ru in store.rus() if ru.status != "draft"}
+    assert actives, "no active RU in the fixture — this test would be vacuous"
+    assert not (flagged & actives)
+
+
+def test_l27_exempts_the_population_that_is_meant_to_be_unsegmented():
+    """Unsegmented is a positive claim — 'this governs the store' — and the
+    schema already makes that the constitutional tier by letting it omit
+    `scope.owns` where every other tier must carry one."""
+    store = Store.load(FIXTURES / "lints" / "L27" / "pass")
+    tiers = {ru.raw.get("tier") for ru in store.rus() if ru.status == "draft"}
+    assert "constitutional" in tiers, "no constitutional draft to exempt"
+    assert _run("L27", "pass") == []
+
+
+def test_l27_names_the_segments_the_store_actually_declares():
+    """A suggestion telling someone to pick a segment without saying which ones
+    exist sends them to a file to find out. Assert it against the registry, not
+    against literals — the point is that the two agree."""
+    import re
+
+    from rqunit.segments import declared
+
+    root = FIXTURES / "lints" / "L27" / "fail"
+    for violation in _run("L27", "fail"):
+        offered = set(re.findall(r"\b[A-Z][A-Z0-9]{1,7}\b", violation.suggestion))
+        assert declared(root) <= offered, violation.suggestion
+
+
+def test_l27_catches_the_mirror_mistake_too():
+    """A constitutional draft carrying a segment is the same confusion inverted,
+    and the more expensive one: the allocator honours the field regardless of
+    tier, so it mints a permanent segmented id for a store-wide invariant."""
+    import shutil
+
+    import yaml
+    root = FIXTURES / "lints" / "L27" / "pass"
+    with __import__("tempfile").TemporaryDirectory() as tmp:
+        copy = Path(tmp) / "store"
+        shutil.copytree(root, copy)
+        target = next(p for p in (copy / "spec" / "ru").glob("RU-draft-*.yaml")
+                      if yaml.safe_load(p.read_text()).get("tier") == "constitutional")
+        data = yaml.safe_load(target.read_text())
+        data["segment"] = "ORD"
+        target.write_text(yaml.safe_dump(data, sort_keys=False))
+
+        flagged = [v for v in run_lints(Store.load(copy)) if v.rule == "L27"]
+        assert flagged and "constitutional" in flagged[0].message
+        assert "Drop `segment:`" in flagged[0].suggestion
+
+
+def test_l27_survives_a_registry_it_cannot_parse(tmp_path):
+    """L27 is the first lint to read segments.yaml, so letting a parse error
+    escape would abandon the whole run — every other lint unreported — over one
+    mis-indented line, under a message about a file nobody touched."""
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(FIXTURES / "lints" / "L27" / "fail", root)
+    (root / "spec" / "framework" / "segments.yaml").write_text("segments:\n  - name: ORD\n   bad\n")
+
+    violations = run_lints(Store.load(root))
+    assert [v for v in violations if v.rule == "L27"] == []
+    assert violations is not None      # the run completed rather than aborting

@@ -65,7 +65,7 @@ at the repo root — the tools carry no consumer paths in code.
 |---|---|---|
 | `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`, and the agent-runtime templates into `.claude/`. Reports the stack it detected; refuses a non-empty store; never overwrites a runtime file the consumer already has | once, at adoption |
 | `rqunit init --refresh-integrations` | rewrite the agent-runtime templates and touch nothing else. They teach the current vocabulary, so a store on a newer tool with older templates is being taught the wrong one | after upgrading the tool |
-| `rqunit lint [--only L3]` | lints L1–L26 + the M dialect family, and `rqunit.toml` itself — a config the loader rejects is a `CONFIG` error here, not a tool error somewhere else, and a retired key still sitting where core used to read it is a `CONFIG` warning naming its successor | after any spec/ edit |
+| `rqunit lint [--only L3]` | lints L1–L27 + the M dialect family, and `rqunit.toml` itself — a config the loader rejects is a `CONFIG` error here, not a tool error somewhere else, and a retired key still sitting where core used to read it is a `CONFIG` warning naming its successor | after any spec/ edit |
 | `rqunit check [--only C4]` | consistency C1–C16 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
@@ -344,6 +344,7 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | L24 | finding | a bound literal that restates a registered `values` entry — reference it instead; `finding` because two numbers can coincide innocently |
 | L25 | error | the shall-clause subject names a declared service, and the same one the RU's scope owns. `the system` claims no service and is exempt |
 | L26 | finding | a `test`-type verification whose check has been observed green and never red — it has not demonstrated it can fail. Never an error: a check written before its code legitimately has no red, and blocking that rewards theatrical failure (§6.8) |
+| L27 | warning | a DRAFT whose segment declaration contradicts its tier, in a store that has adopted segments: a standard draft naming none (Gate 1 would mint it store-wide), or a constitutional draft naming one (a permanent segmented id for a store-wide invariant). Drafts only — a permanent id can never acquire or shed a segment, so the same warning about an active RU would have no available fix |
 
 ### Consistency checks (`rqunit check`)
 

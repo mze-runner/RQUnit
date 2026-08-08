@@ -1,0 +1,10 @@
+id: RU-draft-01J3F8KQZ2ABCDEFGHJKMNPQRB
+statement: The system shall record an audit event for every state-changing action.
+syntax: ears
+status: draft
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: TODO(fixture)
+tier: constitutional
+tags: [orders]

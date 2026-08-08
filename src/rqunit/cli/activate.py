@@ -150,7 +150,8 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
             _fail(f"{finding.message} {finding.suggestion} "
                   "(--allow-stale-branch overrides.)")
 
-    red = [v for v in run_lints(store) + run_checks(store) if v.severity == "error"]
+    verdicts = run_lints(store) + run_checks(store)
+    red = [v for v in verdicts if v.severity == "error"]
     if red:
         for v in red[:10]:
             click.echo(f"  [{v.rule}] {v.artifact}: {v.message}", err=True)
@@ -170,6 +171,21 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
     if not members:
         _fail("empty batch — nothing to activate.")
     members.sort(key=lambda r: r.id)
+
+    # Non-blocking verdicts about THESE drafts, shown once, here. Several rules
+    # exist to be read at the moment a permanent id is minted — after which
+    # their advice is unfollowable — and a warning nobody renders is a warning
+    # that did not happen. Errors already stopped the run above; these are for
+    # the reviewer to weigh, which is what a Gate 1 sitting is.
+    batch_ids = {ru.id for ru in members}
+    advisory = [v for v in verdicts
+                if v.severity != "error" and v.artifact in batch_ids]
+    if advisory:
+        click.echo(f"{len(advisory)} advisory finding(s) about this batch — "
+                   "these do not block, and the ids are permanent afterwards:")
+        for v in advisory:
+            click.echo(f"  [{v.rule}/{v.severity}] {v.artifact}: {v.message}")
+            click.echo(f"      {v.suggestion}")
 
     policy = load_policy(store)
     if policy:

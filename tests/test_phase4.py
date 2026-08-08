@@ -360,3 +360,16 @@ def test_activation_refuses_a_closed_segment(repo):
     result = _draft_into(repo, "ORD")
     assert result.exit_code != 0
     assert "closed" in result.output and "nothing was written" in result.output
+
+
+def test_gate_one_shows_advisory_findings_about_the_batch(repo):
+    """Warnings never block activation, and until now they were never printed
+    either — so a rule whose whole purpose is to be read at the moment a
+    permanent id is minted was invisible at exactly that moment. Errors stop
+    the run; these are for the reviewer to weigh, which is what a sitting is."""
+    _declare(repo, "segments:\n  - name: ORD\n    domain: order management\n")
+    result = _draft_into(repo, None)          # drafts own things, declare no segment
+    assert result.exit_code == 0, result.output
+    assert "L27" in result.output
+    assert "do not block" in result.output
+    assert "ORD" in result.output, "the suggestion must reach the reviewer, not just the message"

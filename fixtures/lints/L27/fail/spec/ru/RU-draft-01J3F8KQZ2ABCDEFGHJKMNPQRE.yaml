@@ -1,0 +1,11 @@
+id: RU-draft-01J3F8KQZ2ABCDEFGHJKMNPQRE
+statement: The system shall expire an idle session within 30 minutes.
+syntax: ears
+status: draft
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: TODO(fixture)
+scope:
+  owns: [service-orders/sessions]
+tags: [orders]
