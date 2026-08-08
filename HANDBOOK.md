@@ -287,6 +287,26 @@ per-stack pieces, and every judgment lives in the framework — so supporting a
 language costs an adapter, never a second copy of the rules, and never a core
 change.
 
+**Where an adapter comes from, and where you point at it.** Core never builds
+one and never invokes a language toolchain, so obtaining the binary belongs to
+your build the way any other dev tool does. Two shapes are supported, and the
+difference matters the moment a config is committed:
+
+| Shape | Declare | When |
+|---|---|---|
+| PATH | `cmd = ["rqunit-scan-checks"]` | the default. Install it wherever your team and CI already install tools — this is the only shape that is correct on every machine rather than on the one that wrote it |
+| in-repo | `cmd = ["tools/rqunit/scan-checks"]` | a path under the STORE root, built or vendored by your own pipeline |
+| artifact | `artifact = "path/to.json"` | no binary at all: an earlier pipeline step already looked and wrote down what it saw |
+
+A path outside the store — a sibling checkout of the adapter's source — resolves
+for its author and for nobody else, CI included; `rqunit doctor` reports a `cmd`
+that resolves to neither a file under the store nor PATH. Artifact mode is the
+zero-dependency option for every role **except the stripper**, whose answer
+depends on a request core computes moments earlier, so a committed file would be
+an earlier run's edits applied to today's source. Off-boarding therefore needs a
+working command: if being able to leave matters to you, wire the stripper while
+adoption is easy rather than when you want out.
+
 An extractor's repo-specific inputs — which router functions mount at which
 prefix and tier, where subject constants live, which manifest service the
 artifact is keyed by — are `[stacks.*]` config in `rqunit.toml`, never

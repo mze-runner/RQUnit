@@ -97,6 +97,24 @@ service = ""
 # Each role is either a command core execs (cmd = ["..."], argv, no shell) or
 # an artifact an earlier pipeline step produced (artifact = "path"). A role
 # left undeclared is unavailable — reported as such, never silently skipped.
+#
+# WHERE THE COMMAND COMES FROM. Core never builds an adapter and never invokes
+# a language toolchain; obtaining the binary is your build's job, and there are
+# two supported shapes:
+#
+#   PATH        cmd = ["rqunit-scan-checks"]
+#               Installed wherever your team and CI already install tools. This
+#               is the shape to commit: it is the only one that is correct on
+#               every machine rather than on the machine that wrote it.
+#   in-repo     cmd = ["tools/rqunit/scan-checks"]
+#               A path under THIS store's root, built or vendored by your own
+#               pipeline. Committing a path outside the store — a sibling
+#               checkout of the adapter's source, say — resolves for its author
+#               and for nobody else, including CI.
+#
+# `rqunit doctor` reports a cmd that resolves to neither. Artifact mode needs no
+# binary at all and is the zero-dependency option for every role EXCEPT the
+# stripper, whose answer depends on a request core computes moments earlier.
 
 [stacks.rust.adapter]
 # Where this stack's extractor writes actual-surface.json — the artifact
@@ -107,8 +125,8 @@ extractor = { artifact = "spec-conformance-tests/actual-surface.json" }
 # pipeline and declare artifact = "path" instead. In artifact mode L14 judges
 # the artifact, not your sources — regenerate it in the same pipeline step
 # that runs the gate.
-# scanner = { cmd = ["adapters/rust/target/release/scan-checks"] }
-# emitter = { cmd = ["adapters/rust/target/release/emit-suite"] }
+# scanner = { cmd = ["rqunit-scan-checks"] }
+# emitter = { cmd = ["rqunit-emit-suite"] }
 # The off-ramp. `rqunit trace --strip` removes the trace annotations adoption
 # asked you to write into your own tests — the orphaned ones by default, all of
 # them with --all. Declare it and off-boarding is one command; leave it out and
@@ -116,14 +134,14 @@ extractor = { artifact = "spec-conformance-tests/actual-surface.json" }
 # loud rather than reporting a sweep it never performed. cmd only: a stripper
 # answers a request computed from today's store, so no committed artifact can
 # be that answer.
-# stripper = { cmd = ["adapters/rust/target/release/strip-annotations"] }
+# stripper = { cmd = ["rqunit-strip-annotations"] }
 # The evidence probe reads your runner's output and reports which checks
 # passed and which failed; `rqunit evidence record` folds a run into the
 # ledger. Without it nothing can tell a check that has demonstrated it can
 # fail from one that has only ever been green (L26).
 # evidence = { artifact = "spec-conformance-tests/check-evidence.json" }
 # The adapter's manifest, declaring its roles and the config keys it reads.
-# manifest = "adapters/rust/adapter.yaml"
+# manifest = "tools/rqunit/adapter.yaml"
 
 # HTTP composition: which router function, in which file, mounts at what prefix
 # under which access tier. One table per mounted router.
