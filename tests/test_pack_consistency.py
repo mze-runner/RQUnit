@@ -253,13 +253,25 @@ def test_every_shipped_id_pattern_still_accepts_every_legal_id():
     assert not problems, "shipped schema pattern(s) narrower than the grammar:\n  " + "\n  ".join(problems)
 
 
+def test_the_draft_segment_field_pins_the_segment_grammar():
+    """The `segment` field's pattern is a hand copy of `ids.SEGMENT_ALONE`, and
+    the RU-id sweep above cannot see it — it carries no `RU-` prefix. Left
+    uncoupled, widening or narrowing the segment rule gives a draft the schema
+    admits whose name `format_id` then refuses, with no diagnosis at all."""
+    pattern = load_schema("ru")["properties"]["segment"]["pattern"]
+    assert pattern == ids.SEGMENT_ALONE
+    for name in ("ORD", "AUTH", "ORDS", "CART", "PYMT", "X", "ord", "0RD", "ORDERMGMT"):
+        assert bool(re.match(pattern, name)) == ids.is_segment(name), name
+
+
 def test_the_status_conditional_pins_the_permanent_shape_too():
     """The `allOf` branch that forbids a draft id on an active RU is the rule
     that makes activation meaningful; it is also the easiest one to miss when
     the grammar moves, because it lives away from `properties`."""
     branches = load_schema("ru")["allOf"]
     permanent = [b for b in branches
-                 if b.get("if", {}).get("properties", {}).get("status", {}).get("enum")]
+                 if b.get("if", {}).get("properties", {}).get("status", {}).get("enum")
+                 and "properties" in b.get("then", {})]
     assert permanent, "the active/superseded/retired id branch is gone"
     for branch in permanent:
         assert branch["then"]["properties"]["id"]["pattern"] == ids.permanent_pattern("RU")

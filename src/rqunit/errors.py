@@ -27,8 +27,10 @@ class UnknownArtifact(StoreError):
 
 
 class BadConfig(StoreError):
-    """rqunit.toml is unparseable or carries unknown tables/keys — a typo
-    silently ignored would read as configured, so strictness is the kindness."""
+    """A configuration file is unparseable or carries unknown tables/keys —
+    `rqunit.toml`, or one of the consumer-owned registries under
+    `spec/framework/`. A typo silently ignored would read as configured, so
+    strictness is the kindness."""
 
 
 class MalformedRef(StoreError):

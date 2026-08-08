@@ -32,12 +32,12 @@ from .schemas import validator
 
 _IGNORED = {"README.md", ".gitkeep", ".DS_Store"}
 
-# The DECIMAL scheme's width. `ids` owns the shape a store may contain; these
-# two describe what the allocator still mints, and what the intent family — for
-# which no scheme is decided — is still bounded by. They are not the same
-# number as `ids.SEQ_WIDTH` even though both are 4: one counts decimal digits,
-# the other base-32 characters, and comparing an `ids.decode` result against
-# ID_CEILING is meaningless. Nothing may do that.
+# The INTENT family's width. RU ids moved to `ids` (base-32, per segment); no
+# scheme has been decided for intents, so they remain decimal four-digit — and
+# nothing allocates them, which makes doctor's headroom warning their only
+# guard rail. NOT interchangeable with `ids.SEQ_WIDTH` despite both being 4:
+# one counts decimal digits, the other base-32 characters, so comparing an
+# `ids.decode` result against ID_CEILING is meaningless. Nothing may do that.
 ID_WIDTH = 4
 ID_CEILING = 10 ** ID_WIDTH - 1                 # RU-9999, INT-9999
 

@@ -332,36 +332,60 @@ class _FakeRu:
 
 
 class _FakeStore:
-    """Both numbered families, independently positioned."""
-    def __init__(self, ru_top=1, int_top=1):
-        self._ru, self._int = ru_top, int_top
-    def rus(self): return [_FakeRu(f"RU-{self._ru:04d}")]
+    """Both numbered families, independently positioned. RU is allocated per
+    segment and in base-32; INT is still the decimal four-digit family, which
+    is why the two are positioned against different ceilings."""
+    def __init__(self, ru_top=1, int_top=1, segment=None):
+        self._ru, self._int, self._segment = ru_top, int_top, segment
+    def rus(self):
+        from rqunit import ids
+        return [_FakeRu(ids.format_id("RU", self._segment, self._ru))]
     def intents(self): return [f"INT-{self._int:04d}"]
 
 
 def test_doctor_warns_with_runway_before_the_id_ceiling():
-    """Widening the id width is a store-wide migration, so the only useful
+    """Widening the sequence width is a store-wide migration, so the only useful
     moment to hear about it is well before the sitting that needs it."""
+    from rqunit import ids
     from rqunit.doctor import _HEADROOM_WARN, id_headroom
     from rqunit.store import ID_CEILING
 
-    far = ID_CEILING - _HEADROOM_WARN - 1
-    assert id_headroom(_FakeStore(ru_top=far, int_top=far)) == []          # quiet
-    findings = id_headroom(_FakeStore(ru_top=ID_CEILING - 1, int_top=far))
+    far_ru = ids.SEQ_CEILING - _HEADROOM_WARN - 1
+    far_int = ID_CEILING - _HEADROOM_WARN - 1
+    assert id_headroom(_FakeStore(ru_top=far_ru, int_top=far_int)) == []       # quiet
+
+    findings = id_headroom(_FakeStore(ru_top=ids.SEQ_CEILING - 1, int_top=far_int))
     assert len(findings) == 1 and findings[0].kind == "id-headroom"
-    assert "1 RU id(s) left" in findings[0].message
+    assert "1 id(s) left" in findings[0].message
     assert "migration" in findings[0].suggestion
+
+
+def test_headroom_is_measured_per_segment_because_allocation_is():
+    """Each segment is its own sequence, so a store can be comfortable overall
+    and out of room in one domain. Measuring the store as a whole would report
+    runway that the sitting cannot actually use."""
+    from rqunit import ids
+    from rqunit.doctor import id_headroom
+
+    findings = id_headroom(_FakeStore(ru_top=ids.SEQ_CEILING - 1, segment="ORD"))
+    assert len(findings) == 1
+    assert "segment ORD" in findings[0].message
+    assert "RU-ORD-" in findings[0].message
+    assert "another segment" in findings[0].suggestion, (
+        "the nearest fix is a different segment, not a width migration")
 
 
 def test_doctor_warns_for_intents_too_and_says_nothing_guards_them():
     """The gap in the first version of this warning: it watched RU only, so a
     store could sail into the INT ceiling while being told its runway was
     healthy. Intents differ in kind — no verb allocates them, so unlike
-    activation nothing will refuse, and the message must not imply otherwise."""
+    activation nothing will refuse, and the message must not imply otherwise.
+    They are also still decimal, so their wall is far nearer than RU's."""
+    from rqunit import ids
     from rqunit.doctor import _HEADROOM_WARN, id_headroom
     from rqunit.store import ID_CEILING
 
-    far = ID_CEILING - _HEADROOM_WARN - 1
+    far = ids.SEQ_CEILING - _HEADROOM_WARN - 1
     findings = id_headroom(_FakeStore(ru_top=far, int_top=ID_CEILING - 3))
     assert len(findings) == 1
     assert "3 INT id(s) left" in findings[0].message
@@ -370,23 +394,28 @@ def test_doctor_warns_for_intents_too_and_says_nothing_guards_them():
 
 
 def test_both_families_are_reported_independently():
+    from rqunit import ids
     from rqunit.doctor import id_headroom
     from rqunit.store import ID_CEILING
 
-    findings = id_headroom(_FakeStore(ru_top=ID_CEILING - 2, int_top=ID_CEILING - 5))
-    assert {f.message.split()[1] for f in findings} == {"RU", "INT"}
+    findings = id_headroom(_FakeStore(ru_top=ids.SEQ_CEILING - 2,
+                                      int_top=ID_CEILING - 5))
+    assert len(findings) == 2
+    assert any("INT" in f.message for f in findings)
+    assert any("unsegmented space" in f.message for f in findings)
 
 
-def test_the_ceiling_message_never_prints_an_impossible_id():
-    """`f"{n:04d}"` pads but never truncates, so the over-ceiling number
-    renders as a plausible-looking id. Printing it invites the reader to go
-    looking for RU-10000, which cannot exist."""
-    from rqunit.store import ID_CEILING
+def test_the_encoder_refuses_the_ceiling_rather_than_padding_past_it():
+    """The decimal scheme's hazard was that `f"{n:04d}"` pads but never
+    truncates, so an over-ceiling number rendered as a plausible id and only the
+    schema caught it — at the END of a sitting, as "unknown artifact". Base-32
+    encoding closes that class by construction: there is no spelling for a
+    number past the ceiling, so the refusal happens in arithmetic, before
+    anything is written."""
+    import pytest
 
-    over = f"RU-{ID_CEILING + 1}"
-    source = (Path(__file__).parent.parent / "src" / "rqunit" / "cli"
-              / "activate.py").read_text()
-    ceiling_block = source.split("permanent id ceiling reached")[1].split('")')[0]
-    assert "highest" in ceiling_block
-    assert "{highest}" not in ceiling_block, (
-        f"the refusal renders the over-ceiling number ({over}) as an id")
+    from rqunit import ids
+
+    assert ids.encode(ids.SEQ_CEILING) == "Z" * ids.SEQ_WIDTH
+    with pytest.raises(ValueError):
+        ids.encode(ids.SEQ_CEILING + 1)

@@ -4,12 +4,11 @@ An id is a label humans say out loud; a sequence is a number the allocator
 increments. Everything painful about ids comes from those two facts being
 implemented in more than one place, so they are implemented here, once.
 
-`store.py` still carries `ID_WIDTH`/`ID_CEILING` from the decimal scheme, and
-until its callers move, TWO ceilings exist in the tree — `9999` there and
-`ZZZZ` here. They are not interchangeable, and the coincidence that both widths
-are 4 is the dangerous part: the constants agree by accident while meaning
-decimal digits in one place and base-32 characters in the other, so a
-half-applied migration keeps passing. Nothing may read one and compare against
+`store.py` keeps `ID_WIDTH`/`ID_CEILING` for the INTENT family, which has no
+scheme decided and remains decimal four-digit. Two ceilings therefore coexist —
+`9999` there and `ZZZZ` here — and the coincidence that both widths are 4 is the
+dangerous part: they agree by accident while meaning decimal digits in one place
+and base-32 characters in the other. Nothing may read one and compare against
 the other.
 
 The shape (design paper: `docs/identity-scheme-design.md`):
@@ -82,11 +81,16 @@ SEQ_PATTERN = rf"[0-9A-HJKMNP-TV-Z]{{{SEQ_WIDTH}}}"
 # (CART, PYMT) is refused. Refusing by LENGTH instead would bar seven such
 # names for a collision they cannot have — and segment names are a one-way
 # door, so a name refused today is refused forever.
-SEGMENT_PATTERN = rf"(?!{SEQ_PATTERN}-)[A-Z][A-Z0-9]{{1,7}}"
+_SEGMENT_CORE = r"[A-Z][A-Z0-9]{1,7}"
 
-# The lookahead is written against the separator that follows a segment inside
-# an id, so a bare name is tested by appending it. One spelling of the rule.
-_SEGMENT = re.compile(rf"^{SEGMENT_PATTERN}-$")
+# The rule has two forms because a segment has two contexts, and the ONLY
+# difference between them is what follows the name: a separator inside an id, or
+# nothing at all when it stands alone as a schema field or a registry entry.
+# Both derive from one core and one alphabet, so the prohibition cannot drift.
+SEGMENT_PATTERN = rf"(?!{SEQ_PATTERN}-){_SEGMENT_CORE}"        # inside an id
+SEGMENT_ALONE = rf"^(?!{SEQ_PATTERN}$){_SEGMENT_CORE}$"        # a bare name
+
+_SEGMENT = re.compile(SEGMENT_ALONE)
 _VALUE = {char: value for value, char in enumerate(ALPHABET)}
 
 # What a confusable character was probably meant to be. The whole point of the
@@ -198,7 +202,4 @@ def format_id(kind: str, segment: str | None, number: int) -> str:
 
 
 def is_segment(name: str) -> bool:
-    # The trailing separator is what `SEGMENT_PATTERN`'s lookahead measures
-    # against — see its definition. Appending it here keeps one spelling of
-    # the rule rather than a second regex kept in lockstep by hand.
-    return bool(_SEGMENT.match(f"{name}-"))
+    return bool(_SEGMENT.match(name))

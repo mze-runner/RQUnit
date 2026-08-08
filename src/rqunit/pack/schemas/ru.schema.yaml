@@ -28,6 +28,15 @@ properties:
     description: The pre-activation ULID, recorded by spec-activate at Gate 1.
     pattern: "^RU-draft-[0-9A-HJKMNP-TV-Z]{26}$"
 
+  segment:
+    type: string
+    description: >
+      Which id space to allocate into at Gate 1 (formats §1). DRAFTS ONLY —
+      once activated the id carries the segment, and a second copy of the same
+      fact is a drift class. Declared by the reviewer, never derived from
+      scope.owns: segments and services are many-to-many.
+    pattern: "^(?![0-9A-HJKMNP-TV-Z]{4}$)[A-Z][A-Z0-9]{1,7}$"
+
   statement:
     type: string
     minLength: 20
@@ -152,6 +161,12 @@ allOf:
       properties: { status: { enum: [active, superseded, retired] } }
     then:
       properties: { id: { pattern: "^RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})$" } }
+  # `segment` is an allocation instruction, consumed at Gate 1. Once the id
+  # carries it, a second copy is free to disagree with the id.
+  - if:
+      properties: { status: { enum: [active, superseded, retired] } }
+    then:
+      not: { required: [segment] }
   # Draft status must use draft id.
   - if:
       properties: { status: { const: draft } }

@@ -1,0 +1,19 @@
+id: RU-AUTH-0001
+statement: 'The system shall expire an idle session within 30 minutes.
+
+  '
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: TODO(fixture)
+scope:
+  owns:
+  - service-orders/sessions
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:ef2896cbd78eec25dc3cdf8c642c72e46097c6765d200dca9652a386a1965787
+  by: fixture-op
+  at: '2026-01-15T09:30:00+00:00'

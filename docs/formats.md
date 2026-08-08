@@ -27,16 +27,28 @@ they cannot be read as 1 and 0; the alphabet ascends in ASCII order, so
 lexicographic sort is allocation order. Case is never folded and the excluded
 characters are never accepted: an id has exactly one legal spelling.
 
+A store carries ONE base. Decimal-spelled ids remain legal and are read as
+base-32 — `RU-0142` is 1346, not 142 — which is what lets a store that started
+decimal continue in base-32 without rewriting a single id: the reinterpretation
+preserves order, so every existing id keeps its spelling and its place, and the
+next allocation lands after all of them. Reading one store in two bases is the
+failure this rule exists to prevent.
+
 **The segment** is optional: 2–8 characters, uppercase, beginning with a letter,
 and never anything the sequence alphabet can spell — `CART` would make `RU-CART`
 ambiguous, while `AUTH` and `ORDS` are fine because U and O are not in the
-alphabet.
+alphabet. Each segment is its own sequence, and the unsegmented space is a space
+like any other. A draft names the space it will be allocated into with a
+`segment` field; the field is consumed at Gate 1, because from then on the id
+carries the fact and a second copy could disagree with it. Segments are declared
+in `segments.yaml` (§14c) and must be declared before their first id is minted.
 
 The four-character width is a CEILING, not a default: it is compiled into every
 schema pattern, filename and cross-reference, so widening it is a store-wide
 migration in one commit — every id renamed, every reference rewritten, never
-mixed widths. Activation refuses rather than crossing it, and `rqunit doctor`
-warns while there is still runway.
+mixed widths and never mixed bases. The ceiling is per segment, so allocating
+into another segment is usually the nearer answer. Activation refuses rather
+than crossing it, and `rqunit doctor` warns per space while there is runway.
 
 ## 2. Reference token grammar (EBNF)
 
@@ -436,6 +448,45 @@ identity space (`scanned-checks.schema.json`), which is what lets evidence
 attach to a check an RU verifies against. A check carrying `first_green` and no
 `first_red` is what L26 reports (spec §6.8) — the framework's evidence about
 its own checks, never the consumer's audit record (§5.10).
+
+## 14c. The segment registry
+
+`spec/framework/segments.yaml` — the domains this store allocates ids into.
+Consumer-owned and Gate-1-governed like the tag and actor vocabularies, but
+unlike them it is NOT scaffolded: `rqunit init` writes no segments file, because
+a taxonomy chosen at the moment a store knows least is the fastest way to a
+taxonomy nobody obeys. The file is created when a store adopts its first
+segment. An absent file means the store has none and its ids carry none, which
+is a complete state rather than an unfinished one.
+
+```yaml
+segments:
+  - name: ORD                       # the name its ids carry (§1)
+    domain: order management — placement, amendment, cancellation
+  - name: BILL
+    domain: invoicing and settlement
+    closed: true                    # allocates nothing further; its ids keep working
+    note: folded into order management            # optional
+```
+
+Checked by C16: each entry a table, each `name` legal under §1 and declared
+once, each with a stated `domain`, and every segment an id uses declared here.
+
+**Two edits are supported: add a segment, and close one.** Activation refuses to
+allocate into a segment this file does not declare, and refuses a closed one —
+so closure is a working retirement path rather than a note. A segment name is
+the only vocabulary in this store that cannot be corrected. It appears in
+filenames, in gate stamps, in Gate 2 review directory names, in committed
+packets, and in `verifies:` annotations inside the consumer's own source — and
+ids are never rewritten — so renaming or merging a segment is a mass
+supersession, not an edit. Removing an entry whose ids exist leaves them naming
+a domain the store no longer declares; `closed: true` is the retirement path
+that does not.
+
+Segments bound **allocation and ownership, never verification.** C1 compares
+RUs against each other, C9 spans services, and L13 caps constitutional RUs
+store-wide — a limit that is only meaningful because it is global. No rule
+partitions by segment, and none may.
 
 ## 15. Stack declarations (`rqunit.toml`)
 

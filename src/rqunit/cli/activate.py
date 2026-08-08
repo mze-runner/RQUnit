@@ -19,7 +19,6 @@ committed and the tree is restorable.
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -30,6 +29,7 @@ from pathlib import Path
 import click
 import yaml
 
+from .. import ids
 from ..canonical import canonical_hash, expected_fingerprints
 from ..checks.base import run_checks
 from ..errors import StoreError
@@ -37,12 +37,83 @@ from ..impact import build_report, diff_manifests, manifest_at_ref, render
 from ..lints.base import run_lints
 from ..lints.l21 import first_matching_rule, load_policy, violation_reason
 from ..schemas import repo_root
-from ..store import ID_CEILING, ID_WIDTH, Store
+from ..store import Store
 
 
 @click.group()
 def main() -> None:
     """Gate 1 activation tooling."""
+
+
+def _allocate(root, ru_dir: Path, members: list) -> dict[str, str]:
+    """Draft id → permanent id, allocated per segment from the directory listing.
+
+    Each segment is its own sequence: `RU-ORD-0001` and `RU-AUTH-0001` are
+    different ids in different spaces, and the unsegmented space is a space like
+    any other — the one constitutional requirements live in, because a
+    requirement that governs everything belongs to no domain (formats §1).
+
+    A draft names its space with a `segment` field. It is DECLARED, never
+    derived from `scope.owns`: segments and services are many-to-many — a
+    monolith legitimately hosts three domains and one domain legitimately spans
+    several services — so deriving would silently impose the physical axis and
+    be wrong on both shapes.
+
+    Ordering is why this reads the LISTING rather than a counter: `max + 1`
+    over what exists cannot mint an id that already exists, and a `NEXT_ID`
+    file races across branches (§7.1)."""
+    from ..segments import declared, open_segments
+
+    known, allocatable = declared(root), open_segments(root)
+    taken: dict[str | None, int] = {}
+    for path in ru_dir.glob("RU-*.yaml"):
+        try:
+            segment, number = ids.split(path.stem, "RU")
+        except ValueError:
+            continue                       # a draft: no sequence to reserve
+        taken[segment] = max(taken.get(segment, 0), number)
+
+    wanted: dict[str, list] = {}
+    for ru in members:
+        wanted.setdefault(str(ru.raw.get("segment") or ""), []).append(ru)
+
+    for name, batch_members in sorted(wanted.items()):
+        if not name:
+            continue                       # the unsegmented space needs no declaration
+        if name not in known:
+            _fail(f"{batch_members[0].id} asks for segment {name}, which this store does "
+                  f"not declare — nothing was written.\n"
+                  "    Add it to spec/framework/segments.yaml with the domain it "
+                  "governs. The name is permanent from the moment its first id is "
+                  "minted: it lives in filenames, gate stamps, review directory names, "
+                  "packets and `verifies:` annotations in your own source, and ids are "
+                  "never rewritten — so choose it for a domain that outlives teams and "
+                  "services (formats §1, C16).")
+        if name not in allocatable:
+            _fail(f"{batch_members[0].id} asks for segment {name}, which is closed — "
+                  "nothing was written.\n"
+                  "    A closed segment allocates nothing further; its existing ids keep "
+                  "working. Allocate into an open segment, or reopen this one by "
+                  "removing `closed: true` (formats §1).")
+
+    mapping: dict[str, str] = {}
+    for name, batch_members in sorted(wanted.items()):
+        segment = name or None
+        highest = taken.get(segment, 0)
+        room = ids.SEQ_CEILING - highest
+        if room < len(batch_members):
+            space = f"segment {name}" if name else "the unsegmented space"
+            _fail(f"permanent id ceiling reached in {space} — nothing was written. "
+                  f"The highest id it can allocate is {ids.format_id('RU', segment, ids.SEQ_CEILING)}; "
+                  f"it has room for {room} more, and this batch needs {len(batch_members)}.\n"
+                  "    The sequence width is compiled into every schema pattern, "
+                  "filename and cross-reference, so widening it is a store-wide "
+                  "migration in ONE commit — every id renamed, every reference "
+                  "rewritten, never mixed widths (formats §1). Split this batch to "
+                  "fit, allocate into another segment, or run that migration first.")
+        for offset, ru in enumerate(batch_members, start=1):
+            mapping[ru.id] = ids.format_id("RU", segment, highest + offset)
+    return mapping
 
 
 def _validate_reviewer(reviewer: str) -> None:
@@ -120,46 +191,9 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
         _fail("mutating manifest edit(s) present — re-run with --approve-impact after reviewing "
               "the report above (§5.5: a mutating edit without an impact report MUST NOT merge).")
 
-    # ---- allocate ids from the directory listing (§7.1)
+    # ---- allocate ids from the directory listing, per segment (§7.1)
     ru_dir = Path(root) / "spec" / "ru"
-
-    # The loader accepts base-32 and segmented ids; this allocator still mints
-    # decimal ones. A store carrying both is a store this verb cannot serve:
-    # `RU-A1B2` is invisible to a decimal listing, so the next id would come out
-    # small and sort BELOW an id that already exists — and ids are never
-    # rewritten, so that is permanent. Refuse rather than mint into it.
-    foreign = sorted(p.stem for p in ru_dir.glob("RU-*.yaml")
-                     if not p.stem.startswith("RU-draft-")
-                     and not re.fullmatch(rf"RU-[0-9]{{{ID_WIDTH}}}", p.stem))
-    if foreign:
-        _fail(f"this store carries permanent id(s) this build cannot allocate against "
-              f"({', '.join(foreign[:5])}) — nothing was written.\n"
-              "    They are legal store contents (formats §1), but allocation here is "
-              "still decimal, and minting beside them would produce an id that sorts "
-              "BEFORE one that already exists. Ids are never rewritten, so that "
-              "damage is permanent. Use a build whose allocator matches the ids the "
-              "store already holds.")
-
-    taken = [int(p.stem.split("-")[1]) for p in ru_dir.glob("RU-[0-9]*.yaml")]
-    next_id = (max(taken) + 1) if taken else 1
-    highest = next_id + len(members) - 1
-    if highest > ID_CEILING:
-        # `f"{n:04d}"` pads but never truncates, so allocation would happily
-        # produce RU-10000 and only the SCHEMA would reject it — surfacing at
-        # the end of a sitting as "unknown artifact", which names neither the
-        # ceiling nor the fix.
-        room = max(ID_CEILING - next_id + 1, 0)
-        # Never print the over-ceiling number as though it were an id: it is
-        # not one, and showing "RU-10000" invites the reader to look for it.
-        _fail(f"permanent id ceiling reached — nothing was written. The highest id this "
-              f"store can allocate is RU-{ID_CEILING} ({ID_WIDTH} digits); it has room "
-              f"for {room} more, and this batch needs {len(members)}.\n"
-              "    Ids are a published shape: the width is compiled into every schema "
-              "pattern, filename, and cross-reference, so widening it is a store-wide "
-              "migration in ONE commit — every id renamed, every reference rewritten, "
-              "never mixed widths (formats §1). Split this batch to fit, or run that "
-              "migration first.")
-    mapping = {ru.id: f"RU-{next_id + i:0{ID_WIDTH}d}" for i, ru in enumerate(members)}
+    mapping = _allocate(root, ru_dir, members)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     # ---- compute every mutation in memory first
@@ -174,6 +208,10 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
         raw["id"] = new_id
         raw["draft_id"] = ru.id
         raw["status"] = "active"
+        # The permanent id now carries the segment, so the field has done its
+        # job. Keeping it would be a second copy of one fact, free to disagree
+        # with the id — the drift class this framework exists to refuse.
+        raw.pop("segment", None)
         raw["gate1_stamp"] = {"hash": "", "by": reviewer, "at": now}
         fingerprints = expected_fingerprints(store, raw)
         if fingerprints:
@@ -258,9 +296,13 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
             subprocess.run(["git", "-C", str(root), "add", "spec"], check=True)
             for path in regenerated:
                 subprocess.run(["git", "-C", str(root), "add", str(path)], check=True)
-            ids = ", ".join(mapping.values())
+            # NOT `ids`: this module imports the module of that name, and a
+            # local assignment anywhere in a function makes the name local
+            # throughout it — a later `ids.encode` here would raise
+            # UnboundLocalError inside the mutation window.
+            minted = ", ".join(mapping.values())
             subprocess.run(["git", "-C", str(root), "commit", "-m",
-                            f"spec: activate {ids} (Gate 1, reviewer {reviewer})"],
+                            f"spec: activate {minted} (Gate 1, reviewer {reviewer})"],
                            check=True, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
             _restore(journal)

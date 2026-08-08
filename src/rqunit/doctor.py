@@ -19,10 +19,10 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import ids
 from .config import ROLES
 from .store import ID_CEILING, ID_WIDTH, Store
 
-_PERMANENT = re.compile(rf"^RU-([0-9]{{{ID_WIDTH}}})$")
 _INTENT = re.compile(rf"^INT-([0-9]{{{ID_WIDTH}}})$")
 
 # Ids left before the ceiling is worth warning about. Generous on purpose:
@@ -45,24 +45,51 @@ def _verification_refs(store: Store, entry_type: str) -> set[str]:
             if e.get("type") == entry_type}
 
 
-def id_gaps(store: Store) -> list[Finding]:
-    """A hole in the permanent-id sequence usually means an activated RU was
-    lost — most often an add/add merge conflict resolved by keeping one side."""
-    numbers = sorted(int(m.group(1)) for ru in store.rus()
-                     if (m := _PERMANENT.match(ru.id)))
-    if not numbers:
+def lost_rus(store: Store, root: Path) -> list[Finding]:
+    """Permanent RUs git says were deleted and that the store no longer carries.
+
+    This replaces gap-in-the-sequence detection, which base-32 makes unsound. A
+    hole was a good proxy for a lost RU only while allocation was dense, and a
+    decimal-spelled store read as base-32 is sparse BY CONSTRUCTION — `0009` is
+    9 and `0010` is 32, so a healthy store would be told it had thousands of
+    holes and sent to hunt merge losses. Nothing distinguishes the two regimes
+    per id, because `RU-0142` is a legal spelling under both.
+
+    So the check is re-founded on evidence instead of arithmetic. History
+    records the deletion; the store records what survived; the difference is
+    the answer, and it is exactly as true under any future id scheme.
+
+    A shallow clone sees no deletions and therefore reports nothing: silent
+    under-reporting, never a false alarm."""
+    if not shutil.which("git"):
         return []
-    missing = [n for n in range(numbers[0], numbers[-1] + 1) if n not in set(numbers)]
-    if not missing:
+    # `--no-renames` DELIBERATELY defeats git's default rename detection. Every
+    # benign rename subtracts out anyway — a store relocating `spec/ru/` keeps
+    # its ids, and activation's draft→permanent rename is excluded by name below
+    # — so following renames buys nothing here and hides the one event this
+    # framework says is impossible: an id rewritten in place. Under rename
+    # detection that reads as a move and doctor reports a healthy store, which
+    # is the query being told to look away.
+    proc = subprocess.run(
+        ["git", "-C", str(root), "log", "--no-renames", "--diff-filter=D",
+         "--name-only", "--format=", "--", "spec/ru/"],
+        capture_output=True, text=True)
+    if proc.returncode != 0:
+        return []                      # not a repository
+    deleted = {Path(line).stem for line in proc.stdout.split()
+               if line.endswith(".yaml") and not Path(line).stem.startswith("RU-draft-")}
+    gone = sorted(deleted - {ru.id for ru in store.rus()})
+    if not gone:
         return []
-    shown = ", ".join(f"RU-{n:04d}" for n in missing[:12])
-    more = f" (+{len(missing) - 12} more)" if len(missing) > 12 else ""
+    shown = ", ".join(gone[:12])
+    more = f" (+{len(gone) - 12} more)" if len(gone) > 12 else ""
     return [Finding(
-        kind="id-gap", severity="warning",
-        message=f"{len(missing)} gap(s) in the permanent id sequence: {shown}{more}.",
-        suggestion="Ids are allocated consecutively, so a gap usually means an activated RU "
-                   "was dropped — check `git log --diff-filter=D -- spec/ru/` around the "
-                   "missing ids. A deliberate deletion is fine; an unnoticed merge loss is not.")]
+        kind="lost-ru", severity="warning",
+        message=f"{len(gone)} permanent RU(s) were deleted and never restored: {shown}{more}.",
+        suggestion="An activated RU is append-only history — the usual cause is an add/add "
+                   "merge conflict resolved by keeping one side. Find it with "
+                   "`git log --diff-filter=D -- spec/ru/` and restore it, or record that the "
+                   "id was retired. A deliberate deletion is fine; an unnoticed loss is not.")]
 
 
 def id_headroom(store: Store) -> list[Finding]:
@@ -73,39 +100,61 @@ def id_headroom(store: Store) -> list[Finding]:
     sitting that would need it. The threshold is deliberately generous for
     that reason, and no ordinary store trips it.
 
-    The two families differ in one way that matters to the reader. `activate`
-    allocates RU ids and refuses at the ceiling, so an RU store runs out
-    safely. NOTHING allocates INT ids — intents are written by hand or by an
-    analyst agent — so nothing will refuse, and the first capture past the
-    ceiling simply makes the store unloadable. Same wall, no guard rail, and
-    the suggestion has to say so rather than implying the RU protection."""
-    families = (
-        ("RU", [int(m.group(1)) for ru in store.rus() if (m := _PERMANENT.match(ru.id))],
-         "`rqunit activate` refuses at the ceiling rather than crossing it, so this "
-         "is runway, not breakage."),
-        ("INT", [int(m.group(1)) for i in store.intents() if (m := _INTENT.match(i))],
-         "NOTHING allocates intent ids — no verb owns them, so nothing will refuse. "
-         "The first capture past the ceiling makes the store unloadable, which is "
-         "why this warning is the only guard rail intents have."),
-    )
+    The two families differ in two ways that matter to the reader.
+
+    RU is allocated PER SEGMENT, so each segment is its own wall and its own
+    runway — a store may be comfortable overall and out of room in one domain.
+    `activate` refuses at the ceiling rather than crossing it, so an RU store
+    runs out safely.
+
+    INT has no scheme decided at all (design paper §6) and is still a decimal
+    four-digit family with a ten-thousand ceiling — a much nearer wall, and
+    NOTHING allocates intent ids, so nothing will refuse. The first capture
+    past the ceiling simply makes the store unloadable. Same wall, no guard
+    rail, and the suggestion has to say so rather than implying RU's
+    protection."""
     out = []
-    for prefix, numbers, guard in families:
-        if not numbers:
-            continue
-        highest = max(numbers)
-        remaining = ID_CEILING - highest
+
+    spaces: dict[str | None, int] = {}
+    for ru in store.rus():
+        try:
+            segment, number = ids.split(ru.id, "RU")
+        except ValueError:
+            continue                          # a draft: no sequence allocated
+        spaces[segment] = max(spaces.get(segment, 0), number)
+    for segment, highest in sorted(spaces.items(), key=lambda kv: kv[0] or ""):
+        remaining = ids.SEQ_CEILING - highest
         if remaining > _HEADROOM_WARN:
             continue
+        space = f"segment {segment}" if segment else "the unsegmented space"
         out.append(Finding(
             kind="id-headroom", severity="warning",
-            message=(f"{remaining} {prefix} id(s) left: the highest is "
-                     f"{prefix}-{highest:0{ID_WIDTH}d} and the {ID_WIDTH}-digit ceiling "
-                     f"is {prefix}-{ID_CEILING}."),
-            suggestion=f"Plan the width migration before it is needed. The width is "
-                       "compiled into every schema pattern, filename and "
-                       "cross-reference, so it changes store-wide in ONE commit — "
-                       "every id renamed, every reference rewritten, never mixed "
-                       f"widths (formats §1). {guard}"))
+            message=(f"{remaining} id(s) left in {space}: the highest is "
+                     f"{ids.format_id('RU', segment, highest)} and the "
+                     f"{ids.SEQ_WIDTH}-character ceiling is "
+                     f"{ids.format_id('RU', segment, ids.SEQ_CEILING)}."),
+            suggestion="Allocate into another segment, or plan the width migration "
+                       "before it is needed: the width is compiled into every schema "
+                       "pattern, filename and cross-reference, so it changes "
+                       "store-wide in ONE commit — every id renamed, every reference "
+                       "rewritten, never mixed widths (formats §1). `rqunit activate` "
+                       "refuses at the ceiling rather than crossing it, so this is "
+                       "runway, not breakage."))
+
+    intents = [int(m.group(1)) for i in store.intents() if (m := _INTENT.match(i))]
+    if intents and ID_CEILING - max(intents) <= _HEADROOM_WARN:
+        highest = max(intents)
+        out.append(Finding(
+            kind="id-headroom", severity="warning",
+            message=(f"{ID_CEILING - highest} INT id(s) left: the highest is "
+                     f"INT-{highest:0{ID_WIDTH}d} and the {ID_WIDTH}-digit ceiling "
+                     f"is INT-{ID_CEILING}."),
+            suggestion="Intents still use the decimal four-digit scheme — no scheme has "
+                       "been decided for them — so this wall is much nearer than the "
+                       "RU one. NOTHING allocates intent ids: no verb owns them, so "
+                       "nothing will refuse, and the first capture past the ceiling "
+                       "makes the store unloadable. This warning is the only guard "
+                       "rail intents have."))
     return out
 
 
@@ -265,6 +314,6 @@ def role_wiring(root: Path) -> list[Finding]:
 
 
 def run(store: Store, root: Path) -> list[Finding]:
-    return (id_gaps(store) + id_headroom(store) + orphan_artifacts(store)
+    return (lost_rus(store, root) + id_headroom(store) + orphan_artifacts(store)
             + dangling_reviews(store, root) + branch_staleness(root)
             + stack_config_health(root) + role_wiring(root))

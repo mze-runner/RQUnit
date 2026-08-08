@@ -181,10 +181,11 @@ link_fingerprints:              # §7.3 — suspect-link detection on every cros
 
 ### 3.1 Field rules
 
-- `id` — identity split by lifecycle stage (§7.1): drafts use `RU-draft-<ULID>` (collision-free, no coordination); permanent sequential `RU-XXXX` is assigned atomically at Gate 1 from the directory listing. Sequence is monotonic-unique, not gapless; IDs are never reused. Draft cross-references use ULIDs and are rewritten at activation.
+- `id` — identity split by lifecycle stage (§7.1): drafts use `RU-draft-<ULID>` (collision-free, no coordination); a permanent sequential id — `RU-<SEQUENCE>` or `RU-<SEGMENT>-<SEQUENCE>`, four base-32 characters (formats §1) — is assigned atomically at Gate 1 from the directory listing. Sequence is monotonic-unique, not gapless; IDs are never reused. Draft cross-references use ULIDs and are rewritten at activation.
 - `statement` — exactly one normative statement. Compound statements MUST be split. Quantities MUST be bounded: a bound is either a **literal** ("within 5 seconds") or a **resolvable manifest reference** (`{value:...}`) — never vague (L2). Statements MAY embed manifest references (§5.3); every reference must resolve (L15).
 - `syntax` — the statement MUST parse under the declared syntax. EARS templates: ubiquitous, event-driven (`When`), state-driven (`While`), unwanted-behaviour (`If ... then`), optional (`Where`).
 - `source_ref` — MUST resolve to an existing immutable INT artifact with a line/section anchor.
+- `segment` — DRAFTS ONLY: which id space Gate 1 allocates into (formats §1). Declared by the reviewer, never derived; consumed at activation, because the permanent id then carries it.
 - `supersedes` — target transitions to `superseded` automatically at activation. Chains MUST be acyclic.
 - `verification` — see §6. At least one entry at all times, including drafts.
 - `scope.owns` / `scope.must_not_touch` — repo-relative path globs; the negative scope is hook-enforced. Manifest references are NOT permitted in scope fields — hook enforcement must never depend on reference resolution.
@@ -492,7 +493,13 @@ draft ──(activation gate, §8.2)──▶ active ──(superseded by new RU
 
 ### 7.1 Identity assignment
 
-Permanent IDs are assigned at Gate 1 — the one already-serialized point — by the activation tool in a single commit: list `spec/ru/`, take max, bump; rename `RU-draft-<ULID>.yaml` → `RU-XXXX.yaml` (ULID kept as `draft_id`); rewrite draft cross-references; set `active` and flip any `supersedes` target. Parallel drafting never contends on IDs; splitting the rename and reference-rewrite across commits is FORBIDDEN (it creates a window of dangling ULIDs).
+Permanent IDs are assigned at Gate 1 — the one already-serialized point — by the activation tool in a single commit: list `spec/ru/`, take max **within the target segment**, bump; rename `RU-draft-<ULID>.yaml` → the permanent filename (ULID kept as `draft_id`); rewrite draft cross-references; set `active` and flip any `supersedes` target. Parallel drafting never contends on IDs; splitting the rename and reference-rewrite across commits is FORBIDDEN (it creates a window of dangling ULIDs).
+
+The **segment** a draft is allocated into is declared on the draft (`segment`, formats §1) and consumed by activation — once the id carries it, a second copy of the same fact could disagree with the id. It is never derived from `scope.owns`: segments and services are many-to-many, so derivation would silently impose the physical axis and be wrong on a monolith hosting several domains and on a domain spanning several services alike. A draft that declares no segment is allocated into the unsegmented space, where a requirement governing the whole store belongs.
+
+Activation refuses to allocate into a segment the store does not declare, or into one declared `closed` — a segment name is permanent once its first id is minted (§10.2, C16), so it is registered before the sitting rather than invented by it. Each segment is an independent sequence: the ceiling is per space, and the nearest answer to exhausting one is usually another segment rather than a width migration.
+
+**Reading the listing is what makes allocation safe.** `max + 1` over what exists cannot mint an id that already exists; a `NEXT_ID` counter file is FORBIDDEN because it races across branches. This is also why a store must be read in ONE base: decimal-spelled ids are legal base-32 ids whose reinterpretation preserves order, so a store that started decimal continues in base-32 with nothing rewritten — but a store read as decimal in one place and base-32 in another has two allocators disagreeing about what is taken.
 
 ### 7.2 Gate stamps — reviewed is computed
 
@@ -612,6 +619,7 @@ This section is the framework. Without it, the rest of this document is prose.
 - C13: wire-visible names follow the `conventions` declared in the shared manifest → error where a convention is declared; absent table means unenforced.
 - C14: a state-changing route declaring no audit event → finding. Constitutional RU-0002 made checkable; the HTTP method is a heuristic rather than proof, so it reports rather than blocks.
 - C15: every shim registration names a model the store carries, once each → error. A registration is a depth claim (§6.3): one naming a model the store does not carry proves nothing, and a duplicate makes "is this registered" ambiguous the moment two entries disagree about who registered it and when.
+- C16: the segment registry is well formed, and every segment an id uses is declared → error, except a missing `domain`, which is a warning: nothing reads it, `domain: TBD` satisfies everything a machine can check of it, and a red build for a sentence of prose teaches consumers to bypass the gate. Segments partition ALLOCATION, never verification — every rule stays store-wide (§1). A segment name is the one vocabulary in this store that is PERMANENT: it lives in filenames, gate stamps, Gate 2 review directory names, packets and `verifies:` annotations in consumer source, and ids are never rewritten, so a rename or a removal is a mass supersession rather than an edit. Retirement is `closed: true`, which keeps existing ids working.
 
 ### 10.3 Hooks (runtime, blocking)
 - H1 (pre-write): writes matching in-context `must_not_touch` globs → blocked.
@@ -650,10 +658,11 @@ spec/
   framework/coverage.policy.yaml       # verification-depth policy (L21, §6.7)
   framework/conformance-exceptions.yaml # ratified divergences (§5.6; formats §14)
   framework/shims.yaml                 # registered statechart shims (§6.3, C15)
+  framework/segments.yaml              # declared id segments (formats §1, C16)
   framework/tags.yaml                  # controlled tag vocabulary (L10)
   framework/actors.yaml                # controlled actor registry (L12)
   intent/INT-XXXX.*                    # immutable, verbatim
-  ru/RU-XXXX.yaml                      # ONE FILE PER RU (§12.2)
+  ru/RU-<id>.yaml                      # ONE FILE PER RU (§12.2)
   features/FEAT-*.yaml                 # one file per FEAT
   manifests/<service>.manifest.yaml    # one manifest per service
   manifests/shared.manifest.yaml       # cross-service facts (§5.5)

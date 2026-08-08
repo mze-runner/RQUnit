@@ -1,0 +1,11 @@
+id: RU-draft-01J3F8KQZ2ABCDEFGHJKMNPQRT
+statement: >
+  When a courier scans a parcel, the system shall record the scan.
+syntax: ears
+status: draft
+source_ref: INT-0001#L1-2
+verification:
+  - { type: test, ref: TODO(fixture) }
+scope:
+  owns: [service-orders/fulfilment]
+tags: [orders]

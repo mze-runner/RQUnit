@@ -66,12 +66,12 @@ at the repo root — the tools carry no consumer paths in code.
 | `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`, and the agent-runtime templates into `.claude/`. Reports the stack it detected; refuses a non-empty store; never overwrites a runtime file the consumer already has | once, at adoption |
 | `rqunit init --refresh-integrations` | rewrite the agent-runtime templates and touch nothing else. They teach the current vocabulary, so a store on a newer tool with older templates is being taught the wrong one | after upgrading the tool |
 | `rqunit lint [--only L3]` | lints L1–L26 + the M dialect family, and `rqunit.toml` itself — a config the loader rejects is a `CONFIG` error here, not a tool error somewhere else, and a retired key still sitting where core used to read it is a `CONFIG` warning naming its successor | after any spec/ edit |
-| `rqunit check [--only C4]` | consistency C1–C15 | same |
+| `rqunit check [--only C4]` | consistency C1–C16 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
 | `rqunit trace --strip [--all] [--apply]` | the off-ramp: remove trace annotations naming no active RU (`--all`: every annotation, `infrastructure` markers included). Dry unless `--apply` — it rewrites source you own. Needs the stack's `stripper` role; a stack without one is reported un-strippable, never swept silently | off-boarding; before re-adopting onto a fresh corpus |
 | `rqunit conformance` | manifest ↔ code surfaces (CF1–CF11) — reads each stack's declared extractor output (a committed artifact, or a prebuilt adapter core execs as a black box); never invokes a language toolchain | after changing routes/messages; every gate |
-| `rqunit doctor [--strict]` | structural health: lost RUs (id gaps), runway left before the RU **and INT** id ceilings (nothing allocates intent ids, so this warning is their only guard rail), orphaned artifacts, dangling review records, a branch stale enough to make activation collide, and adapter roles whose `cmd` resolves nowhere (a path that works only on the machine that wrote it). Advisory — exit 0 unless `--strict` | after merges; before a Gate 1 sitting |
+| `rqunit doctor [--strict]` | structural health: permanent RUs git records as deleted and never restored, runway left before each RU **segment's** ceiling **and** the INT one (intents are still decimal and nothing allocates them, so this warning is their only guard rail), orphaned artifacts, dangling review records, a branch stale enough to make activation collide, and adapter roles whose `cmd` resolves nowhere (a path that works only on the machine that wrote it). Advisory — exit 0 unless `--strict` | after merges; before a Gate 1 sitting |
 | `rqunit evidence record [--from F]` | fold a test run's observations into `spec/check-evidence/check-evidence.jsonl`, recording only firsts. Without it nothing can tell a check that has demonstrated it can fail from one that has only ever been green (L26) | wherever the suite runs; CI |
 | `rqunit adapter verify --stack <name>` | the adapter compliance kit: every declared role runs against its fixed kit input — byte-deterministic, schema-valid, matching the committed expectation, under the stdio exit contract | adapter development; the adapter's own CI |
 | `rqunit report [--out F] [--format html\|json]` | a self-contained HTML snapshot for review audiences — coverage, status, verification completeness, Gate activity, burn-down, health. `--format json` emits the underlying data contract | before a steering review; on demand |
@@ -105,6 +105,21 @@ simulate-then-write: the tool validates the SIMULATED post-activation store
 before touching any file, and if the commit gate still refuses, every written
 file is rolled back — the store never strands mid-operation. Consumer
 pipelines typically automate this sequence end to end.
+
+**Choose a segment.** Segments are optional and the store starts with none, so
+the first question is whether you want them at all. They partition *allocation*
+— `RU-ORD-0001` and `RU-AUTH-0001` are separate sequences — and nothing else:
+every rule stays store-wide, because a domain that could contradict another
+unnoticed is exactly what a single shared store exists to prevent.
+
+Mint from the axis that changes slowest. Epics and capabilities belong in `feature`
+and `tags`, where re-cutting costs nothing and `ru-index.json` can query across
+them; a segment is a **domain**, and it is the one name in this store that can
+never be corrected — renaming one is a mass supersession, so a name is chosen
+once and lives with the business. "Order management" survives a reorganisation;
+"the checkout squad" and `service-orders` do not. A requirement that governs
+everything belongs to no domain and stays unsegmented, which is what the
+constitutional tier already looks like.
 
 **Change an existing requirement.** Never edit an active RU's statement/scope/
 verification/tier — L19 catches it as post-review mutation. Write a new draft
@@ -144,8 +159,9 @@ directories). Instead: **revert the losing branch's activation commit** — it i
 one atomic commit by design, and reverting restores its draft files exactly —
 then rebase onto the merged branch and re-run `rqunit activate batch`. Fresh
 ids, no surgery; the human Gate 1 judgment stands, only the stamp timestamp
-moves. Afterwards run `rqunit doctor`: a gap in the id sequence means an RU was
-lost in the resolution rather than reallocated.
+moves. Afterwards run `rqunit doctor`: it compares what git records as deleted against
+what the store still carries, so an RU dropped by the resolution rather than
+reallocated is reported by name.
 
 **Resolve a TODO ref.** When the check a `TODO(…)` promised now exists, run
 `rqunit activate resolve --reviewer <handle> RU-XXXX=<ref> …` — batch pairs,
@@ -348,6 +364,7 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | C13 | error | wire-visible names follow the `conventions` declared in the shared manifest (absent table = unenforced) |
 | C14 | finding | a state-changing route declares no audit event (constitutional RU-0002 made checkable; the method is a heuristic, so it reports rather than blocks) |
 | C15 | error | every shim registration names a model the store carries, once each |
+| C16 | error (`warning` for a missing `domain` — nothing reads it) | the segment registry is well formed and every segment an id uses is declared. A segment name is permanent — add and close, never rename or merge — so a name that stops being declared while ids still carry it is unrepairable |
 
 ⚠ **Naming collision:** consumers migrating from a pre-existing requirements
 system may carry an unrelated legacy control catalog reusing C-numbers. Legacy
