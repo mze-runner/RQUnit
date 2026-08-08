@@ -3,6 +3,7 @@
   "rus": [
     {
       "id": "RU-0001",
+      "segment": null,
       "status": "active",
       "tier": "constitutional",
       "computed": "blocked",
@@ -19,6 +20,7 @@
     },
     {
       "id": "RU-0002",
+      "segment": null,
       "status": "active",
       "tier": "constitutional",
       "computed": "blocked",
@@ -36,6 +38,7 @@
     },
     {
       "id": "RU-0003",
+      "segment": null,
       "status": "active",
       "tier": "standard",
       "computed": "blocked",
@@ -60,6 +63,7 @@
     },
     {
       "id": "RU-0004",
+      "segment": null,
       "status": "active",
       "tier": "standard",
       "computed": "blocked",
@@ -84,6 +88,7 @@
     },
     {
       "id": "RU-0005",
+      "segment": null,
       "status": "active",
       "tier": "standard",
       "computed": "blocked",
@@ -106,6 +111,7 @@
     },
     {
       "id": "RU-0006",
+      "segment": null,
       "status": "active",
       "tier": "standard",
       "computed": "blocked",

@@ -23,6 +23,13 @@ revision event affecting every adapter.
 
 ## The rules an adapter must obey
 
+**An adapter never parses an id.** `verifies` is typed as free strings in
+`scanned-checks.schema.json` on purpose: the scanner transcribes what the
+annotation says and `trace.py` decides whether it is a real, active RU. An
+adapter that "helpfully" validated `RU-[0-9]{4}` would silently drop every
+segmented id the moment a consumer adopted segments — a language adapter
+holding an opinion about the store's identity scheme is the boundary failing.
+
 **An adapter observes; it never judges.** An extractor reports that a route
 exists. It does not decide whether a missing route is acceptable, whether a
 tier difference is tolerable, or whether something counts as planned. Every one

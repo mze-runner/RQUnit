@@ -154,3 +154,41 @@ def test_literal_scan_survives_a_glob_that_catches_a_binary(tmp_path):
 
     findings = scan_literals(Store.load(root), root)
     assert any("y.js" in f for f in findings)
+
+
+def test_the_index_carries_the_segment_derived_from_the_id(tmp_path):
+    """The index is the query surface — the handbook tells readers never to
+    grep `spec/ru/` — and it already answers the capability and deployable
+    axes. The domain axis has to be answerable in the same place, or segments
+    are an organising idea nothing can query."""
+    import json
+    import shutil
+
+    import yaml
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    source = root / "spec" / "ru" / "RU-0142.yaml"
+    data = yaml.safe_load(source.read_text())
+    data["id"] = "RU-ORD-0142"
+    (root / "spec" / "ru" / "RU-ORD-0142.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+    source.unlink()
+
+    store = Store.load(root)
+    index = json.loads(targets(store, root)[root / "spec" / "projections" / "ru-index.json"])
+    by_id = {r["id"]: r for r in index["rus"]}
+    assert by_id["RU-ORD-0142"]["segment"] == "ORD"
+    assert all(r["segment"] is None for i, r in by_id.items() if i != "RU-ORD-0142")
+
+
+def test_the_index_never_stores_a_second_copy_of_the_segment(tmp_path):
+    """Derived, not stored: after activation the id is the only copy of that
+    fact, and the draft's field is consumed precisely so a second copy cannot
+    disagree with it."""
+    import json
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    store = Store.load(root)
+    index = json.loads(targets(store, root)[root / "spec" / "projections" / "ru-index.json"])
+    assert all("segment" not in ru.raw for ru in store.rus())
+    assert all("segment" in record for record in index["rus"])

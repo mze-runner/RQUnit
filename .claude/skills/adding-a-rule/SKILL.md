@@ -62,7 +62,7 @@ an existing sibling rather than guessing:
 |---|---|
 | `L*` | `fixtures/lints/L##/` — zero-padded to two digits (`L01`, `L26`) |
 | `M*` | `fixtures/lints/M#/` — unpadded (`M1`, `M6`) |
-| `C*` | `fixtures/checks/C#/` — unpadded (`C1`, `C15`) |
+| `C*` | `fixtures/checks/C#/` — unpadded (`C1`, `C16`) |
 
 Register the code in `tests/test_lints.py`'s `LINTS` or `tests/test_checks.py`'s
 `CHECKS` in the same change; both harnesses assert the registry matches the

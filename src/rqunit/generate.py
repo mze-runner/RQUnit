@@ -202,6 +202,21 @@ def targets(store: Store, root: Path) -> dict[Path, str]:
 
 # ------------------------------------------------------------ index + sheets (TASK-090, §11)
 
+def _segment_of(ru_id: str) -> str | None:
+    """The domain an id was allocated into, or None for the store-wide space.
+
+    DERIVED from the id, never stored: the id is the only copy of this fact
+    after activation, and the draft's `segment` field is consumed there
+    precisely so a second copy cannot disagree with it. Drafts have no segment
+    yet — a ULID names no space."""
+    from . import ids
+    try:
+        segment, _ = ids.split(ru_id, "RU")
+    except ValueError:
+        return None
+    return segment
+
+
 def render_ru_index(store: Store) -> str:
     """formats §7, minus generated_at/store_commit (plan D-P8.1: determinism
     for a committed, check-guarded projection). Search hits this, never the
@@ -214,6 +229,7 @@ def render_ru_index(store: Store) -> str:
         tokens, _ = extract(ru.raw["statement"])
         rus.append({
             "id": ru.id,
+            "segment": _segment_of(ru.id),
             "status": ru.status,
             "tier": ru.tier,
             "computed": _computed_label(store, ru),

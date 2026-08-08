@@ -51,6 +51,18 @@ finished, not when it looks tidy.
   still pass" has no evidence behind it.
 - **Fixtures move with the schema.** Every schema has pass and fail fixtures;
   a tightening that leaves fixtures untouched has not been tested.
+- **The id grammar has one source.** `ids.permanent_pattern` is what a
+  permanent id looks like; the shipped schema patterns are literal strings that
+  nothing generates, so agreement is enforced by a sweep in
+  `tests/test_pack_consistency.py` rather than by construction. It compares
+  VERDICTS over a corpus, not substrings — containment passes a pattern
+  hand-widened with an extra alternative, which is how this drifted once
+  already. Touch the grammar and the sweep reddens; that is the point.
+- **An id is never rewritten, so an id-shape change is additive or nothing.**
+  Ids live in filenames, gate stamps, Gate 2 review directory names, committed
+  packets, and `verifies:` annotations inside consumer source. A change that
+  requires renaming existing ids is a mass supersession wearing a migration's
+  name — find the widening that lets old ids keep their spelling instead.
 
 ## The sequence
 

@@ -208,13 +208,21 @@ computed status, tags. Resolution provenance format is fixed: `⟨{ref} = value�
 
 ```json
 { "generated_at": "…", "store_commit": "…",
-  "rus": [ { "id": "RU-0142", "status": "active", "tier": "standard",
+  "rus": [ { "id": "RU-ORD-0142", "segment": "ORD",
+             "status": "active", "tier": "standard",
              "computed": "done", "tags": ["orders","cancellation"],
              "feature": "FEAT-order-cancellation",
              "owns": ["orders/fulfilment"], "must_not_touch": ["payments/capture"],
              "verification_types": ["model","test"],
              "manifest_refs": ["endpoint:cancel_order"] } ] }
 ```
+
+`segment` is DERIVED from the id and is `null` for an id in the store-wide
+space. It is not stored on the RU: the id is the only copy of that fact after
+activation, and the draft's `segment` field is consumed there so a second copy
+cannot disagree with it (§1). The index is the query surface, so all three
+grouping axes are answerable here without reading `spec/ru/` — the domain from
+`segment`, the capability from `feature`/`tags`, the deployable from `owns`.
 
 ## 8. Seed data
 

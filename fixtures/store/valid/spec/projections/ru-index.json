@@ -3,6 +3,7 @@
   "rus": [
     {
       "id": "RU-0002",
+      "segment": null,
       "status": "active",
       "tier": "constitutional",
       "computed": "blocked",
@@ -20,6 +21,7 @@
     },
     {
       "id": "RU-0142",
+      "segment": null,
       "status": "active",
       "tier": "standard",
       "computed": "pending",
