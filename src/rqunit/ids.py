@@ -4,12 +4,12 @@ An id is a label humans say out loud; a sequence is a number the allocator
 increments. Everything painful about ids comes from those two facts being
 implemented in more than one place, so they are implemented here, once.
 
-`store.py` keeps `ID_WIDTH`/`ID_CEILING` for the INTENT family, which has no
-scheme decided and remains decimal four-digit. Two ceilings therefore coexist —
-`9999` there and `ZZZZ` here — and the coincidence that both widths are 4 is the
-dangerous part: they agree by accident while meaning decimal digits in one place
-and base-32 characters in the other. Nothing may read one and compare against
-the other.
+`store.py` keeps `ID_WIDTH`/`ID_CEILING` for the DECIMAL intent ids an early
+store already carries. They bound nothing new — intents are captured as ULIDs
+now — but a store sitting near `INT-9999` still has a wall in front of its
+existing form, which is the only thing those constants still describe. They are
+not `SEQ_WIDTH`/`SEQ_CEILING` despite both widths being 4: one counts decimal
+digits, the other base-32 characters, and nothing may compare across them.
 
 The shape (design paper: `docs/identity-scheme-design.md`):
 
@@ -41,11 +41,13 @@ several legal spellings, and two spellings of one id is a collision class
 wearing a convenience feature. So the confusables are refused, with a message
 naming the digit that was probably meant.
 
-`kind` is a parameter, but **RU is the only kind this scheme governs.** Intents
-are undecided (design paper §6): nothing allocates `INT-…` at all, and the live
-candidates are a ULID and a date-based form, neither of which is a base-32
-sequence. Passing `"INT"` here would publish a decision the paper declines to
-make, so it stays a closed set of one until that question is answered.
+`kind` is a parameter, but **RU is the only kind the SEQUENCE scheme governs**,
+and that is a rule rather than an omission. The framework allocates a sequence
+exactly where creation is already serialized — Gate 1 — and uses a ULID
+everywhere it is not, which is why drafts and GAPs carry one. Intent capture has
+no gate, so intents are ULID-shaped (`intent_pattern` below); giving them a
+sequence would mean either inventing a gate for the least gateable act in the
+process, or shipping a counter two branches can both read.
 """
 
 from __future__ import annotations
@@ -97,6 +99,35 @@ _VALUE = {char: value for value, char in enumerate(ALPHABET)}
 # alphabet is that these four are unreadable in an id, so refusing them without
 # saying which digit was intended wastes the guarantee.
 _CONFUSABLE = {"I": "1", "L": "1", "O": "0", "U": "V"}
+
+
+# A ULID as this store spells it: Crockford base-32, 26 characters. Same
+# alphabet as a sequence and the same exclusions, so nothing needs a second
+# reading rule — only the LENGTH differs, and that is what keeps a 4-character
+# sequence and a 26-character ULID unambiguous inside one grammar. Every use
+# site is anchored at both ends, so no input can satisfy both branches and no
+# prefix of one is a whole match of the other.
+ULID = "[0-9A-HJKMNP-TV-Z]{26}"
+
+# An intent id. Two forms, permanently: a ULID for anything captured from here
+# on, and the four-digit decimal an early store already carries. Both are legal
+# forever — an intent is immutable and its id is cited by every RU compiled from
+# it, so re-identifying one is a rewrite of somebody's history.
+INTENT_BODY = rf"INT-(?:{ULID}|[0-9]{{4}})"
+
+
+INTENT_PATTERN = rf"^{INTENT_BODY}$"
+"""The regex for an intent id.
+
+    Intents are CAPTURED, never allocated: no verb mints one, because capture
+    happens wherever a conversation happens — an analyst agent, a paste, a
+    meeting note committed by hand. That is precisely the profile a ULID exists
+    for, and the same reason drafts and GAPs carry one: collision-free with no
+    coordination, from a process with no serialization point to coordinate at.
+
+    The decimal form stays legal rather than being migrated. Every RU compiled
+    from an intent cites it in `source_ref`, so renaming one would rewrite the
+    provenance of requirements that are already stamped and reviewed."""
 
 
 def permanent_body(kind: str) -> str:

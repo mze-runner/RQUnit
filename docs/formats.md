@@ -12,6 +12,7 @@ for tooling; changes are schema-revision events, not edits.
 |---|---|---|
 | RU (draft) | `spec/ru/RU-draft-<ULID>.yaml` | `RU-draft-<ULID>` (Crockford base32, 26 chars) |
 | RU (permanent) | `spec/ru/RU-<SEQ>.yaml` or `spec/ru/RU-<SEGMENT>-<SEQ>.yaml` | `RU-` + optional segment + 4-character base-32 sequence |
+| INT | `spec/intent/INT-<ULID>.<ext>` | `INT-<ULID>` (Crockford, 26 chars). An early store's four-digit `INT-XXXX` stays legal permanently — an intent is immutable and every RU compiled from it cites the id. Two SHAPES, told apart by length; not two bases — a ULID is never decoded to a number, so nothing reads intents in one ordering. Capturing as a ULID is a convention the loader deliberately does not enforce: nothing allocates an intent id, and a rule would redden every store legally carrying the older form |
 | FEAT | `spec/features/FEAT-<slug>.yaml` | `FEAT-<slug>` |
 | GAP | `spec/gaps/GAP-<ULID>.yaml` | `GAP-<ULID>` |
 | Manifest | `spec/manifests/<service>.manifest.yaml` | service slug; `shared` reserved |

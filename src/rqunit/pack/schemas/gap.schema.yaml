@@ -43,7 +43,7 @@ properties:
     properties:
       int_ref:
         type: string
-        pattern: "^INT-[0-9]{4}#(L[0-9]+(-[0-9]+)?|S[a-z0-9-]+)$"
+        pattern: "^INT-(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})#(L[0-9]+(-[0-9]+)?|S[a-z0-9-]+)$"
         description: The captured human answer. Mandatory — an unanchored resolution is invention.
       summary: { type: string, minLength: 5 }
 allOf:

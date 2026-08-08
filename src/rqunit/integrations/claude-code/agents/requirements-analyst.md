@@ -18,6 +18,12 @@ specification governs; this file is the role, not the law.
 **Input** is an immutable INT capture under `spec/intent/` — verbatim human
 words, never prose you authored. If the intent you need was never captured,
 propose a capture; do not invent one, and do not paraphrase into the record.
+Name a proposed capture `INT-<ULID>.<ext>` — a fresh Crockford ULID, never a
+number. Nothing allocates intent ids, so a sequence two people could both pick
+is a collision waiting for a merge. An early store may carry four-digit
+`INT-XXXX` ids; leave them exactly as they are — both forms are legal, and every
+RU already compiled from one cites it. No lint enforces this: nothing allocates
+an intent id, so the discipline is yours.
 
 **Output** is exactly four things: draft Requirement Units
 (`RU-draft-<ULID>`, carrying `segment:` where the store declares segments), manifest entries or edits, GAP artifacts, and INT capture

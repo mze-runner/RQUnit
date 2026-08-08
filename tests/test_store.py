@@ -32,7 +32,15 @@ def test_valid_store_loads_every_artifact_type(store):
     assert [g.id for g in store.gaps()] == ["GAP-01J3F8KQZ2ABCDEFGHJKMNPQRS"]
     assert sorted(store.manifests()) == ["service-billing", "service-orders", "shared"]
     assert list(store.models()) == ["order-lifecycle"]
-    assert store.intents() == ["INT-0057"]
+    # The invariant is that intents load and match their filenames — not a
+    # census. Both id forms are present on purpose: the store must carry a
+    # decimal intent and a ULID one side by side, because that is the permanent
+    # state of any store that adopted before the scheme changed.
+    loaded = store.intents()
+    assert loaded == sorted({p.stem for p in (VALID / "spec" / "intent").iterdir()
+                             if p.suffix == ".md"})
+    assert any(i.startswith("INT-0") and len(i) == 8 for i in loaded)     # decimal
+    assert any(len(i) == 30 for i in loaded)                              # ULID
 
 
 def test_constitutional_tier_surfaces_on_the_accessor(store):
@@ -202,3 +210,38 @@ def test_the_refusal_names_the_character_and_the_digit_it_was_meant_to_be(tmp_pa
         Store.load(root)
     message = str(caught.value)
     assert "O" in message and "excludes" in message and "0" in message
+
+
+# --------------------------------------------------------- intent identity
+
+def test_both_intent_forms_load_side_by_side(tmp_path):
+    """Intents are captured, never allocated — capture has no gate, so the id is
+    a ULID, as it is for every other artifact created outside a serialization
+    point. The decimal form an early store carries stays legal permanently:
+    every RU compiled from an intent cites it in `source_ref`, so renaming one
+    would rewrite the provenance of requirements already stamped and reviewed."""
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    ulid = "INT-01J3F8KQZ2ABCDEFGHJKMNPQRS"
+    shutil.copy(root / "spec" / "intent" / "INT-0057.md",
+                root / "spec" / "intent" / f"{ulid}.md")
+
+    loaded = Store.load(root).intents()
+    assert "INT-0057" in loaded and ulid in loaded
+
+
+@pytest.mark.parametrize("bad", [
+    "INT-01O3F8KQZ2ABCDEFGHJKMNPQRS",   # O is excluded from the alphabet
+    "INT-057",                          # short of the decimal width
+    "INT-01J3F8KQZ2ABCDEFGHJKMNPQR",    # short of the ULID length
+])
+def test_an_intent_outside_the_grammar_is_refused(tmp_path, bad):
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    shutil.copy(root / "spec" / "intent" / "INT-0057.md",
+                root / "spec" / "intent" / f"{bad}.md")
+    with pytest.raises(UnknownArtifact) as caught:
+        Store.load(root)
+    assert "ULID" in str(caught.value), "the refusal must name the shape capture writes now"

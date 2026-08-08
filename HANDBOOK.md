@@ -17,7 +17,9 @@ spec/
                  authored against). Schemas ship inside the tool, never here;
                  consumers migrating an existing corpus keep an area-ownership
                  ledger here (MIGRATION.md)
-  intent/        INT-XXXX — verbatim captured human intent; immutable, append-only
+  intent/        INT-<ULID> — verbatim captured human intent; immutable, append-only
+                 (a store adopted earlier may carry four-digit INT-XXXX ids; both
+                 forms are legal permanently)
   ru/            one file per Requirement Unit (the normative statements)
   features/      FEAT-* — grouping + one goal sentence; never normative
   manifests/     per-service interface facts + shared.manifest.yaml
@@ -71,7 +73,7 @@ at the repo root — the tools carry no consumer paths in code.
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
 | `rqunit trace --strip [--all] [--apply]` | the off-ramp: remove trace annotations naming no active RU (`--all`: every annotation, `infrastructure` markers included). Dry unless `--apply` — it rewrites source you own. Needs the stack's `stripper` role; a stack without one is reported un-strippable, never swept silently | off-boarding; before re-adopting onto a fresh corpus |
 | `rqunit conformance` | manifest ↔ code surfaces (CF1–CF11) — reads each stack's declared extractor output (a committed artifact, or a prebuilt adapter core execs as a black box); never invokes a language toolchain | after changing routes/messages; every gate |
-| `rqunit doctor [--strict]` | structural health: permanent RUs git records as deleted and never restored, runway left before each RU **segment's** ceiling **and** the INT one (intents are still decimal and nothing allocates them, so this warning is their only guard rail), orphaned artifacts, dangling review records, a branch stale enough to make activation collide, and adapter roles whose `cmd` resolves nowhere (a path that works only on the machine that wrote it). Advisory — exit 0 unless `--strict` | after merges; before a Gate 1 sitting |
+| `rqunit doctor [--strict]` | structural health: permanent RUs git records as deleted and never restored, runway left before each RU **segment's** ceiling **and** the ceiling on any DECIMAL intent ids an early store carries (nothing allocates an intent id, so nothing refuses at that wall — capturing the next one as `INT-<ULID>` clears it, and the warning stops once a store has), orphaned artifacts, dangling review records, a branch stale enough to make activation collide, and adapter roles whose `cmd` resolves nowhere (a path that works only on the machine that wrote it). Advisory — exit 0 unless `--strict` | after merges; before a Gate 1 sitting |
 | `rqunit evidence record [--from F]` | fold a test run's observations into `spec/check-evidence/check-evidence.jsonl`, recording only firsts. Without it nothing can tell a check that has demonstrated it can fail from one that has only ever been green (L26) | wherever the suite runs; CI |
 | `rqunit adapter verify --stack <name>` | the adapter compliance kit: every declared role runs against its fixed kit input — byte-deterministic, schema-valid, matching the committed expectation, under the stdio exit contract | adapter development; the adapter's own CI |
 | `rqunit report [--out F] [--format html\|json]` | a self-contained HTML snapshot for review audiences — coverage, status, verification completeness, Gate activity, burn-down, health. `--format json` emits the underlying data contract | before a steering review; on demand |
@@ -96,7 +98,7 @@ schema and CLIs reject `@`; the handle→person mapping lives outside the store.
 ## 3. Daily recipes
 
 **Add a requirement (new feature, `ru` area).** Intent is captured verbatim as
-a new `spec/intent/INT-XXXX.md` → the analyst compiles draft RUs
+a new `spec/intent/INT-<ULID>.md` → the analyst compiles draft RUs
 (`RU-draft-<ULID>`), manifest entries, and GAPs → you hold a **Gate 1 sitting**
 (read drafts beside their INT anchors, triage gaps, approve manifest impact
 reports) → `rqunit activate batch` does the rest in one commit. Activation is

@@ -62,8 +62,8 @@ properties:
 
   source_ref:
     type: string
-    description: "INT anchor: INT-XXXX#L<start>[-<end>] or INT-XXXX#S<section>."
-    pattern: "^INT-[0-9]{4}#(L[0-9]+(-[0-9]+)?|S[a-z0-9-]+)$"
+    description: "INT anchor: <INT id>#L<start>[-<end>] or <INT id>#S<section>."
+    pattern: "^INT-(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})#(L[0-9]+(-[0-9]+)?|S[a-z0-9-]+)$"
 
   supersedes:
     type: string

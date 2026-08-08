@@ -33,7 +33,7 @@ stale; the adapter rewrites its own sources. A fourth probe role, `evidence`, an
 reports the ones that never have (§6.8). L14 newness becomes base-vs-head set difference
 over scanner observations, never diff-line inspection (§6.6 states the
 widened-scan and rename consequences). Permanent ids gain a base-32 sequence and an optional
-segment: `RU-ORD-01A2`, four Crockford characters per segment rather than four decimal digits store-wide, with the segments a store allocates into declared in `spec/framework/segments.yaml` and guarded by C16. Segments bound ALLOCATION and ownership, never verification — every rule stays store-wide, because a domain able to contradict another unnoticed is what a single shared store exists to prevent. A segment name is the one vocabulary here that is permanent: add and close, never rename or merge. Absence of a segment is a positive claim — this governs the store — which is the constitutional tier, and L27 reports a draft whose declaration contradicts its tier while the choice is still free (§7.1, formats §1). Gap-in-the-sequence detection retires with the decimal scheme, because under one base a gap between consecutive allocations is an artefact of the alphabet; `rqunit doctor` now compares what version control records as deleted against what the store still carries. **Consumers MUST act:** register a
+segment: `RU-ORD-01A2`, four Crockford characters per segment rather than four decimal digits store-wide, with the segments a store allocates into declared in `spec/framework/segments.yaml` and guarded by C16. Segments bound ALLOCATION and ownership, never verification — every rule stays store-wide, because a domain able to contradict another unnoticed is what a single shared store exists to prevent. A segment name is the one vocabulary here that is permanent: add and close, never rename or merge. Absence of a segment is a positive claim — this governs the store — which is the constitutional tier, and L27 reports a draft whose declaration contradicts its tier while the choice is still free (§7.1, formats §1). Gap-in-the-sequence detection retires with the decimal scheme, because under one base a gap between consecutive allocations is an artefact of the alphabet; `rqunit doctor` now compares what version control records as deleted against what the store still carries. Intents move to ULIDs for the reason drafts and GAPs already carry them — capture has no serialization point, so nothing can allocate an id, which is why nothing ever refused at the four-digit wall; the decimal form stays legal permanently and both coexist. **Consumers MUST act:** register a
 shim in `spec/framework/shims.yaml` for every model whose suite really runs
 (an unregistered one counts as no depth, so a draft relying on it can no longer
 activate under a `min_mechanical` rule until the shim lands), declare
@@ -118,7 +118,7 @@ The framework compiles human intent into machine-verifiable requirement units an
 
 | Type | Identity | Format | Mutability | Purpose |
 |---|---|---|---|---|
-| Intent | `INT-XXXX` | Any (MD, transcript) | Immutable | Raw human input, verbatim |
+| Intent | `INT-<ULID>` | Any (MD, transcript) | Immutable | Raw human input, verbatim |
 | Requirement Unit | `RU-XXXX` | YAML | Append-only + supersession | Atomic normative **behaviour** statement |
 | Manifest | `<service>.manifest.yaml` | YAML (schema-validated) | Gate-1-gated edits (§5.5) | Interface surfaces + shared **facts**, declared once |
 | Model | `MDL-*` | Statechart JSON / decision table | Versioned, content-hashed | Formal **structure/logic** (dynamics) |
@@ -189,7 +189,7 @@ link_fingerprints:              # §7.3 — suspect-link detection on every cros
 - `id` — identity split by lifecycle stage (§7.1): drafts use `RU-draft-<ULID>` (collision-free, no coordination); a permanent sequential id — `RU-<SEQUENCE>` or `RU-<SEGMENT>-<SEQUENCE>`, four base-32 characters (formats §1) — is assigned atomically at Gate 1 from the directory listing. Sequence is monotonic-unique, not gapless; IDs are never reused. Draft cross-references use ULIDs and are rewritten at activation.
 - `statement` — exactly one normative statement. Compound statements MUST be split. Quantities MUST be bounded: a bound is either a **literal** ("within 5 seconds") or a **resolvable manifest reference** (`{value:...}`) — never vague (L2). Statements MAY embed manifest references (§5.3); every reference must resolve (L15).
 - `syntax` — the statement MUST parse under the declared syntax. EARS templates: ubiquitous, event-driven (`When`), state-driven (`While`), unwanted-behaviour (`If ... then`), optional (`Where`).
-- `source_ref` — MUST resolve to an existing immutable INT artifact with a line/section anchor.
+- `source_ref` — MUST resolve to an existing immutable INT artifact with a line/section anchor. Intent ids are ULIDs: capture has no gate, and the framework allocates a sequence only where creation is already serialized (§7.1), so an id two captures could both pick would be a collision with nothing to serialize it. A store's earlier four-digit `INT-XXXX` ids remain legal permanently — an intent is immutable and every RU compiled from one cites it, so re-identifying it would rewrite reviewed provenance.
 - `segment` — DRAFTS ONLY: which id space Gate 1 allocates into (formats §1). Declared by the reviewer, never derived; consumed at activation, because the permanent id then carries it.
 - `supersedes` — target transitions to `superseded` automatically at activation. Chains MUST be acyclic.
 - `verification` — see §6. At least one entry at all times, including drafts.
@@ -667,7 +667,7 @@ spec/
   framework/segments.yaml              # declared id segments (formats §1, C16)
   framework/tags.yaml                  # controlled tag vocabulary (L10)
   framework/actors.yaml                # controlled actor registry (L12)
-  intent/INT-XXXX.*                    # immutable, verbatim
+  intent/INT-<ULID>.*                  # immutable, verbatim
   ru/RU-<id>.yaml                      # ONE FILE PER RU (§12.2)
   features/FEAT-*.yaml                 # one file per FEAT
   manifests/<service>.manifest.yaml    # one manifest per service

@@ -390,12 +390,15 @@ def test_headroom_is_measured_per_segment_because_allocation_is():
         "the nearest fix is a different segment, not a width migration")
 
 
-def test_doctor_warns_for_intents_too_and_says_nothing_guards_them():
+def test_doctor_warns_for_decimal_intents_and_names_the_way_out():
     """The gap in the first version of this warning: it watched RU only, so a
     store could sail into the INT ceiling while being told its runway was
     healthy. Intents differ in kind — no verb allocates them, so unlike
     activation nothing will refuse, and the message must not imply otherwise.
-    They are also still decimal, so their wall is far nearer than RU's."""
+
+    What it must now also do is name a fix. It had none while intents were
+    decimal-only; a capture can be a ULID, so the wall is escapable without
+    renaming anything."""
     from rqunit import ids
     from rqunit.doctor import _HEADROOM_WARN, id_headroom
     from rqunit.store import ID_CEILING
@@ -403,9 +406,23 @@ def test_doctor_warns_for_intents_too_and_says_nothing_guards_them():
     far = ids.SEQ_CEILING - _HEADROOM_WARN - 1
     findings = id_headroom(_FakeStore(ru_top=far, int_top=ID_CEILING - 3))
     assert len(findings) == 1
-    assert "3 INT id(s) left" in findings[0].message
-    assert "NOTHING allocates intent ids" in findings[0].suggestion
+    assert "3 decimal INT id(s) left" in findings[0].message
+    assert "ULID" in findings[0].suggestion
+    assert "NOTHING allocates" in findings[0].suggestion
     assert "refuses at the ceiling" not in findings[0].suggestion   # RU's guard, not INT's
+
+
+def test_a_ulid_intent_is_never_counted_into_a_ceiling():
+    """A ULID has no ordinal, so folding one into a headroom calculation would
+    be a category error — and would report a wall in front of the one family
+    that does not have one."""
+    from rqunit.doctor import id_headroom
+
+    class _Ulids:
+        def rus(self): return []
+        def intents(self): return ["INT-01J3F8KQZ2ABCDEFGHJKMNPQRS",
+                                   "INT-01J3F8KQZ2ABCDEFGHJKMNPQRT"]
+    assert id_headroom(_Ulids()) == []
 
 
 def test_both_families_are_reported_independently():

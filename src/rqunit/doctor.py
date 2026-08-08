@@ -23,7 +23,9 @@ from . import ids
 from .config import ROLES
 from .store import ID_CEILING, ID_WIDTH, Store
 
-_INTENT = re.compile(rf"^INT-([0-9]{{{ID_WIDTH}}})$")
+# Only the DECIMAL form. A ULID intent has no ordinal and no ceiling, so
+# counting one into a headroom calculation would be a category error.
+_DECIMAL_INTENT = re.compile(rf"^INT-([0-9]{{{ID_WIDTH}}})$")
 
 # Ids left before the ceiling is worth warning about. Generous on purpose:
 # the fix is a store-wide migration, so the warning has to arrive with enough
@@ -107,12 +109,12 @@ def id_headroom(store: Store) -> list[Finding]:
     `activate` refuses at the ceiling rather than crossing it, so an RU store
     runs out safely.
 
-    INT has no scheme decided at all (design paper §6) and is still a decimal
-    four-digit family with a ten-thousand ceiling — a much nearer wall, and
-    NOTHING allocates intent ids, so nothing will refuse. The first capture
-    past the ceiling simply makes the store unloadable. Same wall, no guard
-    rail, and the suggestion has to say so rather than implying RU's
-    protection."""
+    INT is not allocated at all — capture has no gate, so intents are ULIDs and
+    have no ceiling. Only the DECIMAL ids an early store already carries have a
+    wall, and it is much nearer. NOTHING refuses at it, because no verb owns an
+    intent id, so a capture past it simply makes the store unloadable. What has
+    changed is that the warning now has a fix to name: the next capture can be
+    a ULID, and the two forms coexist permanently."""
     out = []
 
     spaces: dict[str | None, int] = {}
@@ -141,20 +143,26 @@ def id_headroom(store: Store) -> list[Finding]:
                        "refuses at the ceiling rather than crossing it, so this is "
                        "runway, not breakage."))
 
-    intents = [int(m.group(1)) for i in store.intents() if (m := _INTENT.match(i))]
-    if intents and ID_CEILING - max(intents) <= _HEADROOM_WARN:
+    # `max(decimal)` never decreases, so a store that TAKES this advice would
+    # otherwise be warned identically forever — and `--strict` exits 1 on any
+    # warning, making it a gate the documented remedy provably cannot clear.
+    # One ULID capture is proof the store can proceed indefinitely, which is
+    # the entire condition this warning exists to provoke.
+    intents = [int(m.group(1)) for i in store.intents() if (m := _DECIMAL_INTENT.match(i))]
+    escaped = any(_DECIMAL_INTENT.match(i) is None for i in store.intents())
+    if intents and not escaped and ID_CEILING - max(intents) <= _HEADROOM_WARN:
         highest = max(intents)
         out.append(Finding(
             kind="id-headroom", severity="warning",
-            message=(f"{ID_CEILING - highest} INT id(s) left: the highest is "
+            message=(f"{ID_CEILING - highest} decimal INT id(s) left: the highest is "
                      f"INT-{highest:0{ID_WIDTH}d} and the {ID_WIDTH}-digit ceiling "
                      f"is INT-{ID_CEILING}."),
-            suggestion="Intents still use the decimal four-digit scheme — no scheme has "
-                       "been decided for them — so this wall is much nearer than the "
-                       "RU one. NOTHING allocates intent ids: no verb owns them, so "
-                       "nothing will refuse, and the first capture past the ceiling "
-                       "makes the store unloadable. This warning is the only guard "
-                       "rail intents have."))
+            suggestion="Capture the next intent as INT-<ULID>, which has no ceiling and "
+                       "needs no coordination — that is the shape intents take now, and "
+                       "the two forms coexist permanently, so nothing has to be renamed. "
+                       "It matters because NOTHING allocates an intent id: no verb owns "
+                       "them, so nothing refuses at this wall, and a capture past it "
+                       "makes the store unloadable."))
     return out
 
 

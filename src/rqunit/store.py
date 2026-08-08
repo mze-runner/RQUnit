@@ -32,17 +32,18 @@ from .schemas import validator
 
 _IGNORED = {"README.md", ".gitkeep", ".DS_Store"}
 
-# The INTENT family's width. RU ids moved to `ids` (base-32, per segment); no
-# scheme has been decided for intents, so they remain decimal four-digit — and
-# nothing allocates them, which makes doctor's headroom warning their only
-# guard rail. NOT interchangeable with `ids.SEQ_WIDTH` despite both being 4:
-# one counts decimal digits, the other base-32 characters, so comparing an
-# `ids.decode` result against ID_CEILING is meaningless. Nothing may do that.
+# The width of the DECIMAL intent ids an early store already carries. Intents
+# are captured as ULIDs now, so nothing new is bounded by this — but a store
+# sitting near INT-9999 still has a wall in front of its existing form, and
+# doctor warns about exactly that. NOT interchangeable with `ids.SEQ_WIDTH`
+# despite both being 4: one counts decimal digits, the other base-32
+# characters, so comparing an `ids.decode` result against ID_CEILING is
+# meaningless. Nothing may do that.
 ID_WIDTH = 4
 ID_CEILING = 10 ** ID_WIDTH - 1                 # RU-9999, INT-9999
 
 _RU_FILE = re.compile(
-    rf"^(RU-draft-[0-9A-HJKMNP-TV-Z]{{26}}|{ids.permanent_body('RU')})\.yaml$")
+    rf"^(RU-draft-{ids.ULID}|{ids.permanent_body('RU')})\.yaml$")
 
 def _ru_filename_problem(stem: str) -> str:
     """Why this stem is not an RU filename, in the most specific terms available.
@@ -62,10 +63,10 @@ def _ru_filename_problem(stem: str) -> str:
 
 
 _FEAT_FILE = re.compile(r"^FEAT-[a-z0-9-]+\.yaml$")
-_GAP_FILE = re.compile(r"^GAP-[0-9A-HJKMNP-TV-Z]{26}\.yaml$")
+_GAP_FILE = re.compile(rf"^GAP-{ids.ULID}\.yaml$")
 _MANIFEST_FILE = re.compile(r"^[a-z][a-z0-9-]*\.manifest\.yaml$")
 _MODEL_FILE = re.compile(r"^MDL-[a-z][a-z0-9-]*\.statechart\.json$")
-_INT_FILE = re.compile(r"^INT-[0-9]{4}\.[a-z0-9]+$")
+_INT_FILE = re.compile(rf"^{ids.INTENT_BODY}\.[a-z0-9]+$")
 _ADR_FILE = re.compile(r"^ADR-[A-Za-z0-9-]+\.md$")
 
 # Reference token grammar (formats §2): parser.tokens owns it outright. This
@@ -261,7 +262,10 @@ class Store:
             )
         elif kind == "intent":
             if not _INT_FILE.match(name):
-                raise UnknownArtifact(str(path), "not an INT filename (INT-XXXX.<ext>)")
+                raise UnknownArtifact(
+                    str(path),
+                    "not an INT filename — INT-<ULID>.<ext> for a new capture, or "
+                    "the four-digit INT-XXXX.<ext> an early store already carries")
             self._intents.append(path.stem)
             self._intent_paths[path.stem] = path
         elif kind == "rationale":

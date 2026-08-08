@@ -4,23 +4,25 @@ checked for INT existence only in v1 (slug↔heading mapping is not yet pinned).
 
 import re
 
+from .. import ids
 from ..violations import Violation
 from .base import lint, rel
 
-_REF = re.compile(r"^(?P<int>INT-[0-9]{4})#(?:L(?P<start>[0-9]+)(?:-(?P<end>[0-9]+))?|S(?P<section>[a-z0-9-]+))$")
+_REF = re.compile(
+    rf"^(?P<int>{ids.INTENT_BODY})#(?:L(?P<start>[0-9]+)(?:-(?P<end>[0-9]+))?|S(?P<section>[a-z0-9-]+))$")
 
 
 @lint("L4")
 def run(store):
     out = []
-    ids = set(store.intents())
+    known = set(store.intents())
     for ru in store.rus():
         m = _REF.match(ru.raw["source_ref"])
         if not m:  # schema stage should have caught it; report anyway
             out.append(_v(store, ru, f"source_ref {ru.raw['source_ref']!r} is not a valid INT anchor"))
             continue
         int_id = m.group("int")
-        if int_id not in ids:
+        if int_id not in known:
             out.append(_v(store, ru, f"source_ref targets {int_id}, which does not exist in spec/intent/"))
             continue
         if m.group("start"):
@@ -37,4 +39,4 @@ def run(store):
 def _v(store, ru, message):
     return Violation(rule="L4", severity="error", artifact=ru.id, path=rel(store, ru.path),
                      message=message + ".",
-                     suggestion="Anchor into a real, committed INT artifact (INT-XXXX#L<a>-<b>).")
+                     suggestion="Anchor into a real, committed INT artifact (<INT id>#L<a>-<b>).")

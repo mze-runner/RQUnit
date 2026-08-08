@@ -6,10 +6,11 @@ same commit, so a leftover token means a botched or hand-rolled activation."""
 
 import re
 
+from .. import ids
 from ..violations import Violation
 from .base import lint, rel
 
-_DRAFT_TOKEN = re.compile(r"RU-draft-[0-9A-HJKMNP-TV-Z]{26}")
+_DRAFT_TOKEN = re.compile(rf"RU-draft-{ids.ULID}")
 
 
 @lint("L9")

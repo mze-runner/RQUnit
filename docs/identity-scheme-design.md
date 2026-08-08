@@ -255,7 +255,9 @@ owns intent ids, so nothing refuses at the wall; the first capture past it makes
 the store unloadable. `doctor` now warns for both families, which is currently
 the only guard intents have. Intents are cheap to re-identify (five files, and
 `source_ref` is not in the gate stamp), and they fit the GAP profile:
-numerous, machine-referenced, never spoken. Candidate schemes are ULID (follows
+numerous, machine-referenced, never spoken. **Resolved in v0.16.0: ULID** (spec
+§3.1, §7.1) — what follows records the question as it stood.
+Candidate schemes are ULID (follows
 GAP exactly) or date-based `INT-20260808-01`, which carries the capture date —
 real metadata for a verbatim record of a conversation. **Not decided here.**
 

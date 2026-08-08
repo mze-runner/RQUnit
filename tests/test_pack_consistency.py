@@ -182,22 +182,33 @@ def _shipped_schema_texts() -> dict[str, str]:
     return found
 
 
+_QUOTED = re.compile(r'"pattern":\s*"((?:[^"\\]|\\.)*)"'      # JSON
+                     r"|pattern:\s*\"((?:[^\"\\]|\\.)*)\"")   # YAML flow scalar
+
+
+def _all_patterns() -> list[tuple[str, str]]:
+    """(where, pattern) for every `pattern` in every shipped schema.
+
+    One extractor, because the JSON and YAML quoting rules and the escape
+    handling are the fiddly part — a second copy is where the next family's
+    sweep silently reads its patterns wrong."""
+    out = []
+    for where, text in _shipped_schema_texts().items():
+        for match in _QUOTED.finditer(text):
+            raw = match.group(1) or match.group(2)
+            pattern = raw.encode().decode("unicode_escape") if "\\\\" in raw else raw
+            out.append((where, pattern))
+    return out
+
+
 def _ru_patterns() -> list[tuple[str, str]]:
     """(where, pattern) for every shipped pattern that mentions a PERMANENT RU
     id. Draft-only patterns are the ULID grammar wearing the same prefix and
     are legitimately narrower, so they are excluded by shape rather than by a
     list of exceptions."""
     permanent_mention = re.compile(r"RU-(?!draft-)")
-    quoted = re.compile(r'"pattern":\s*"((?:[^"\\]|\\.)*)"'      # JSON
-                        r"|pattern:\s*\"((?:[^\"\\]|\\.)*)\"")   # YAML flow scalar
-    out = []
-    for where, text in _shipped_schema_texts().items():
-        for match in quoted.finditer(text):
-            raw = match.group(1) or match.group(2)
-            pattern = raw.encode().decode("unicode_escape") if "\\\\" in raw else raw
-            if permanent_mention.search(pattern):
-                out.append((where, pattern))
-    return out
+    return [(where, pattern) for where, pattern in _all_patterns()
+            if permanent_mention.search(pattern)]
 
 
 # A corpus wide enough that a pattern edited by hand cannot agree with `ids` by
@@ -251,6 +262,61 @@ def test_every_shipped_id_pattern_still_accepts_every_legal_id():
                 for candidate in legal
                 if not re.compile(pattern).fullmatch(candidate)]
     assert not problems, "shipped schema pattern(s) narrower than the grammar:\n  " + "\n  ".join(problems)
+
+
+# Both intent forms, near-misses on each, and the confusables the alphabet
+# drops. Wide enough that a pattern edited by hand cannot agree by accident.
+INTENT_CORPUS = [
+    "INT-0057",                            # what an early store carries
+    "INT-01J3F8KQZ2ABCDEFGHJKMNPQRS",      # what capture writes now
+    "INT-01K1TESTAAAAAAAAAAAAAAAAAA",
+    "INT-01O3F8KQZ2ABCDEFGHJKMNPQRS",      # O is not in the alphabet
+    "INT-01I3F8KQZ2ABCDEFGHJKMNPQRS",      # nor is I
+    "INT-01J3F8KQZ2ABCDEFGHJKMNPQR",       # 25 characters
+    "INT-01J3F8KQZ2ABCDEFGHJKMNPQRST",     # 27
+    "INT-057", "INT-00570", "int-0057",
+    "INT-01j3f8kqz2abcdefghjkmnpqrs",      # case is never folded
+]
+
+
+def _intent_patterns() -> list[tuple[str, str]]:
+    """(where, pattern) for every shipped pattern mentioning an intent id."""
+    return [(where, pattern) for where, pattern in _all_patterns()
+            if "INT-" in pattern]
+
+
+def test_every_shipped_intent_pattern_agrees_with_the_grammar():
+    """`source_ref` is the provenance link a Gate 1 reviewer follows, and three
+    schemas spell its anchor by hand. Compared by VERDICT, not by substring: a
+    containment check passes a pattern that carries the right text anchored
+    wrongly, and reddens on a semantically identical respelling — so it would
+    police spelling while missing the defect."""
+    found = _intent_patterns()
+    assert found, "no shipped schema mentions an intent id"
+    truth = re.compile(ids.INTENT_PATTERN)
+    problems = []
+    for where, pattern in found:
+        compiled = re.compile(pattern)
+        for candidate in INTENT_CORPUS:
+            # Schema patterns carry the ANCHOR suffix; compare on the id alone
+            # by appending the smallest legal anchor.
+            expected = bool(truth.fullmatch(candidate))
+            actual = bool(compiled.fullmatch(f"{candidate}#L1"))
+            if expected != actual:
+                problems.append(f"{where}: {candidate!r} — grammar says "
+                                f"{expected}, schema says {actual}")
+    assert not problems, ("shipped intent pattern(s) drifted from "
+                          "`ids.INTENT_PATTERN`:\n  " + "\n  ".join(problems))
+
+
+def test_the_intent_grammar_admits_both_forms_and_nothing_else():
+    """Both forms are legal forever: an intent is immutable and every RU
+    compiled from one cites it, so re-identifying one rewrites the provenance of
+    requirements that are already stamped."""
+    pattern = re.compile(ids.INTENT_PATTERN)
+    accepted = {c for c in INTENT_CORPUS if pattern.fullmatch(c)}
+    assert accepted == {"INT-0057", "INT-01J3F8KQZ2ABCDEFGHJKMNPQRS",
+                        "INT-01K1TESTAAAAAAAAAAAAAAAAAA"}, sorted(accepted)
 
 
 def test_the_draft_segment_field_pins_the_segment_grammar():
