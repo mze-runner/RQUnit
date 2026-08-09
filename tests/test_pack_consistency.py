@@ -404,3 +404,42 @@ def test_documentation_links_resolve(name):
         if not (path.parent / target).resolve().exists():
             broken.append(f"[{match.group(1)}]({target})")
     assert not broken, f"{name}: " + ", ".join(broken)
+
+
+def test_no_shipped_artifact_names_a_consumer():
+    """The hardest boundary this product has: a consumer's name, domain
+    language, service names or paths may appear in NO artifact here. It is not
+    a style rule — a framework carrying one consumer's vocabulary is no longer
+    a framework, and the leak is invisible to everyone who works on it because
+    they know what the word means.
+
+    Enforced over tracked files rather than a hand-kept list of documents,
+    because the leak lands wherever someone was writing at the time. The
+    forbidden set lives in `.consumer-names`, one per line, so adding a
+    consumer to stress-test against does not mean trusting a reviewer's eye."""
+    import subprocess
+
+    root = Path(__file__).parent.parent
+    names_file = root / ".consumer-names"
+    names = [n.strip() for n in names_file.read_text().splitlines()
+             if n.strip() and not n.startswith("#")]
+    assert names, ".consumer-names is empty — the guard would pass vacuously"
+
+    tracked = subprocess.run(["git", "ls-files", "-z"], cwd=root,
+                             capture_output=True, text=True, check=True).stdout.split("\0")
+    pattern = re.compile("|".join(re.escape(n) for n in names), re.I)
+    leaks = []
+    for name in filter(None, tracked):
+        path = root / name
+        if not path.is_file() or path.suffix in {".png", ".jpg", ".ico"}:
+            continue
+        if name in (".consumer-names", "tests/test_pack_consistency.py"):
+            continue
+        try:
+            text = path.read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
+            if pattern.search(line):
+                leaks.append(f"{name}:{lineno}")
+    assert not leaks, "consumer name(s) leaked into shipped artifacts:\n  " + "\n  ".join(leaks)

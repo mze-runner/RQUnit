@@ -5,7 +5,7 @@
 **Canonical location:** `spec/framework/ru-framework-spec.md`
 **Normativity:** This document is normative for authoring and managing requirements. Where it conflicts with any prose story, epic, or feature description, this document wins. RFC-2119 keywords (MUST, MUST NOT, SHOULD, MAY) apply throughout.
 
-**About the examples:** all of them use a generic online order-management system; the framework is domain-agnostic. Numeric bounds that appear in them (5 seconds, 90 days, a cap of 15) demonstrate *that* a bound is mandatory, never *what* it should be — every one of those is a consumer's to choose.
+**Scope:** the framework is domain-agnostic and language-agnostic. Examples use an order-management system.
 
 ---
 

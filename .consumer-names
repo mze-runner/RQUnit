@@ -1,0 +1,4 @@
+# Consumers this framework has been stress-tested against. No shipped
+# artifact may name one — see test_no_shipped_artifact_names_a_consumer.
+# One name per line.
+reevz

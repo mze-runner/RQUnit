@@ -6,9 +6,9 @@
 is, exactly where it stands, and what happens next. Nothing here assumes access to
 the conversation that produced it or to any session memory.
 
-> **Read this first if you are an agent picking the work up.** The product currently
-> lives inside a consumer repository (`reevz`) and is being extracted. Section 9 is
-> the extraction plan and is the immediate next task. Sections 6–8 exist so that
+> **Read this first if you are an agent picking the work up.** At the time of writing
+> the product still lived inside a consumer repository and was being extracted;
+> section 9 is that extraction plan. Sections 6–8 exist so that
 > settled decisions are not re-litigated: where this paper says a thing was ruled,
 > treat it as ruled unless the operator reopens it.
 
@@ -29,10 +29,9 @@ them. Enforcement is not advice: it is lints, consistency checks, runtime hooks,
 gates that block commits.
 
 The framework is **domain-agnostic and language-agnostic**. It is a product in its
-own right. The repository it currently lives in (`reevz`, a Rust guild-platform) is
-a *consumer* — the first and so far only one — used to stress-test the framework
-against a real migration. Nothing about Reevz is normative for the product, and no
-framework artifact may reference it.
+own right. The repository it was extracted from is a *consumer* — the first, and used to
+stress-test the framework against a real migration. Nothing about a consumer is
+normative for the product, and no framework artifact may name one.
 
 ### What problem it actually solves
 
