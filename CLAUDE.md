@@ -167,8 +167,8 @@ be false generality.
   assuming the tree is as you left it, and never reformat or "fix" a file you did not
   write — it is probably someone's work in progress.
 
-**Orientation for a fresh session:** read `docs/rqunit-product-paper.md` first (a
-dated snapshot: architecture, settled decisions with their reasons, current state,
-extraction plan, roadmap), then `HANDBOOK.md`, then the spec. Then run the tool
-against a fixture store — the output teaches the current state better than prose,
-which is the point of the design.
+**Orientation for a fresh session:** read `docs/rqunit-product-paper.md` first —
+what the product is, how it is built, and which decisions are settled and why —
+then `HANDBOOK.md`, then the spec. Then run the tool against a fixture store: the
+output teaches the current state better than prose, which is the point of the
+design.
