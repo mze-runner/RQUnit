@@ -11,7 +11,7 @@ existing form, which is the only thing those constants still describe. They are
 not `SEQ_WIDTH`/`SEQ_CEILING` despite both widths being 4: one counts decimal
 digits, the other base-32 characters, and nothing may compare across them.
 
-The shape (design paper: `docs/identity-scheme-design.md`):
+The shape (the design behind it: `docs/identity-scheme-design.md`):
 
     RU-ORD-01A2
     │  │   └── sequence: four Crockford base-32 characters

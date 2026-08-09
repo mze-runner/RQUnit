@@ -1,4 +1,4 @@
-"""The segment registry (formats §1, design paper `identity-scheme-design.md`).
+"""The segment registry (formats §1; the design behind it: `identity-scheme-design.md`).
 
 A segment is the domain an id is allocated into: `RU-ORD-01A2`. It is an
 allocation and ownership boundary and **never a verification boundary** — C1

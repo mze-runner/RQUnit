@@ -363,7 +363,8 @@ def test_the_regex_alphabet_and_the_string_alphabet_are_the_same_set():
 # roadmap position or project history in committed product documentation.
 
 CONSUMER_DOCS = ["README.md", "HANDBOOK.md",
-                 "docs/ru-framework-spec.md", "docs/formats.md"]
+                 "docs/ru-framework-spec.md", "docs/formats.md",
+                 "docs/identity-scheme-design.md"]
 
 
 @pytest.mark.parametrize("name", CONSUMER_DOCS)
