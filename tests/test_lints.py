@@ -400,3 +400,36 @@ def test_l27_survives_a_registry_it_cannot_parse(tmp_path):
     violations = run_lints(Store.load(root))
     assert [v for v in violations if v.rule == "L27"] == []
     assert violations is not None      # the run completed rather than aborting
+
+
+def test_l4_bounds_checks_the_line_anchor_it_now_always_gets():
+    """With the section form retired the anchor is always lines, so the branch
+    that used to guard this is gone — the bounds check must still fire."""
+    import shutil
+    import tempfile
+
+    import yaml
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "store"
+        shutil.copytree(FIXTURES / "store" / "valid", root)
+        target = root / "spec" / "ru" / "RU-0142.yaml"
+        data = yaml.safe_load(target.read_text())
+        data["source_ref"] = "INT-0057#L900-901"
+        target.write_text(yaml.safe_dump(data, sort_keys=False))
+
+        flagged = [v for v in run_lints(Store.load(root)) if v.rule == "L4"]
+        assert flagged and "outside" in flagged[0].message
+
+
+def test_the_retired_section_anchor_is_refused_by_the_grammar():
+    """It parsed for as long as it existed and was never verified past the file
+    existing. Retiring it is a TIGHTENING, so the refusal is the thing that
+    tells an affected store what happened."""
+    import re
+
+    from rqunit import ids
+
+    anchor = re.compile(f"^{ids.INTENT_ANCHOR}$")
+    assert anchor.match("INT-0057#L1-10")
+    assert anchor.match("INT-01J3F8KQZ2ABCDEFGHJKMNPQRS#L7")
+    assert not anchor.match("INT-0057#Scancellation-goals")

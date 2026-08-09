@@ -116,6 +116,14 @@ ULID = "[0-9A-HJKMNP-TV-Z]{26}"
 INTENT_BODY = rf"INT-(?:{ULID}|[0-9]{{4}})"
 
 
+# How an RU cites the exact place in its intent that it compiles. LINE anchors
+# only: a section anchor (`#S<slug>`) was in the grammar from the start and was
+# never enforceable, because an intent is "any (MD, transcript)" and a pasted
+# conversation has no headings to slugify. An anchor form nothing can verify is
+# a preference wearing a syntax, so v0.16.0 retires it — line anchors are
+# bounds-checked against the file and work on every capture format.
+INTENT_ANCHOR = rf"{INTENT_BODY}#L[0-9]+(-[0-9]+)?"
+
 INTENT_PATTERN = rf"^{INTENT_BODY}$"
 """The regex for an intent id.
 

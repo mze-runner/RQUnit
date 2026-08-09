@@ -1,0 +1,9 @@
+# The section anchor form `#S<slug>`, retired in v0.16.0. It was never
+# enforceable — an intent is any capture format, so a pasted conversation has
+# no headings to slugify, and the anchor could only ever be checked for the
+# FILE existing. This fixture proves the shape is refused, where it used to
+# prove it was accepted.
+id: FEAT-order-cancellation
+goal: Customers and support agents can cancel in-flight orders without stranding fulfilment.
+source_ref: INT-0057#Scancellation-goals
+status: active

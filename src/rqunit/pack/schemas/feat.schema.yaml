@@ -14,5 +14,5 @@ properties:
     minLength: 20
     maxLength: 400
     description: One-sentence motivation. Normative language here is an L11 error.
-  source_ref: { type: string, pattern: "^INT-(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})#(L[0-9]+(-[0-9]+)?|S[a-z0-9-]+)$" }
+  source_ref: { type: string, pattern: "^INT-(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})#L[0-9]+(-[0-9]+)?$" }
   status:     { enum: [active, retired] }

@@ -101,7 +101,11 @@ def test_spec_version_matches_the_specification_status_line():
 
     spec = (Path(__file__).parent.parent / "docs" / "ru-framework-spec.md").read_text()
     status = spec.split("\n", 3)[2]                     # the **Status:** line
-    announced = re.search(r"v(\d+\.\d+\.\d+)", status)
+    # Capture any pre-release suffix too. Matching only the numeric core
+    # let the spec announce "v0.16.0-rc" while SPEC_VERSION said "0.16.0",
+    # so a store could be pinned to a version the spec still called a
+    # candidate — and nothing noticed.
+    announced = re.search(r"v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)", status)
     assert announced, f"no version in the status line: {status[:80]}"
     assert announced.group(1) == SPEC_VERSION, (
         f"specification announces v{announced.group(1)}, schemas.SPEC_VERSION is "
