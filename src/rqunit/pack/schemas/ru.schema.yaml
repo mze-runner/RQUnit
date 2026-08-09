@@ -1,7 +1,6 @@
 # Requirement Unit schema (JSON Schema draft 2020-12, expressed in YAML)
-# Normative source: ru-framework-spec.md v0.10 §3, §6, §7 (v0.9 adds gate1_stamp,
-# link_fingerprints — §7.2/§7.3).
-# Enforced by: L18-analogue for RUs (schema stage), plus semantic lints L1-L17.
+# Normative source: ru-framework-spec.md §3, §6, §7.
+# Enforced by: the schema stage for shape, plus the semantic lints.
 # NOTE: schema validates SHAPE only. Statement parseability (L1), reference
 # resolution (L15), actor membership (L12) etc. are semantic lints, not schema.
 
@@ -44,7 +43,7 @@ properties:
       Exactly one normative EARS/Gherkin statement. May embed manifest
       references {value:x} {endpoint:x} {problem:x} {audit:x} {message:x}
       {channel:x} {frame:c.f} {vocab:x}. Parse + bound + compound rules are
-      lints L1-L3, not schema.
+      lints L1, L2 and L3, not schema.
 
   syntax:
     enum: [ears, gherkin]

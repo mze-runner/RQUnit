@@ -1,4 +1,4 @@
-"""`spec-check` — consistency checks C1–C9; mirrors the spec-lint contract."""
+"""`rqunit check` — the consistency checks; mirrors the lint report contract."""
 
 from __future__ import annotations
 

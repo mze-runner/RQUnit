@@ -1,6 +1,6 @@
-"""C1–C9 fixture harness (TASK-040…048 acceptance) + normalizer unit tests
-(the normalizer ships as its own tested module, donor C1 note) + the G3
-criterion: the real store runs error- and warning-free (C7 findings expected)."""
+"""The consistency-check fixture harness — every registered check has a pass
+store that is clean and a fail store that is red for its reason alone — plus
+normalizer unit tests, and the invariant that a valid store stays green."""
 
 import shutil
 from pathlib import Path

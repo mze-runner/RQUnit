@@ -1,4 +1,4 @@
-"""`spec-lint` — runs lints L1–L18 over a store (formats §4 report contract)."""
+"""`rqunit lint` — runs the lints over a store (formats §4 report contract)."""
 
 from __future__ import annotations
 

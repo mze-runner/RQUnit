@@ -121,14 +121,22 @@ def test_tool_and_spec_versions_are_allowed_to_differ():
     assert SPEC_VERSION and installed_version()          # both exist, independently
 
 
-def test_no_shipped_text_advertises_a_stale_conformance_range():
+def test_no_shipped_text_advertises_a_stale_rule_range():
     """A rule catalogue quoted as a range rots the moment a rule is added, and
-    the quote is what a consumer reads BEFORE the rules — the CLI's own help,
-    the handbook, the skills the tool emits into a consumer repository. This
-    fired for real: two audit rules shipped and `rqunit conformance --help`
-    still advertised the ceiling from before them, so the newest capability was
-    invisible at the surface that introduces it. Assert the ceiling, not the
-    census: the highest rule the reconciler can actually emit.
+    the quote is what a reader meets BEFORE the rules — the CLI's own help, the
+    handbook, a module docstring, the skills the tool emits into a consumer
+    repository. This fired for real: two audit rules shipped and
+    `rqunit conformance --help` still advertised the ceiling from before them,
+    so the newest capability was invisible at the surface that introduces it.
+
+    It fired again for L and C, because the guard written after the first time
+    covered only CF — the family it had just been bitten by. A guard scoped to
+    the instance that caused it is half a guard, so every numbered family is
+    swept: assert the CEILING each one can actually emit, never a census.
+
+    A range means "the family runs to here". To name a few specific rules, list
+    them (`L1, L2 and L3`) — the two are indistinguishable to a reader and to
+    this check, and only one of them is a claim about a ceiling.
 
     Dated design papers are exempt, as everywhere else — a snapshot describes
     the ceiling of its own day, and editing one to satisfy a linter would make
@@ -136,15 +144,24 @@ def test_no_shipped_text_advertises_a_stale_conformance_range():
     import re
     import subprocess
 
+    from rqunit.checks.base import discover as discover_checks
     from rqunit.conformance import _SUGGESTION
+    from rqunit.lints.base import discover as discover_lints
 
-    highest = max(int(rule[2:]) for rule in _SUGGESTION)
+    def ceiling(codes, prefix):
+        return max(int(c[len(prefix):]) for c in codes if re.fullmatch(rf"{prefix}\d+", c))
+
+    highest = {
+        "CF": ceiling(_SUGGESTION, "CF"),
+        "C": ceiling(discover_checks(), "C"),
+        "L": ceiling(discover_lints(), "L"),
+    }
     root = Path(__file__).parent.parent
     tracked = subprocess.run(
         ["git", "ls-files", "-z", "*.py", "*.md", "*.yaml"],
         cwd=root, capture_output=True, text=True, check=True,
     ).stdout.split("\0")
-    pattern = re.compile(r"CF1\s*[–-]\s*CF(\d+)")
+    pattern = re.compile(r"\b(CF|C|L)1\s*[–-]\s*(?:CF|C|L)(\d+)")
     dated = re.compile(r"\*\*Status:\*\*\s*written \d{4}-\d{2}-\d{2}")
 
     stale = []
@@ -157,10 +174,12 @@ def test_no_shipped_text_advertises_a_stale_conformance_range():
             continue
         for lineno, line in enumerate(text.splitlines(), 1):
             for m in pattern.finditer(line):
-                if int(m.group(1)) != highest:
-                    stale.append(f"{name}:{lineno} says {m.group(0)}")
+                family = m.group(1)
+                if int(m.group(2)) != highest[family]:
+                    stale.append(f"{name}:{lineno} says {m.group(0)} "
+                                 f"(the ceiling is {family}{highest[family]})")
     assert not stale, (
-        f"the reconciler emits up to CF{highest}; these advertise a different ceiling:\n  "
+        "a quoted rule range no longer matches the family's ceiling:\n  "
         + "\n  ".join(stale)
     )
 
