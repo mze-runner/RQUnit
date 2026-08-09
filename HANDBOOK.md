@@ -3,7 +3,7 @@
 How to navigate and use the requirements framework day to day — through its
 lifecycle CLI, `rqunit` — plus the full catalog of rule codes (L*, C*, H*, M*).
 This document is a *guide*: where it disagrees with
-[ru-framework-spec.md](ru-framework-spec.md) or [formats.md](formats.md),
+[the specification](docs/ru-framework-spec.md) or [the formats reference](docs/formats.md),
 those win.
 
 ---

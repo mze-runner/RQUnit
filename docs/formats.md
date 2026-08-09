@@ -1,8 +1,8 @@
 # RU Framework — Formats & Conventions Reference
 
-Companion to `ru-framework-spec.md` v0.10 and the adoption plan v1.0 (incl. tasks 052–055, C9/TASK-048). This
-document pins every format the plan previously left implicit. It is normative
-for tooling; changes are schema-revision events, not edits.
+Companion to [`ru-framework-spec.md`](ru-framework-spec.md). This document pins
+every format the specification refers to — filenames, grammars, file shapes, and
+the exact bytes of anything generated. It is normative for tooling.
 
 ---
 
@@ -57,7 +57,7 @@ than crossing it, and `rqunit doctor` warns per space while there is runway.
 token      = "{" kind ":" [ qualifier "/" ] key "}" ;
 kind       = "value" | "endpoint" | "problem" | "audit"
            | "message" | "channel" | "frame" | "vocab" ;
-qualifier  = ident ;                       (* owning service slug (v0.10);
+qualifier  = ident ;                       (* owning service slug;
                                                    FORBIDDEN for kind "value" —
                                                    foreign scalars promote to shared *)
 key        = dotted | frameref | surfaceref ;
@@ -68,10 +68,10 @@ surfaceref = ident [ "." direction [ { "." fieldname } ] ] ;
                                                 (* endpoint only *)
 direction  = "inbound" | "outbound" ;
 ident      = lowletter { lowletter | digit | "_" | "-" } ;
-                                                (* v0.10.2: "-" admitted so RFC 7807-style
-                                                   hyphenated keys (problem types, service
-                                                   slugs) are referenceable; the qualifier/key
-                                                   split stays unambiguous — "/" delimits *)
+                                                (* "-" admitted, so RFC 7807-style hyphenated
+                                                   keys (problem types, service slugs) are
+                                                   referenceable; "/" delimits the qualifier,
+                                                   so the split stays unambiguous *)
 fieldname  = letter { letter | digit | "_" | "-" } ;
                                                 (* mixed case admitted: `conventions.field_names`
                                                    decides which convention is legal in a store
@@ -96,7 +96,7 @@ Literal braces in statements are escaped `{{` `}}`.
 Unknown kind, empty key, nesting, or a qualified `value` ref → tokenizer error
 (feeds L15's "malformed" class, distinct from "unresolved").
 
-## 3. EARS grammar (normative for TASK-011)
+## 3. EARS grammar
 
 Statement = one template instance, terminated by a period. `<system>` is the
 literal phrase "the system" or a manifest service name. `<actor>` must resolve
@@ -118,8 +118,8 @@ Negative responses ("shall not …") are valid responses. A statement matching
 no template, or matching one with an unfillable slot, is an L1 error carrying
 the nearest-template diagnosis. Compound detection (L3) operates on the parsed
 `response`: two coordinated shall-clauses = compound; one shall-clause with a
-coordinated object = single. The TASK-011 golden suite is the executable
-definition of edge cases — extend the suite before extending the grammar.
+coordinated object = single. The parser's golden suite is the executable
+definition of the edge cases — extend the suite before extending the grammar.
 
 ## 4. Violation report format (all CLIs)
 
@@ -266,7 +266,7 @@ necessarily the version enforcing it today; the pin is reported, never
 reconciled. A store without the pin is unpinned, not invalid — reporting
 falls back to the enforcing version.
 
-## 9. Gate stamps & fingerprints (v0.9)
+## 9. Gate stamps & fingerprints
 
 **Canonical hash** (gate stamps, RU-target fingerprints): JSON serialization of
 the object `{statement, scope, verification, tier}` with keys sorted
@@ -319,7 +319,7 @@ Rules that ARE enforced:
   `spec-activate restamp` records the missing fingerprint.
 - Task packets inline the full ADR content in section 3 (§6).
 
-**Operator identity (v0.10.1):** every reviewer/operator id in the store
+**Operator identity:** every reviewer/operator id in the store
 (`gate1_stamp.by`, Gate 2 `reviewer`, fingerprint re-affirmations) is a stable
 HANDLE (e.g. a VCS username), never contact information — the store is
 published with the repository. Emails are schema-rejected (`by` pattern) and
@@ -327,11 +327,10 @@ CLI-rejected (`--reviewer`); the handle→person mapping lives outside the repo.
 
 ## 11. (retired — the contract layer)
 
-`spec/contracts/CT-<slug>.yaml` and the `contract` verification type were
-retired in v0.14. A shape is a manifest fact: a surface declares its census
-inline (§13), and structure behind an encoding boundary is a shared `artifacts`
-entry (§16). The section number stays spent — references in the wild point
-here rather than at something else.
+There is no contract layer. A shape is a manifest fact: a surface declares its
+census inline (§13), and structure behind an encoding boundary is a shared
+`artifacts` entry (§16). This section number stays spent so that older
+references land here rather than on something else.
 
 ## 12. Open decisions ratified by this document (flag to operator, defaults active)
 
@@ -345,7 +344,7 @@ here rather than at something else.
    model as the service's own inbound `message` entry. Deliberate; revisit only
    with a concrete cross-service-model need.
 
-## 13. Surface shape format (v0.13)
+## 13. Surface shape format
 
 An endpoint declares both directions; spec §5.9 is normative for what they mean.
 Sections are numbered by arrival, so this one follows §12 rather than sitting

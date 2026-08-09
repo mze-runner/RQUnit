@@ -1,92 +1,11 @@
 # Requirement Unit (RU) Framework — Specification Management for Agentic Development
 
-**Status:** v0.16.0 (v0.16.0: adapters become pluggable processes. Any
-`[stacks.<name>]` table declares a stack — core carries no language list — and
-core interprets a closed key set per stack (the `adapter` role declarations
-and `literal_scan`); every other key is adapter-owned passthrough, validated
-by the adapter manifest's `config_keys`, never by core. Each role runs out of
-process behind a pinned schema, declared `cmd` (core execs the argv as an
-opaque black box — never a language toolchain or build system) XOR `artifact`
-(a file the stack's own pipeline produced). Three interface contracts join
-`actual-surface` and `test-plan`: `scanned-checks` (scanner output),
-`emit-request`/`emitted-files` (emitter stdin/stdout — files as data, core
-writes every one, and check identity flows through the response's plan-check
-mapping, never through parsing emitted source); the `adapter-manifest`
-self-declaration carries roles, `config_keys`, and the compliance kit that
-`rqunit adapter verify` runs. The statechart dialect's M1–M4/M6 move from
-prose to enforcement as their own lint family, and generation refuses a
-violating model with the same messages — a wrong model used to render a test
-asserting a transition to nowhere. Shim registration becomes a recorded claim
-(`spec/framework/shims.yaml`, checked by C15): an unregistered model's suite
-is rendered unrunnable, contributes zero depth to the coverage policy, and is
-reported apart from suites that execute — the last place
-declared depth could exceed provable depth. Packets gain a `mode`: `check-authoring` assembles the same context plus the
-instruction to write the checks before the implementation and record their
-first red — discipline the framework states rather than polices, made
-checkable by the ledger below. Adoption becomes reversible: a fifth role, `stripper`, and
-`rqunit trace --strip` remove the trace annotations adoption asked a consumer
-to write into their own tests — orphans by default, `--all` for off-boarding,
-nothing written without `--apply`, and a stack declaring no stripper reported
-as un-strippable rather than swept clean (§6.6). Core decides which tokens are
-stale; the adapter rewrites its own sources. A fourth probe role, `evidence`, and an append-only ledger at
-`spec/check-evidence/` record which checks have demonstrated they can fail; L26
-reports the ones that never have (§6.8). L14 newness becomes base-vs-head set difference
-over scanner observations, never diff-line inspection (§6.6 states the
-widened-scan and rename consequences). Permanent ids gain a base-32 sequence and an optional
-segment: `RU-ORD-01A2`, four Crockford characters per segment rather than four decimal digits store-wide, with the segments a store allocates into declared in `spec/framework/segments.yaml` and guarded by C16. Segments bound ALLOCATION and ownership, never verification — every rule stays store-wide, because a domain able to contradict another unnoticed is what a single shared store exists to prevent. A segment name is the one vocabulary here that is permanent: add and close, never rename or merge. Absence of a segment is a positive claim — this governs the store — which is the constitutional tier, and L27 reports a draft whose declaration contradicts its tier while the choice is still free (§7.1, formats §1). Gap-in-the-sequence detection retires with the decimal scheme, because under one base a gap between consecutive allocations is an artefact of the alphabet; `rqunit doctor` now compares what version control records as deleted against what the store still carries. Intents move to ULIDs for the reason drafts and GAPs already carry them — capture has no serialization point, so nothing can allocate an id, which is why nothing ever refused at the four-digit wall; the decimal form stays legal permanently and both coexist. The `source_ref` anchor TIGHTENS to lines only — `#S<slug>` is retired, having never been enforceable on a capture format without headings; **a store using one must convert it to the line range it meant**, which is what a reader had to work out anyway. **Consumers MUST act:** register a
-shim in `spec/framework/shims.yaml` for every model whose suite really runs
-(an unregistered one counts as no depth, so a draft relying on it can no longer
-activate under a `min_mechanical` rule until the shim lands), declare
-adapter roles in `[stacks.<name>.adapter]` — the extractor's write target
-moves to `extractor = { artifact = "…" }` — delete `trace_diff`, and wire a
-scanner role before using `rqunit trace --against`. Recording runs with
-`rqunit evidence record` is optional: without it L26 simply has nothing to
-report, which is the honest answer for a store that has observed nothing. **No id
-migration is required and none is supported:** decimal ids are already valid base-32
-ids whose reinterpretation preserves order, so every existing id keeps its spelling
-and its place and the next allocation lands after all of them. Segments are opt-in —
-a store that declares none carries none, and its drafts omit the field;
-v0.14.0: one vocabulary — the manifest IS the
-contract. `spec/contracts/` and the `contract` verification type retire; a shape
-is a manifest fact and an RU binds to one by addressing it in the statement.
-What the layer genuinely held — structure behind an ENCODING boundary, where a
-census cannot reach — becomes `artifacts` in the shared manifest, referenced by
-a field's `artifact:` and addressable as `{artifact:<id>[.<field>]}`; §6.1.
-Audit becomes a full surface family: a census in the shared field grammar,
-`retention` on the event, store-wide `audit_forbidden`, and `level` retired
-because logging severity is the vocabulary of the thing audit is not; §5.10.
-`emits` splits into `emits`/`audits`/`publishes` — three claims with three
-audiences, where one list was ambiguous the day two registries shared a name —
-and `publishes` closes an edge that never existed: an endpoint could not say
-which message it published. Audit emission is reconciled at last (CF10/CF11);
-C14 makes constitutional RU-0002 checkable as a finding; L25 checks the
-statement subject, which the parser had only ever validated by shape; the
-coverage policy gains `binds_shape`, which reads the STATEMENT so that
-retiring `contract` strengthens rather than weakens what the policy can
-require. **Consumers MUST act:** move every `CT-` file into shared `artifacts`,
-convert `verification: contract` entries to a statement token plus a test, move
-audit codes out of `emits` into `audits`, and drop `audit_events[].level`;
-v0.13.0: the HTTP surface becomes bidirectional —
-endpoints declare `inbound` and `outbound` field censuses inline, both
-mandatory with `none` as an explicit declaration (C10); `success_status`
-retires into `outbound.status`; presence is direction-keyed (`always|never`
-outbound, `required|optional|forbidden` inbound) and joined by
-`unknown_fields`, `nullable`, nesting via dotted field names, arrays, and a
-closed bound-key set whose values reference `values`; wire naming is declared
-once in the shared manifest under `conventions` and enforced by C13; the
-reference-token grammar gains `{endpoint:<id>.<direction>[.<field>]}`; §5.9,
-formats §2 and §13. **Consumers MUST act:** every endpoint declares both
-directions, and any `success_status` key moves into `outbound.status`;
-v0.12.0: the store carries a pack pin —
-`spec/framework/pack.yaml` records the specification version a store was authored
-against, and JSON Schemas move out of `spec/framework/` into the tool, so a
-store is validated by the schemas of the version enforcing it; §12.1, formats
-§8. Consumers scaffolded by an earlier version: nothing to do — an unpinned
-store reports the enforcing version; v0.11.1: TODO-resolution path — `resolve` converts TODO refs to real same-type refs at Gate 1 without supersession, §6.5; v0.11.0: the contracts (CT) declaration layer — `spec/contracts/CT-<slug>.yaml`, kind `claim-set`, `access_tier` binding, endpoint `scope` field with `token_scopes` vocabulary, L5 resolution, C5 membership, packet rendering, manifest-like governance via content fingerprints; v0.10.5: model evolution gets its lawful path — `reaffirm` re-stamps active dependents of an edited model under the reviewer's id; L6 scopes to active/draft RUs, superseded hashes read as provenance; v0.10.4: L2 scans authored prose only — reference-token spans are masked before vague-term scanning, closing the hyphenated-identifier false positive; v0.10.3: ADRs live in-store at `spec/rationale/ADR-<slug>.md` — dangling `rationale_ref` is an L7 error, packets inline ADR content, format in formats §10; v0.10.2: token key grammar admits hyphens — schema/grammar consistency; v0.10: cross-service reference qualifier; `success_status` on endpoints; `planned` surfaces with asymmetric conformance + L22 backlink lint; `external` message producers; C9 message-topology check — dispositions of the six Phase-2 adoption GAPs)
+**Status:** v0.16.0
+**What changed between revisions:** [CHANGELOG.md](../CHANGELOG.md) — including anything a consumer must do.
 **Canonical location:** `spec/framework/ru-framework-spec.md`
 **Normativity:** This document is normative for authoring and managing requirements. Where it conflicts with any prose story, epic, or feature description, this document wins. RFC-2119 keywords (MUST, MUST NOT, SHOULD, MAY) apply throughout.
 
-**Note to reviewers:** All examples use a generic **online order-management system** purely for illustration; the framework is domain-agnostic. Numeric bounds in examples (5 seconds, 30 seconds, 90 days, k=8, cap of 15) are placeholders demonstrating *that* bounds are mandatory, not proposals for *what* they should be — please direct review at the schema, gates, lifecycle, and enforcement rules, not at example values.
+**About the examples:** all of them use a generic online order-management system; the framework is domain-agnostic. Numeric bounds that appear in them (5 seconds, 90 days, a cap of 15) demonstrate *that* a bound is mandatory, never *what* it should be — every one of those is a consumer's to choose.
 
 ---
 
@@ -285,7 +204,7 @@ Inside RU statements (and only there — not scope, not verification refs):
 
 An endpoint reference may address one of the surface's two directions, and a field within that direction's declared census (§5.9); nesting is expressed by the field name (`…outbound.cancellation.at`). `direction` is `inbound` or `outbound` and closed by the grammar — a misspelling is malformed, not unresolved. This is how an RU binds to a shape: the statement names the field, and L15 reports a reference to a field the surface does not declare.
 
-**Cross-service qualifier (v0.10).** A reference may name the owning service: `{endpoint:service-billing/charge}`, `{problem:service-billing/payment-failed}`. One slash, before the key; grammar in `formats.md` §2. Rules:
+**Cross-service qualifier.** A reference may name the owning service: `{endpoint:service-billing/charge}`, `{problem:service-billing/payment-failed}`. One slash, before the key; grammar in `formats.md` §2. Rules:
 
 - Resolution: a **qualified** reference resolves against the named service's manifest **only** — a miss there is a dangling reference (L15), never a fallback, which would silently bind the statement to a different fact than the one it names. An **unqualified** reference resolves own-scope service manifest → `shared.manifest.yaml`. Shadowing remains forbidden (L16).
 - Cross-service references are permitted to **surfaces, problem types, and audit events only — never a foreign service's `values`**. Needing another service's scalar is precisely the §5.5 promotion-to-shared trigger; qualified value refs would bypass that discipline and are an L15 error.
@@ -336,7 +255,7 @@ The manifest is normative; code that disagrees is wrong by definition (spec stor
 - Every event, frame, emission, or close code appearing in a model MUST resolve to a manifest entry (C8). A statechart may say *when* `CANCEL` fires; only the manifest says the cancel surface exists and what carries it.
 - A model that introduces its own vocabulary is duplicating facts — a P8 violation surfaced by C8, not a modelling choice.
 
-### 5.8 Planned surfaces and external producers (v0.10)
+### 5.8 Planned surfaces and external producers
 
 **Planned surfaces.** A designed-but-unbuilt surface carries `planned: true` — NOT a FEAT stub, which would discard the interface facts and leave draft RUs with unresolvable references. Semantics:
 
@@ -348,7 +267,7 @@ The manifest is normative; code that disagrees is wrong by definition (spec stor
 
 **External producers.** An inbound subject whose producer lives outside the spec store (e.g., a third-party gateway) carries `external: true`. It is exempt from C9's one-outbound-declarer rule — there is no in-store declarer to find. If an in-store outbound declarer for the subject DOES exist, the `external` marker is itself a C9 error: a wrong marker does not get to disable the check. `external` on an outbound message is a schema error (we always own what we emit). Like the model-vocabulary `internal` escape, `external` markers are reviewed at Gate 1: it is the bucket that will attract exactly the traffic it was built to exclude, and its growth is watched.
 
-### 5.9 Surface shapes (v0.13)
+### 5.9 Surface shapes
 
 An HTTP surface has two directions, and the manifest declares both. An endpoint carries `inbound` and `outbound`; C10 requires both, at error severity, with no exemption for `planned` — a surface whose shape cannot be stated has not been designed. Shape formats are in `formats.md` §13.
 
@@ -372,7 +291,7 @@ An audit event is an interface surface (§5.4) and always has been. What it was 
 
 **It carries a census, in the same grammar as every other surface** — presence, type, vocabulary, nesting. Presence is the OUTBOUND vocabulary (`always | never`): a record is minted, never accepted, so `forbidden` is the wrong claim to make about one, and C11 says so.
 
-**`retention` is declared on the event**, not restated in every RU that mentions it. Before this, one clause was repeated per event; now the fact has a home and a single constitutional RU can require it of every record.
+**`retention` is declared on the event**, not restated in every RU that mentions it. The fact has one home, so a single constitutional RU can require it of every record.
 
 **`audit_forbidden` is store-wide.** Credential material in an evidence trail is the audit equivalent of a mass-assignment hole, and it is not an event-by-event judgment — declaring it once in the shared manifest makes an omission visible instead of a per-event oversight. An audit census declaring a forbidden field as `always` is a C6 error.
 
@@ -388,7 +307,7 @@ An audit event is an interface surface (§5.4) and always has been. What it was 
 
 There is no `contract` verification type. A shape is a manifest fact — an endpoint's `inbound`/`outbound` census, an audit event's field list, a shared `artifacts` entry — and an RU binds to one by **addressing it in the statement** (`{endpoint:get_order.outbound.cost_basis}`, `{artifact:jwt-access-token.iss}`), then proving it with a `test`.
 
-Until v0.14 the same binding could be expressed two ways: a `verification: contract` entry *and*, from v0.13, a statement token. Two mechanisms for one relationship is the duplication this framework exists to remove, and the artifact layer it required could not be explained to a consumer — a manifest already *is* a contract, with callers, subscribers and error handlers. What that layer genuinely held was one thing: structure behind an **encoding boundary**, where a census cannot reach. A response declares `access_token: string`; the claims live inside that string. Those are `artifacts` in the shared manifest (§5.5), referenced from a field by `artifact:` and addressable as `{artifact:<id>[.<field>]}`.
+A manifest already *is* a contract: it has callers, subscribers and error handlers, so an RU binds to a shape by addressing it in the statement and there is no second mechanism for the same relationship. One case a census cannot reach is structure behind an **encoding boundary** — a response declares `access_token: string`, and the claims live inside that string. Those are `artifacts` in the shared manifest (§5.5), referenced from a field by `artifact:` and addressable as `{artifact:<id>[.<field>]}`.
 
 The coverage policy can still require shape binding: `binds_shape` (§6.7) reads the statement, so "a security RU must be bound to a declared shape" survives the change rather than degrading to "must have two mechanical checks".
 
@@ -410,7 +329,7 @@ verification:
 
 **Anti-drift rule (MANDATORY):** CI recomputes the hash every run; a mismatch makes the verification **stale** and the RU *failing* until conformance is regenerated. Green against a stale hash is red. The same hash discipline applies to manifests (§5.6).
 
-**Model evolution (v0.10.5):** editing a referenced model is lawful through **re-affirmation** — a Gate 1 act (`reaffirm`, reviewer-gated) that updates each active dependent's `model_hash` to the current model, re-stamps under the reviewer's id, and regenerates conformance. The reviewer's judgment is the gate: an RU whose *meaning* the model change alters is superseded instead of re-affirmed. Superseded and retired RUs keep their historical hashes untouched — provenance, never a currency claim — and re-stamping moves `gate1_stamp.at`, so prior Gate 2 records for re-affirmed RUs stop counting (the thing they judged was verified against a different model). Hand-editing a hash without the ceremony remains an L19 error.
+**Model evolution:** editing a referenced model is lawful through **re-affirmation** — a Gate 1 act (`reaffirm`, reviewer-gated) that updates each active dependent's `model_hash` to the current model, re-stamps under the reviewer's id, and regenerates conformance. The reviewer's judgment is the gate: an RU whose *meaning* the model change alters is superseded instead of re-affirmed. Superseded and retired RUs keep their historical hashes untouched — provenance, never a currency claim — and re-stamping moves `gate1_stamp.at`, so prior Gate 2 records for re-affirmed RUs stop counting (the thing they judged was verified against a different model). Hand-editing a hash without the ceremony remains an L19 error.
 
 **Applicability test:** every node/transition must have exactly one executable meaning with no prose annotation. If a node needs a paragraph, it is a drawing — use `test` + statement instead. Model classes: decision graphs/tables (*diagram-as-source*: executed directly, zero drift possible), statecharts (*diagram-as-oracle*: code hand-owned, tests generated), dataflow topologies (wiring + property checks generated). All model vocabulary resolves to manifests (§5.7).
 
@@ -433,7 +352,7 @@ Explicitly deferred judgment. Allowed, but: human-only verification is a standin
 ### 6.5 Missing checks
 Implied-but-absent checks get `ref: TODO(<description>)`, which auto-generates a work item. A TODO'd RU may be `active` but computes *blocked*, never *pass*.
 
-**Resolving a TODO (v0.11.1):** once the check exists, conversion is a Gate 1 act, not a supersession — `resolve` replaces the TODO entry with a real, resolvable ref (a scanned test id) and re-stamps under the reviewer's id. The path is strictly strengthening: statement/scope/tier untouched, entries never removed, real refs never replaced — anything else remains supersession-only. Multiple TODOs must be disambiguated by description substring, and indistinguishable duplicates refuse outright (an authoring bug, cleaned by supersession). Re-stamping moves `gate1_stamp.at`, so prior Gate 2 records stop counting; hand-editing a ref without the ceremony is an L19 error.
+**Resolving a TODO:** once the check exists, conversion is a Gate 1 act, not a supersession — `resolve` replaces the TODO entry with a real, resolvable ref (a scanned test id) and re-stamps under the reviewer's id. The path is strictly strengthening: statement/scope/tier untouched, entries never removed, real refs never replaced — anything else remains supersession-only. Multiple TODOs must be disambiguated by description substring, and indistinguishable duplicates refuse outright (an authoring bug, cleaned by supersession). Re-stamping moves `gate1_stamp.at`, so prior Gate 2 records stop counting; hand-editing a ref without the ceremony is an L19 error.
 
 ### 6.6 Bidirectional traceability
 
@@ -516,12 +435,12 @@ P4 applies to review status too: "reviewed" MUST be a computed fact, not a check
 
 ### 7.3 Suspect links — every cross-artifact edge is fingerprinted
 
-Models and manifests are already hash-guarded; v0.9 closes the remaining unhashed edges. At activation, the tool records a **fingerprint for every cross-artifact reference** the RU carries — `rationale_ref` ADRs (file content hash) and `supersedes`/related RU links (normative-field hash) — in the tool-owned `link_fingerprints` map.
+Models and manifests are hash-guarded, and so is every cross-artifact edge. At activation, the tool records a **fingerprint for every cross-artifact reference** the RU carries — `rationale_ref` ADRs (file content hash) and `supersedes`/related RU links (normative-field hash) — in the tool-owned `link_fingerprints` map.
 
 - L20 recomputes fingerprints continuously. A mismatch marks the link **suspect**: the target changed after this RU relied on it. Suspect ≠ failing — the RU's checks may still pass — but the RU surfaces in the **suspect queue** presented at the next Gate 1 sitting.
 - Resolution is binary: **re-affirm** (human confirms the changed target still supports the RU; tool refreshes the fingerprint under the reviewer's id) or **supersede** (the change invalidated the RU's rationale; compile a successor).
 - Packets already snapshot resolved content and hashes (§9.1), so committed packets are never retroactively suspect — the mechanism governs the *live* store only.
-- Consequence worth stating: an ADR is no longer freely editable prose. Rewriting one flips every dependent RU suspect — which is exactly right, because the rationale those RUs were reviewed against no longer exists.
+- Consequence worth stating: an ADR is not freely editable prose. Rewriting one flips every dependent RU suspect, which is correct — the rationale those RUs were reviewed against is gone.
 
 ---
 
@@ -577,7 +496,7 @@ Every assembly is written to `spec/packets/TASK-XXXX.packet.md`, committed with 
 
 ---
 
-## 10. Enforcement Layer (the actual framework)
+## 10. Enforcement Layer
 
 This section is the framework. Without it, the rest of this document is prose.
 
@@ -604,7 +523,7 @@ This section is the framework. Without it, the rest of this document is prose.
 - L20: every `link_fingerprints` entry matches the current fingerprint of its target (§7.3); mismatch → link suspect, RU enters the suspect queue (finding-class, surfaced at Gate 1, not a red build).
 - L21: every RU satisfies the first matching rule in `coverage.policy.yaml` (§6.7); blocking at activation, warning + burn-down for actives after policy tightening.
 - L22: every `planned: true` surface entry's `ru:` link is not-done — for an RU link, computed status ≠ done; for a FEAT link, no member RU computes done (§5.8). Violation → blocking: either the surface shipped without its Gate 1 flip, or verifications pass against a surface that supposedly does not exist.
-- L25: the shall-clause subject resolves to a declared service manifest, and agrees with the service the RU's `scope` owns. `the system` claims no service and is exempt, which is what keeps store-wide and service-scoped behaviour distinguishable. Two claims about which service governs an RU — the subject and `scope.owns` — previously coexisted with nothing reconciling them, so a misfiled RU passed every gate; §5.3's rule that referencing is read coupling rather than governance had no enforcement until this.
+- L25: the shall-clause subject resolves to a declared service manifest, and agrees with the service the RU's `scope` owns. `the system` claims no service and is exempt, which is what keeps store-wide and service-scoped behaviour distinguishable. Two claims about which service governs an RU — the subject and `scope.owns` — must agree, or the RU is filed against a service it does not govern. §5.3: referencing is read coupling, not governance.
 - L26: a `test`-type verification whose check has been observed green and never red → finding. A check that has never failed has not demonstrated it can; never promoted to error, because a check written before its code legitimately has no red, and blocking that rewards theatrical failure (§6.8).
 - L27: a draft whose segment declaration contradicts its tier, in a store that has declared any segment → warning. The absence of a segment is a positive claim — this requirement governs the store rather than a domain — and the schema already makes that population the constitutional tier, which alone may omit `scope.owns`. So a standard draft naming no segment would be minted store-wide, and a constitutional draft naming one would mint a permanent segmented id for a store-wide invariant: a segment holding cross-cutting concerns is the unsegmented space under a nicer name. Scoped to DRAFTS because a permanent id can never acquire or shed a segment: the same warning about an active RU would be advice with no available fix, which is how a rule teaches consumers to ignore the tool. Silent in a store that has adopted no segments — a rule firing on a shape nobody opted into demands adoption rather than enforcing a decision (formats §1).
 - M1–M4, M6 (statechart dialect, §6.3): `initial` ∈ states; every transition target ∈ states; final states carry no `on`; at least one final state is reachable from `initial` (warning, and skipped when M1 fired — a walk with no lawful start would cascade one defect under two numbers); invariant names unique per model. One implementation, two surfaces: reported at lint, and generation refuses on M2/M3/M6 with the same messages. M5 (every event resolves to a manifest entry via `vocabulary`) is C8's cross-artifact question.
@@ -816,7 +735,7 @@ tags: [screening, audit]
 
 What Example A demonstrates: timing lives in `test`, structure in `model`, facts in the manifest; the retention value is registered (≥2 RUs reference it) while the cancel bound stays literal; the audit event and endpoint are referenced by id; C8 binds the model's `CANCEL` to the manifest's surface; a later change of `decision_log_days` is a Gate-1 mutating edit whose impact report lists its dependents, and whose checks re-read the manifest rather than asserting a stale 90.
 
-Note what RU-0204 no longer says. Retention is declared on the audit event itself (§5.4), so the statement asserts only the obligation that is this RU's: the record happens, exactly once. Before v0.14 every audit RU carried its own "retrievable for … days" clause, and the same fact was restated once per event; now one constitutional RU covers retention for every record, and moving the fact to its proper home removed a clause rather than relocating it.
+Note what RU-0204 does not say. Retention is declared on the audit event itself (§5.4) and one constitutional RU covers it for every record, so this statement asserts only the obligation that is its own: the record happens, exactly once. A fact declared in its proper home does not need restating once per event.
 
 ### 13.2 Example B — Story → RU compilation (where ACs went)
 
@@ -863,13 +782,30 @@ Standing rule: scaling fixes MUST target human throughput or context economy —
 
 ## 15. Adoption Order
 
-1. Build lints L1–L5 + L18 (manifest schema validation), and the directory layout. Nothing else matters before this.
-2. Author the pilot manifests (one boundary service + shared) and one lifecycle-shaped model with 3–6 RUs (Example A pattern), references resolving end-to-end.
-3. Wire H1 into pre-write hooks.
-4. Add model + manifest conformance generation and L6 hashing — the drift guarantee is now standing. Extend `spec-activate` with gate stamps and link fingerprints (L19/L20) in the same step: it is the same hashing machinery, and stamps from day one mean no retro-stamping backlog.
-5. Add reverse traceability (L14, `ru:` links, orphan reports incl. C7) — blocking for new checks, burn-down for existing.
-6. Materialize task packets with resolved references and recorded hashes (§9.1), once the assembler exists.
-7. Stand up the analyst agent with the §8.1 contract (including registration duty) and an eval set scored on gap-surfacing rate.
-8. Coverage policy (L21) once real RU volume exists to calibrate against — seeding policy before content invites guessing at profiles; projections and dashboards last.
+Adopt in this order. Each step makes the next one cheap, and every one of them
+is useful on its own if you stop there.
 
-Constitutional seeds at pilot time: RU-0001 (default-deny), RU-0002 (audit-on-mutation), RU-0003 (clean-room criterion).
+1. **Scaffold.** `rqunit init` writes the store layout, the seed vocabularies, a
+   coverage policy, and `rqunit.toml`. Declare your stack in the same sitting;
+   an undeclared stack simply means the language-specific verbs observe nothing.
+2. **Register the vocabularies you will actually use** — `tags.yaml` and
+   `actors.yaml`. They start empty on purpose: a taxonomy chosen before there is
+   content to classify is a taxonomy nobody obeys.
+3. **Author one boundary.** A shared manifest, one service manifest, and a
+   handful of RUs compiled from a real captured intent. Stop when
+   `rqunit lint` and `rqunit check` are green and every reference resolves —
+   that is the smallest thing that proves the model fits your domain.
+4. **Wire the runtime hooks** so packet-scoped work is bounded (§10.3), and hold
+   the first Gate 1 sitting: `rqunit activate batch`.
+5. **Wire an adapter's extractor and scanner.** Conformance and traceability
+   begin observing your code at this point; before it they have nothing to read.
+   L14 blocks new untraced checks and existing ones burn down, so adoption never
+   starts with a wall of red.
+6. **Add models and generated conformance** once a lifecycle is worth pinning,
+   and register the shim that makes the generated suite executable (§6.3).
+7. **Set the coverage policy last** (§6.7), when there is enough RU volume to
+   calibrate against. A policy written before content is a guess at profiles.
+
+Three constitutional RUs are worth seeding early, because everything else is
+measured against them: default-deny access, audit-on-mutation, and whatever
+clean-room criterion your review process needs.

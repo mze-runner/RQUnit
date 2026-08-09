@@ -355,3 +355,52 @@ def test_the_regex_alphabet_and_the_string_alphabet_are_the_same_set():
     for char in string.digits + string.ascii_uppercase + string.ascii_lowercase:
         run = char * ids.SEQ_WIDTH
         assert bool(sequence.match(run)) == (char in ids.ALPHABET), char
+
+
+# ------------------------------------------------- consumer-facing documents
+# These four describe the product as it is. History belongs in CHANGELOG.md,
+# which is the only document exempt — Hard Rule 1: no status, counts, dates,
+# roadmap position or project history in committed product documentation.
+
+CONSUMER_DOCS = ["README.md", "HANDBOOK.md",
+                 "docs/ru-framework-spec.md", "docs/formats.md"]
+
+
+@pytest.mark.parametrize("name", CONSUMER_DOCS)
+def test_consumer_documentation_carries_no_version_history(name):
+    """A version stamped beside a rule tells the reader when it arrived, which
+    is a fact about this repository rather than about their store. The one
+    version a consumer needs is the pin the specification announces."""
+    text = (Path(__file__).parent.parent / name).read_text()
+    stamped = [line.strip()[:90] for line in text.splitlines()
+               if re.search(r"v0\.\d+(\.\d+)?", line)
+               and not line.startswith("**Status:**")]
+    assert not stamped, f"{name} narrates versions:\n  " + "\n  ".join(stamped)
+
+
+@pytest.mark.parametrize("name", CONSUMER_DOCS)
+def test_consumer_documentation_names_no_internal_task(name):
+    """Task ids are this repository's planning, not the product's vocabulary.
+    A consumer cannot look one up, so citing one as justification is an
+    unanswerable reference."""
+    text = (Path(__file__).parent.parent / name).read_text()
+    # TASK-<id> is legitimate as a PACKET id in an example store; what is not
+    # legitimate is citing one as the authority for a rule.
+    cited = [line.strip()[:90] for line in text.splitlines()
+             if re.search(r"(normative for|per|see|from)\s+TASK-\d+", line, re.I)]
+    assert not cited, f"{name} cites internal task ids:\n  " + "\n  ".join(cited)
+
+
+@pytest.mark.parametrize("name", CONSUMER_DOCS + ["CHANGELOG.md"])
+def test_documentation_links_resolve(name):
+    """A broken link in the front door is a defect the reader hits before they
+    have any way to work around it."""
+    path = Path(__file__).parent.parent / name
+    broken = []
+    for match in re.finditer(r"\[([^\]]+)\]\(([^)#]+?)(?:#[^)]*)?\)", path.read_text()):
+        target = match.group(2)
+        if target.startswith(("http://", "https://", "mailto:")):
+            continue
+        if not (path.parent / target).resolve().exists():
+            broken.append(f"[{match.group(1)}]({target})")
+    assert not broken, f"{name}: " + ", ".join(broken)
