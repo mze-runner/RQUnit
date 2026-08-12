@@ -11,11 +11,11 @@ verification:
   ref: TODO(every-mutating-route-records architecture test)
 - type: model
   ref: MDL-order-lifecycle
-  model_hash: sha256:8d9f1f8a86f4c04fae5fd8c9f07259005c247caf0fe19e2f119c56d6cb507d1b
+  model_hash: sha256:3e87d6b65e1bc9535448009045b876d0faf12e611df75a90b5b42d60e4c37b1f
   conformance: generated
 tags:
 - audit
 gate1_stamp:
-  hash: sha256:25ee093d81f9f941623b47b346e387fe5e6cd3d6041dc3bdd85efe7fe98dedb9
+  hash: sha256:ba6e47c51d0368376c5e800ae8c4643196fa86994552efc301a32e8fa102cf05
   by: demo-operator
-  at: '2026-08-02T05:41:17+00:00'
+  at: '2026-08-12T12:44:52+00:00'

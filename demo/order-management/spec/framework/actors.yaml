@@ -1,5 +1,9 @@
+# Controlled actor registry (§3.3, L12). Ids name a ROLE, never a person or a
+# team. Aliases are rejected in statements; the lint suggests the rename.
 actors:
   - id: customer
-    aliases: [buyer, purchaser]
+    aliases: [buyer, purchaser, shopper]
   - id: warehouse-operator
     aliases: [picker]
+  - id: carrier
+    aliases: [courier, delivery-partner]

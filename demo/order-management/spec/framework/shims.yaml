@@ -1,0 +1,10 @@
+# Statechart shim registrations (spec §6.3).
+#
+# A generated model suite asserts against a StatechartSubject the application
+# provides. Registering a model is a claim that the shim exists and the suite
+# executes; an unregistered model's suite is rendered `#[ignore]`d and
+# contributes no mechanical depth to the coverage policy.
+#
+# Empty here: this store ships specifications and generated suites, and no
+# application for a subject to wrap. L21 reports the consequence on RU-0002.
+shims: []

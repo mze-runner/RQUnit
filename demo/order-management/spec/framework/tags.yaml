@@ -1,1 +1,3 @@
-tags: [orders, cancellation, audit, security, billing]
+# Controlled tag vocabulary (L10). A tag used by any RU must be listed here
+# first. Lowercase kebab-case.
+tags: [catalogue, orders, cancellation, delivery, audit, security, billing]

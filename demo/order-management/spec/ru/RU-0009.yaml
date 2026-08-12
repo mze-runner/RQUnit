@@ -1,0 +1,24 @@
+id: RU-0009
+statement: 'The system shall return at most {value:paging.max_page_size} items in
+  one {endpoint:search_products} response.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-product-discovery
+source_ref: INT-01K4RB2QDXH7YFEWZ3M8TKQ4VN#L11-12
+verification:
+- type: test
+  ref: TODO(page size cap holds for an oversized request)
+scope:
+  owns:
+  - service-catalogue/search
+  must_not_touch:
+  - service-billing
+tags:
+- catalogue
+draft_id: RU-draft-01K4RC1S7VZBQ4KNXFHW2MTJ8D
+gate1_stamp:
+  hash: sha256:0917eb1abe5eee6478b051d7acb0310c71e61fe8478b0a8cb7bbaa5611a2c083
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'

@@ -3,22 +3,49 @@
   "generated_by": "demo-probe 0.1.0 (hand-written: the artifact is a committed file by design, so a demo can ship one without a toolchain)",
   "covers": ["endpoints", "messages", "audit_events"],
   "services": {
+    "service-catalogue": {
+      "endpoints": [
+        { "method": "GET", "path": "/api/v1/products", "access": "public",
+          "outbound": { "type_name": "SearchResults",
+                        "fields": ["items", "items.sku", "items.title", "items.in_stock",
+                                   "items.price_cents", "next_page"] } },
+        { "method": "GET", "path": "/api/v1/products/:sku", "access": "public",
+          "outbound": { "type_name": "ProductView",
+                        "fields": ["sku", "title", "in_stock", "price_cents"] } }
+      ]
+    },
     "service-orders": {
       "endpoints": [
+        { "method": "POST", "path": "/api/v1/orders", "access": "protected",
+          "inbound":  { "type_name": "PlaceOrderRequest",
+                        "fields": ["sku", "quantity", "idempotency_key"] },
+          "outbound": { "type_name": "PlacedOrder",
+                        "fields": ["order_id", "state", "total_cents"] } },
         { "method": "DELETE", "path": "/api/v1/orders/:order_id", "access": "protected",
           "inbound": { "type_name": "CancelRequest", "fields": ["order_id", "reason"] } },
+        { "method": "POST", "path": "/api/v1/orders/:order_id/delivery", "access": "carrier",
+          "inbound": { "type_name": "DeliveryReport",
+                       "fields": ["order_id", "outcome", "signed_at"] } },
         { "method": "GET", "path": "/api/v1/orders/:order_id", "access": "protected",
           "outbound": { "type_name": "OrderView",
-                        "fields": ["order_id", "state", "cancellation", "cancellation.at"] } },
+                        "fields": ["order_id", "state", "cancellation", "cancellation.at",
+                                   "delivery", "delivery.outcome", "delivery.at"] } },
         { "method": "POST", "path": "/api/v1/sessions", "access": "public",
-          "inbound": { "type_name": "SessionRequest", "fields": ["email"] },
-          "outbound": { "type_name": "SessionResponse", "fields": ["access_token"] } }
+          "inbound":  { "type_name": "SessionRequest", "fields": ["email"] },
+          "outbound": { "type_name": "SessionResponse",
+                        "fields": ["access_token", "refresh_token"] } },
+        { "method": "POST", "path": "/api/v1/sessions/refresh", "access": "refresh",
+          "outbound": { "type_name": "RefreshedSession", "fields": ["access_token"] } }
       ],
       "messages": [
-        { "subject": "orders.cancelled", "direction": "outbound" }
+        { "subject": "orders.placed", "direction": "outbound" },
+        { "subject": "orders.cancelled", "direction": "outbound" },
+        { "subject": "orders.delivered", "direction": "outbound" }
       ],
       "audit_events": [
+        { "code": "orders.placed" },
         { "code": "orders.cancelled" },
+        { "code": "orders.delivered" },
         { "code": "orders.refund_settled" }
       ]
     }

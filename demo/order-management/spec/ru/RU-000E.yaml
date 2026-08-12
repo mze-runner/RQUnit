@@ -1,0 +1,29 @@
+id: RU-000E
+statement: 'While an order is delivered, the system shall reject {endpoint:cancel_order}
+  with {problem:conflict}.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-delivery
+source_ref: INT-01K4RB3XKZP9NTVQY2H6WDFB8S#L9-10
+verification:
+- type: test
+  ref: TODO(cancelling a delivered order is refused)
+- type: model
+  ref: MDL-order-lifecycle
+  model_hash: sha256:3e87d6b65e1bc9535448009045b876d0faf12e611df75a90b5b42d60e4c37b1f
+  conformance: generated
+scope:
+  owns:
+  - service-orders/delivery
+  must_not_touch:
+  - service-billing
+tags:
+- delivery
+- orders
+draft_id: RU-draft-01K4RC12QKBZX9NWFHMTD3J86W
+gate1_stamp:
+  hash: sha256:1c487ca529bdda17fd6106998a60a2ea6a31d760e8b963e3e53453ad255d0ab5
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'

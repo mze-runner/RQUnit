@@ -1,0 +1,24 @@
+id: RU-000D
+statement: 'While a product is out of stock, the system shall reject {endpoint:place_order}
+  with {problem:conflict}.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-placement
+source_ref: INT-01K4RB2QDXH7YFEWZ3M8TKQ4VN#L22-24
+verification:
+- type: test
+  ref: TODO(placement is refused while stock is unavailable)
+scope:
+  owns:
+  - service-orders/orders
+  must_not_touch:
+  - service-billing
+tags:
+- orders
+draft_id: RU-draft-01K4RC1XKQ7BZ4NWFHMT2DJ96S
+gate1_stamp:
+  hash: sha256:ec0f62527164fce4b57b877e593eaf17fb1dc8e49594b2e327e7da349df70a2b
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'

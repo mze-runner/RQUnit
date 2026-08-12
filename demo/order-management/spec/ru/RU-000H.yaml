@@ -1,0 +1,25 @@
+id: RU-000H
+statement: 'When a carrier reports an outcome through {endpoint:record_delivery},
+  the system shall record exactly one {audit:orders.delivered} entry.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-delivery
+source_ref: INT-01K4RB3XKZP9NTVQY2H6WDFB8S#L18-20
+verification:
+- type: test
+  ref: TODO(a reported outcome records one audit entry)
+scope:
+  owns:
+  - service-orders/delivery
+  must_not_touch:
+  - service-billing
+tags:
+- delivery
+- audit
+draft_id: RU-draft-01K4RC1YZQB3KNXWFHDMT8V52T
+gate1_stamp:
+  hash: sha256:e87ba977bbf336626ba53f1490e0de8b3c005632972899b6eb3ab38669ba2b87
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'

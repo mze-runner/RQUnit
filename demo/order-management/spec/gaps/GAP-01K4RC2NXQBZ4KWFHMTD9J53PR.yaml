@@ -1,0 +1,11 @@
+id: GAP-01K4RC2NXQBZ4KWFHMTD9J53PR
+question: >
+  Can a customer cancel part of a multi-item order, and if so what happens to the
+  items already picked? The session covered whole-order cancellation only. Two
+  candidate answers: refuse partial cancellation entirely, or cancel per line item
+  and re-price the remainder.
+severity: clarify-later
+raised_by: analyst
+source_ref: INT-0001#L3-5
+affected: [FEAT-order-cancellation, FEAT-order-placement]
+status: open

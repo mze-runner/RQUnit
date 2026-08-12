@@ -1,0 +1,4 @@
+id: FEAT-order-delivery
+goal: A delivered order is recorded from the carrier and closes the lifecycle.
+source_ref: INT-01K4RB3XKZP9NTVQY2H6WDFB8S#L3-12
+status: active

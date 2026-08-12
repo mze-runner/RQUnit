@@ -8,18 +8,19 @@ conventions:
   path_segments: kebab-case
 
 vocabularies:
-  access_tiers: [public, internal, protected]
+  access_tiers: [public, internal, protected, refresh, carrier]
   cancellation_reasons: [customer, fraud, out_of_stock]
+  delivery_outcomes: [delivered, refused, address_unknown]
 
 # Tiers whose surfaces admit a request carrying no credential. Every other tier
-# a surface uses must resolve to exactly one artifact below, or C17 reports a
-# door with no stated lock. This is the declared half of that rule: an open
-# surface is a claim, not an omission.
+# a surface uses resolves to exactly one artifact below (C17).
 credential_free_tiers: [public, internal]
 
 values:
+  # Both services write audit records, so the window is shared.
   retention: { audit_days: 90 }
   fulfilment: { halt_seconds: 5 }
+  paging: { max_page_size: 50 }
 
 # Structures minted somewhere, carried as a VALUE inside a payload, and
 # validated elsewhere. A census stops at an encoding boundary: the token is a
@@ -31,6 +32,17 @@ artifacts:
       - { name: sub, where: claims, presence: always, type: string }
       - { name: kid, where: header, presence: always, type: string }
       - { name: iss, presence: never, note: two environments once trusted each other's tokens }
+  refresh-token:
+    access_tier: refresh
+    # Opaque: a random string the service looks up. There are no internals to
+    # describe, and `none` says so rather than leaving the census unfinished.
+    fields: none
+  carrier-signature:
+    access_tier: carrier
+    fields:
+      - { name: key_id,    where: header, presence: always, type: string }
+      - { name: signature, where: header, presence: always, type: string }
+      - { name: timestamp, where: header, presence: always, type: string }
 
 # Never in ANY audit record, store-wide. Not an event-by-event judgment.
 audit_forbidden: [password, card_number, refund_amount_override]

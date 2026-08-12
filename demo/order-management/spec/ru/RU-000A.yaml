@@ -1,0 +1,25 @@
+id: RU-000A
+statement: 'When a customer places an order through {endpoint:place_order}, the system
+  shall record exactly one {audit:orders.placed} entry.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-placement
+source_ref: INT-01K4RB2QDXH7YFEWZ3M8TKQ4VN#L26-27
+verification:
+- type: test
+  ref: TODO(placement records one audit entry)
+scope:
+  owns:
+  - service-orders/orders
+  must_not_touch:
+  - service-billing
+tags:
+- orders
+- audit
+draft_id: RU-draft-01K4RC1TDKF9WQ3ZBHXNM5RV2G
+gate1_stamp:
+  hash: sha256:8ea9ad89aa44442eb8b0998c83dd6bf08b2356e4d90f7f39903022ceea8638e4
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'

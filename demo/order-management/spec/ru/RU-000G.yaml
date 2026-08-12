@@ -1,0 +1,30 @@
+id: RU-000G
+statement: 'If a request to {endpoint:record_delivery} carries no valid {artifact:carrier-signature.signature},
+  then the system shall reject it with {problem:validation}.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-delivery
+rationale_ref: ADR-delivery-outcome-is-carrier-authoritative
+source_ref: INT-01K4RB3XKZP9NTVQY2H6WDFB8S#L3-4
+verification:
+- type: test
+  ref: TODO(an unsigned carrier callback is rejected)
+- type: test
+  ref: TODO(a signature over a replayed timestamp is rejected)
+scope:
+  owns:
+  - service-orders/delivery
+  must_not_touch:
+  - service-billing
+tags:
+- delivery
+- security
+draft_id: RU-draft-01K4RC14QKZBXN3WFHMTD9J67Y
+gate1_stamp:
+  hash: sha256:ac6d06993b509e0d86240b352ca54f9ae98116ba60a52a244e10c889d94cd3b4
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'
+link_fingerprints:
+  ADR-delivery-outcome-is-carrier-authoritative: sha256:20b0c3422684e90d0d1067504879fedfa6548bb5a95717540eaffae6a69d77db
