@@ -273,6 +273,14 @@ def stack_config_health(root: Path) -> list[Finding]:
             # actually apply, and withholding the note now hides the fact that
             # a whole table of their configuration is unchecked.
             #
+            # A first-party stack no longer reaches here at all: its manifest
+            # ships in the pack and resolves with nothing wired. So this note
+            # now addresses the case it is actually true of — a stack whose
+            # adapter this build does not carry — and it must name where such a
+            # manifest comes from. Naming the file without naming its source is
+            # how the note used to terminate in a dead end, which reads as
+            # actionable and is worse than saying nothing.
+            #
             # Scoped to stacks that HAVE passthrough keys. A stack with none
             # loses nothing by having no manifest, and a note whose subject is
             # empty is the noise that teaches people to skim doctor.
@@ -283,11 +291,14 @@ def stack_config_health(root: Path) -> list[Finding]:
                     message=(f"[stacks.{stack.name}] declares {len(stack.options)} "
                              f"adapter-owned key(s) that nothing validates ({keys}) — "
                              "no adapter manifest is wired."),
-                    suggestion="Point `manifest = \"…\"` at the adapter's adapter.yaml. It "
-                               "is the vocabulary authority for this stack's passthrough "
-                               "keys, and core deliberately never interprets them — so "
-                               "until it is wired, a typo reads as configured and surfaces "
-                               "as the role that needed the key behaving oddly."))
+                    suggestion="Point `manifest = \"…\"` at the adapter.yaml that came "
+                               "with this stack's adapter — it ships beside the adapter, "
+                               "and a first-party adapter's is carried inside rqunit "
+                               "itself and needs no wiring. It is the vocabulary authority "
+                               "for this stack's passthrough keys, and core deliberately "
+                               "never interprets them — so until one is wired, a typo "
+                               "reads as configured and surfaces as the role that needed "
+                               "the key behaving oddly."))
             continue
         for problem in stack_declaration_problems(root, stack):
             out.append(Finding(

@@ -309,6 +309,13 @@ an earlier run's edits applied to today's source. Off-boarding therefore needs a
 working command: if being able to leave matters to you, wire the stripper while
 adoption is easy rather than when you want out.
 
+**The manifest is not one of the things you obtain.** A first-party adapter's
+`adapter.yaml` ships inside `rqunit`, so the passthrough keys under
+`[stacks.<name>]` are validated with nothing wired — a typo is named rather than
+read as configured. `manifest = "…"` is for an adapter this build does not carry:
+a third-party one, or your own while you are writing it, where the file comes with
+the adapter. Obtaining the BINARIES is still your build's job, per the table above.
+
 An extractor's repo-specific inputs — which router functions mount at which
 prefix and tier, where subject constants live, which manifest service the
 artifact is keyed by — are `[stacks.*]` config in `rqunit.toml`, never

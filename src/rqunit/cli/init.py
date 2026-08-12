@@ -150,6 +150,10 @@ extractor = { artifact = "spec-conformance-tests/actual-surface.json" }
 # fail from one that has only ever been green (L26).
 # evidence = { artifact = "spec-conformance-tests/check-evidence.json" }
 # The adapter's manifest, declaring its roles and the config keys it reads.
+# A first-party adapter's ships inside rqunit and is found with nothing wired,
+# so this key is for an adapter rqunit does not carry — a third-party one, or
+# yours while you are writing it. Point it at the adapter.yaml that came with
+# the adapter.
 # manifest = "tools/rqunit/adapter.yaml"
 
 # HTTP composition: which router function, in which file, mounts at what prefix

@@ -34,6 +34,11 @@ SCHEMA_FILES = {
 PACK_DIR = Path(__file__).parent / "pack"
 SCHEMA_DIR = PACK_DIR / "schemas"
 SEED_DIR = PACK_DIR / "seeds"
+# First-party adapter self-declarations, shipped for the reason the schemas are:
+# an adapter manifest is the vocabulary core validates a consumer's passthrough
+# config against, and a consumer who installed the tool has no copy of this
+# repository to point at.
+ADAPTER_DIR = PACK_DIR / "adapters"
 
 
 def store_root(start: Path | None = None) -> Path:

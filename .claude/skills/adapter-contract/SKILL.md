@@ -82,7 +82,12 @@ justification nobody could defend in prose is a defect wearing a waiver.
    request computed moments earlier.
 6. **Manifest + kit** → `adapter.yaml` declaring roles, `config_keys`, and a
    compliance kit; `rqunit adapter verify --stack <name>` passing is the
-   definition of done — no Python read, no framework source read.
+   definition of done — no Python read, no framework source read. A FIRST-PARTY
+   adapter also ships a consumer-facing copy of the manifest at
+   `src/rqunit/pack/adapters/<stack>/adapter.yaml`: same vocabulary, no `kit`
+   (its paths are the adapter build's), so a consumer's passthrough keys are
+   validated with nothing wired. A meta-test holds the two copies to one
+   vocabulary — add the stack's copy in the same change as its manifest.
 7. **Config** → a `[stacks.<name>]` block in the consumer's `rqunit.toml`,
    declaring each role `cmd` (core execs it) XOR `artifact` (the pipeline
    produced it).
