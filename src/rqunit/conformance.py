@@ -69,9 +69,12 @@ _SUGGESTION = {
     "CF9": "Run a probe that covers this family and commit its artifact, or remove the "
            "declaration. A family nobody examined is not a passing family — it is an unasked "
            "question, and a green run that never asked it is the failure this rule exists for.",
+    # No id here. `RU-0002` is what audit-on-mutation is called in this product's
+    # own reference fixtures; a consumer store seeds no RUs, so the citation named
+    # an artifact that existed nowhere in the store reading the message.
     "CF10": "Emit the event, mark the governing RU not-done, or delete the declaration at Gate 1. "
-            "An audit event nobody records is an evidence trail that does not exist — and "
-            "constitutional RU-0002 requires one for every state-changing action.",
+            "An audit event nobody records is an evidence trail that does not exist, and a "
+            "state-changing surface without one cannot show what it did.",
     "CF11": "Declare it in `audit_events` at Gate 1 with its census and retention, or stop "
             "emitting it. An undeclared audit record is evidence with no retention rule and no "
             "forbidden-field check — the two things that make it evidence.",

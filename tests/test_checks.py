@@ -293,7 +293,12 @@ def test_c14_is_finding_class_and_spares_reads_and_planned_surfaces():
     assert _run("C14", "pass") == []                  # GET and `planned` both spared
     violations = _run("C14", "fail")
     assert violations and all(v.severity == "finding" for v in violations)
-    assert all("RU-0002" in v.suggestion for v in violations)
+    # The obligation, not the citation. This product's reference fixtures call it
+    # RU-0002; a consumer store seeds no RUs, so naming the id pointed at nothing
+    # in the store reading the message — the mirror of the leakage rule this
+    # codebase enforces on itself.
+    assert all("no evidence trail" in v.suggestion for v in violations)
+    assert not any("RU-" in v.suggestion for v in violations)
 
 
 def test_c5_rejects_a_field_carrying_an_undeclared_artifact(tmp_path):

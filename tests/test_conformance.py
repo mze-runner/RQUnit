@@ -457,7 +457,11 @@ def test_cf10_catches_the_audit_event_nobody_records(store):
     out = reconcile(store, merge([_audit_artifact([])]))
     cf10 = [v for v in out if v.rule == "CF10"]
     assert cf10 and "never recorded by the code" in cf10[0].message
-    assert "RU-0002" in cf10[0].suggestion          # names the constitutional requirement
+    # States the invariant, never an id: `RU-0002` is this product's own fixture
+    # identity, and `rqunit init` seeds no RUs, so a consumer's report cited an
+    # artifact their store did not contain.
+    assert "evidence trail" in cf10[0].suggestion
+    assert "RU-0002" not in cf10[0].suggestion
 
 
 def test_cf11_catches_evidence_nobody_declared(store):
