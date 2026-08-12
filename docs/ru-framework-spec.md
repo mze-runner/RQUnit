@@ -156,8 +156,8 @@ System-wide invariants carry `tier: constitutional`: included in **every** conte
 
 ## 4. Intent Artifacts (INT)
 
-- Captured human intent — brainstorm notes, transcripts, chat exports — stored **verbatim and unedited** under `spec/intent/`, immutable; corrections are new INT artifacts.
-- INT is **captured, not authored**. Authored prose between intent and RU (PRD-style documents) is forbidden waste.
+- Captured human intent — brainstorm notes, transcripts, chat exports, and the specification documents a consumer already had before adopting — stored **verbatim and unedited** under `spec/intent/`, immutable; corrections are new INT artifacts. **Verbatim constrains fidelity, not genre:** what a capture asserts is that these are its source's words unedited, never that the source was informal or spoken. Adopting over an existing corpus is the expected case rather than an exception to be argued for; §15 step 3 is where it lands, and the capture carries a provenance header naming the source path and its content hash, so what the anchors point into can be shown to be what was captured. No lint can check that words are unedited — L4 resolves the anchor and its range, nothing more — so this constraint is doctrine the tools do not enforce.
+- INT is **captured, not authored**. What is forbidden is manufacturing a new prose layer between intent and RU — writing a PRD-style document so that something exists to compile from is waste. Capturing a document that already existed is the opposite act: the document is the source, not an interpretation of one.
 - Every RU MUST anchor into an INT artifact. Agent-inferred requirements are first written back as a proposal into a new INT the human explicitly acknowledges; the acknowledgment is the source. No RU cites agent reasoning as origin.
 - INT is re-read at three expensive moments — supersession, disputes, re-compilation after a pivot. It exists for those, not for daily reading.
 

@@ -60,8 +60,15 @@ the linter is the law (spec §5.9, formats §13).
 
 ## Compiling requirements (the analyst's remit, spec §8.1)
 
-- Input is an immutable INT capture under `spec/intent/` (verbatim human words — never authored
-  prose). Every RU's `source_ref` anchors into it with real line numbers (L4 checks the range).
+- Input is an immutable INT capture under `spec/intent/`: its source's words, unedited. Verbatim
+  constrains FIDELITY, not genre — a transcript, a pasted conversation, and a specification
+  document written long before this store existed are all capturable; a paraphrase of any of
+  them is not. Adopting over an existing corpus is the normal case and has its own route (the
+  `spec-store` skill, "Bringing an area under the store": capture the documents verbatim with a
+  provenance header of path + sha, then compile). No lint can check that words are unedited —
+  L4 checks only that the anchor resolves and the range is in bounds — so this one is yours.
+  Every RU's `source_ref` anchors into the capture with real line numbers (L4 checks the range,
+  for FEATs as well as RUs).
 - **One acceptance criterion = one RU.** The story narrative → the FEAT `goal` (one sentence, no
   normative keywords — L11). Interface/value facts → the manifest, referenced by token.
 - Ambiguity NEVER gets defaulted: unstated bounds, actors, triggers → a GAP artifact
