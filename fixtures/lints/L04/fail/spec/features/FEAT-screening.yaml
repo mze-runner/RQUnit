@@ -1,0 +1,4 @@
+id: FEAT-screening
+goal: Screening decisions are recorded and retained so an audit can reconstruct them.
+source_ref: INT-9999#L1-2
+status: active

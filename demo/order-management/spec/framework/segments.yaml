@@ -1,0 +1,6 @@
+# The segment registry (formats §1, §14c; checked by C16).
+#
+# Empty: this store allocates every id into the unsegmented space. Two domains
+# live here — catalogue and orders — and both are small enough that one
+# sequence stays readable.
+segments: []

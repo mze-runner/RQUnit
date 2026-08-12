@@ -1,0 +1,56 @@
+service: service-catalogue
+version: "1.0"
+
+defaults:
+  unknown_fields: reject
+
+problem_types:
+  # A problem type is part of one service's answer vocabulary: `emits` resolves
+  # against the manifest that declares the surface.
+  not-found:    { uri: "urn:problem:not-found",    status: 404, title: "Not Found" }
+  validation:   { uri: "urn:problem:validation",   status: 400, title: "Validation failed" }
+  rate-limited: { uri: "urn:problem:rate-limited", status: 429, title: "Too Many Requests" }
+
+values:
+  search: { min_query_chars: 2 }
+
+endpoints:
+  - id: search_products
+    method: GET
+    path: /api/v1/products
+    access: public
+    ru: FEAT-product-discovery
+    emits: [validation, rate-limited]
+    inbound:
+      fields:
+        - { name: query,     in: query, presence: required, type: string,
+            min_chars: "{value:search.min_query_chars}" }
+        - { name: page_size, in: query, presence: optional, type: integer,
+            max: "{value:paging.max_page_size}" }
+    outbound:
+      status: 200
+      fields:
+        - { name: items,          presence: always, type: array, items: object }
+        - { name: items.sku,      presence: always, type: string }
+        - { name: items.title,    presence: always, type: string }
+        - { name: items.in_stock, presence: always, type: boolean }
+        - { name: items.price_cents, presence: always, type: integer }
+        - { name: next_page,      presence: always, type: string, nullable: true }
+        - { name: margin_cents,   presence: never, note: internal pricing never leaves }
+
+  - id: get_product
+    method: GET
+    path: "/api/v1/products/{sku}"
+    access: public
+    ru: FEAT-product-discovery
+    emits: [not-found]
+    inbound:
+      fields:
+        - { name: sku, in: path, presence: required, type: string }
+    outbound:
+      status: 200
+      fields:
+        - { name: sku,         presence: always, type: string }
+        - { name: title,       presence: always, type: string }
+        - { name: in_stock,    presence: always, type: boolean }
+        - { name: price_cents, presence: always, type: integer }

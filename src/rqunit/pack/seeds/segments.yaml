@@ -1,0 +1,26 @@
+# The segment registry (formats §1, §14c; checked by C16).
+#
+# A segment is the domain an id is allocated into: `RU-ORD-01A2`. Segments bound
+# allocation and ownership; every rule stays store-wide.
+#
+# An empty registry is a complete state. Ids are then allocated into the
+# unsegmented space, and an empty file means exactly what no file means.
+#
+# Declare a segment when the store has a domain to allocate into — and decide
+# before the first id is minted, because a segment name is permanent. It appears
+# in filenames, gate stamps, Gate 2 review directories, packets, and `verifies:`
+# annotations in your own source, and ids are never rewritten. The registry
+# supports two edits: add a segment, and close one. A draft names the segment it
+# will be allocated into; activation consumes that field and the id carries it
+# from then on.
+segments: []
+# Example — delete this comment block when you declare a real segment:
+#
+# segments:
+#   - name: ORD                     # 2-8 uppercase chars, and never something the
+#                                   # sequence alphabet can spell (formats §1)
+#     domain: order management — placement, amendment, cancellation
+#   - name: BILL
+#     domain: invoicing and settlement
+#     closed: true                  # allocates nothing further; its ids keep working
+#     note: folded into order management

@@ -12,12 +12,26 @@ problem_types:
 audit_common: [event, timestamp, actor, ip_address]
 
 audit_events:
+  - code: orders.placed
+    ru: FEAT-order-placement
+    retention: "{value:retention.audit_days}"
+    fields:
+      - { name: order_id, presence: always, type: string }
+      - { name: sku,      presence: always, type: string }
+      - { name: quantity, presence: always, type: integer }
   - code: orders.cancelled
     ru: FEAT-order-cancellation
     retention: "{value:retention.audit_days}"
     fields:
       - { name: order_id, presence: always, type: string }
       - { name: reason,   presence: always, type: string, vocab: cancellation_reasons }
+  - code: orders.delivered
+    ru: FEAT-order-delivery
+    retention: "{value:retention.audit_days}"
+    fields:
+      - { name: order_id, presence: always, type: string }
+      - { name: outcome,  presence: always, type: string, vocab: delivery_outcomes }
+      - { name: attempts, presence: always, type: integer }
   - code: orders.refund_settled
     ru: FEAT-order-cancellation
     retention: "{value:retention.audit_days}"
@@ -26,6 +40,28 @@ audit_events:
       - { name: settled_cents, presence: always, type: integer }
 
 endpoints:
+  - id: place_order
+    method: POST
+    path: /api/v1/orders
+    access: protected
+    ru: FEAT-order-placement
+    emits:     [validation, conflict]
+    audits:    [orders.placed]
+    publishes: [order_placed]
+    inbound:
+      fields:
+        - { name: sku,      in: body, presence: required, type: string }
+        - { name: quantity, in: body, presence: required, type: integer, min: 1 }
+        - { name: idempotency_key, in: body, presence: required, type: string }
+        - { name: total_cents, presence: forbidden,
+            note: "the price is ours to compute, the same way the refund is" }
+    outbound:
+      status: 201
+      fields:
+        - { name: order_id,    presence: always, type: string }
+        - { name: state,       presence: always, type: string }
+        - { name: total_cents, presence: always, type: integer }
+
   - id: cancel_order
     method: DELETE
     path: "/api/v1/orders/{order_id}"
@@ -43,11 +79,49 @@ endpoints:
             note: the client sent this once; we work it out }
     outbound: { status: 204, fields: none }
 
+  - id: record_delivery
+    method: POST
+    path: "/api/v1/orders/{order_id}/delivery"
+    access: carrier
+    ru: FEAT-order-delivery
+    emits:     [not-found, conflict, validation]
+    audits:    [orders.delivered]
+    publishes: [order_delivered]
+    inbound:
+      fields:
+        - { name: order_id, in: path, presence: required, type: string }
+        - { name: outcome,  in: body, presence: required, type: string,
+            vocab: delivery_outcomes }
+        - { name: signed_at, in: body, presence: required, type: string }
+    outbound: { status: 204, fields: none }
+
+  # Designed, agreed, not built. `planned: true` keeps the facts in the store so
+  # requirements can reference them, and conformance treats the absence as
+  # expected rather than as drift.
+  - id: list_orders
+    method: GET
+    path: /api/v1/orders
+    access: protected
+    planned: true
+    ru: FEAT-order-placement
+    emits: [validation]
+    inbound:
+      fields:
+        - { name: page_size, in: query, presence: optional, type: integer,
+            max: "{value:paging.max_page_size}" }
+    outbound:
+      status: 200
+      fields:
+        - { name: items,          presence: always, type: array, items: object }
+        - { name: items.order_id, presence: always, type: string }
+        - { name: items.state,    presence: always, type: string }
+        - { name: next_page,      presence: always, type: string, nullable: true }
+
   - id: get_order
     method: GET
     path: "/api/v1/orders/{order_id}"
     access: protected
-    ru: FEAT-order-cancellation
+    ru: FEAT-order-placement
     emits: [not-found]
     inbound:
       fields:
@@ -59,13 +133,17 @@ endpoints:
         - { name: state,           presence: always, type: string }
         - { name: cancellation,    presence: always, type: object, nullable: true }
         - { name: cancellation.at, presence: always, type: string }
+        - { name: delivery,        presence: always, type: object, nullable: true }
+        - { name: delivery.outcome, presence: always, type: string,
+            vocab: delivery_outcomes }
+        - { name: delivery.at,     presence: always, type: string }
         - { name: cost_basis,      presence: never, note: internal pricing never leaves }
 
   - id: issue_session
     method: POST
     path: /api/v1/sessions
     access: public
-    ru: FEAT-order-cancellation
+    ru: FEAT-order-placement
     emits: [validation]
     inbound:
       fields:
@@ -74,14 +152,37 @@ endpoints:
       status: 201
       fields:
         # the census stops at the string; `artifact:` says what is inside it
+        - { name: access_token,  presence: always, type: string, artifact: access-token }
+        - { name: refresh_token, presence: always, type: string, artifact: refresh-token }
+
+  - id: refresh_session
+    method: POST
+    path: /api/v1/sessions/refresh
+    access: refresh
+    ru: FEAT-order-placement
+    emits: [validation]
+    inbound: none
+    outbound:
+      status: 201
+      fields:
         - { name: access_token, presence: always, type: string, artifact: access-token }
 
 messages:
+  - id: order_placed
+    subject: orders.placed
+    direction: outbound
+    payload: "wire::OrderPlaced"
+    ru: FEAT-order-placement
   - id: order_cancelled
     subject: orders.cancelled
     direction: outbound
     payload: "wire::OrderCancelled"
     ru: FEAT-order-cancellation
+  - id: order_delivered
+    subject: orders.delivered
+    direction: outbound
+    payload: "wire::OrderDelivered"
+    ru: FEAT-order-delivery
   - id: refund_settled
     subject: billing.refund_settled
     direction: inbound

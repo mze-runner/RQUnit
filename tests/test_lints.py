@@ -141,6 +141,25 @@ def test_l24_is_finding_class_only():
     assert all("{value:" in v.suggestion for v in violations)
 
 
+def test_l24_asks_instead_of_choosing_when_several_values_match():
+    """The rule compares NUMBERS and cannot know which fact a literal meant. It
+    used to offer the alphabetically first match as an instruction — so a token's
+    length was told to reference an unrelated parameter that also equalled the
+    same number, with the right answer in the same sentence. In a framework built
+    for agent participation the suggestion is the half that gets applied."""
+    ambiguous = next(v for v in _run("L24", "fail") if v.artifact.endswith(".note"))
+    single = next(v for v in _run("L24", "fail") if v.artifact.endswith(".page_size"))
+
+    assert "order.max_note_chars" in ambiguous.message      # both candidates named
+    assert "retry.backoff_ms" in ambiguous.message
+    assert "{value:order.max_note_chars}" not in ambiguous.suggestion, "no arbitrary pick"
+    assert "{value:retry.backoff_ms}" not in ambiguous.suggestion
+    assert "the one this bound MEANS" in ambiguous.suggestion
+
+    # A single candidate is unambiguous, so it stays an instruction.
+    assert '{value:paging.max_limit}' in single.suggestion
+
+
 def test_l24_leaves_referenced_bounds_and_unregistered_literals_alone():
     assert _run("L24", "pass") == []
 
@@ -331,6 +350,25 @@ def test_l27_is_silent_in_a_store_that_never_adopted_segments(tmp_path):
     assert [v for v in run_lints(Store.load(root)) if v.rule == "L27"] == []
 
 
+def test_l27_treats_an_empty_registry_exactly_as_an_absent_one(tmp_path):
+    """`rqunit init` seeds the registry empty, so this is now the shape every
+    fresh store has. Seeding must disclose the decision without making it: if an
+    empty file counted as adoption, every store would begin opted in and L27
+    would fire on stores that never chose segments — the behaviour its own
+    docstring argues against. The fixture's drafts are the proof, because they
+    are exactly what fires once a store has adopted."""
+    import shutil
+    absent = tmp_path / "absent"
+    shutil.copytree(FIXTURES / "lints" / "L27" / "fail", absent)
+    (absent / "spec" / "framework" / "segments.yaml").unlink()
+
+    empty = tmp_path / "empty"
+    shutil.copytree(FIXTURES / "lints" / "L27" / "fail", empty)
+    (empty / "spec" / "framework" / "segments.yaml").write_text("segments: []\n")
+
+    assert run_lints(Store.load(empty)) == run_lints(Store.load(absent))
+
+
 def test_l27_leaves_permanent_ids_alone():
     """An active RU minted before its store adopted segments can never acquire
     one — ids are never rewritten. Reporting it would be a warning with no
@@ -419,6 +457,28 @@ def test_l4_bounds_checks_the_line_anchor_it_now_always_gets():
 
         flagged = [v for v in run_lints(Store.load(root)) if v.rule == "L4"]
         assert flagged and "outside" in flagged[0].message
+
+
+def test_l4_resolves_a_feats_anchor_and_not_only_an_rus():
+    """A FEAT's `source_ref` is schema-required under the identical grammar and
+    went unresolved for eleven revisions — the pattern checked the anchor's
+    SHAPE, so the link read as covered while pointing at nothing. It is
+    load-bearing because a manifest endpoint's `ru` link admits `FEAT-<slug>`:
+    an unresolved FEAT anchor lets a surface's whole chain terminate nowhere."""
+    flagged = {v.artifact: v.message for v in _run("L4", "fail")}
+
+    assert "FEAT-screening" in flagged and "does not exist" in flagged["FEAT-screening"]
+    assert "FEAT-retention" in flagged and "outside" in flagged["FEAT-retention"]
+    assert any(a.startswith("RU-") for a in flagged)   # the RU half is undisturbed
+
+
+def test_l4_attributes_a_feat_violation_to_the_feat_file():
+    """The message and suggestion were already correct for both kinds; what a
+    shared helper must not lose is WHERE to go and fix it."""
+    for violation in _run("L4", "fail"):
+        if violation.artifact.startswith("FEAT-"):
+            assert violation.path.endswith(f"{violation.artifact}.yaml"), violation.path
+            assert "spec/features/" in violation.path
 
 
 def test_the_retired_section_anchor_is_refused_by_the_grammar():

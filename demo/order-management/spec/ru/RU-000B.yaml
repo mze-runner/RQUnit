@@ -1,0 +1,30 @@
+id: RU-000B
+statement: 'If a request supplies {endpoint:place_order.inbound.total_cents}, then
+  the system shall reject it with {problem:validation}.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-placement
+source_ref: INT-01K4RB2QDXH7YFEWZ3M8TKQ4VN#L14-16
+rationale_ref: ADR-refund-amount-is-server-derived
+verification:
+- type: test
+  ref: TODO(client-supplied total is rejected)
+- type: test
+  ref: 'TODO(architecture test: no handler reads a client price field)'
+scope:
+  owns:
+  - service-orders/orders
+  must_not_touch:
+  - service-billing
+tags:
+- orders
+- security
+draft_id: RU-draft-01K4RC1VBNQ8XKF3ZWDHT7MJ4P
+gate1_stamp:
+  hash: sha256:2a3289e26bf62940061ba12ed8ab07ab8172d609c0bf521026bf70ade9bc9526
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'
+link_fingerprints:
+  ADR-refund-amount-is-server-derived: sha256:0372b69b4c43c1eacff00bc315fbff3be15a8e603f2e1b303539e209c14b84c5

@@ -16,16 +16,19 @@ from ..doctor import run as run_doctor
 from ..errors import StoreError
 from ..schemas import repo_root
 from ..store import Store
+from ..violations import resolve_format
 
 
 @click.command()
 @click.option("--store", "store_path", type=click.Path(path_type=Path), default=None,
               help="Store root (directory containing spec/). Defaults to the repo root.")
-@click.option("--format", "fmt", type=click.Choice(["json", "text"]), default="text")
+@click.option("--format", "fmt", type=click.Choice(["json", "text"]), default=None,
+              help="Output shape. Default: text on a terminal, JSON when piped.")
 @click.option("--strict", is_flag=True, help="Warning-severity findings fail the run.")
-def main(store_path: Path | None, fmt: str, strict: bool) -> None:
+def main(store_path: Path | None, fmt: str | None, strict: bool) -> None:
     """Report structural problems: lost RUs, orphaned artifacts, dangling
     review records, and a stale branch that would make activation collide."""
+    fmt = resolve_format(fmt)
     try:
         root = store_path or repo_root()
         store = Store.load(root)

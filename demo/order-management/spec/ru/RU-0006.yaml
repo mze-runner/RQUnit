@@ -12,7 +12,7 @@ verification:
   ref: TODO(fulfilment halt latency bound)
 - type: model
   ref: MDL-order-lifecycle
-  model_hash: sha256:8d9f1f8a86f4c04fae5fd8c9f07259005c247caf0fe19e2f119c56d6cb507d1b
+  model_hash: sha256:3e87d6b65e1bc9535448009045b876d0faf12e611df75a90b5b42d60e4c37b1f
   conformance: generated
 scope:
   owns:
@@ -23,6 +23,6 @@ tags:
 - orders
 - cancellation
 gate1_stamp:
-  hash: sha256:0a8ba646421b68a5e13c65d5d0e4897bda21b946189adf972eea3736427726f8
+  hash: sha256:97c06f24ead2ea2feaefb6d2b2f26f9020d147c0c4dfb5c6f5219cb268b06ff8
   by: demo-operator
-  at: '2026-08-02T05:41:17+00:00'
+  at: '2026-08-12T12:44:52+00:00'

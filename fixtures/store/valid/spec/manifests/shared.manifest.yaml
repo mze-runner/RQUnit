@@ -2,6 +2,10 @@ service: shared
 version: "1.0"
 vocabularies:
   access_tiers: [public, internal, partner, protected]
+# Tiers whose surfaces admit a request carrying no credential (C17). Declared,
+# not assumed: an open surface and an unmodelled credential are otherwise the
+# same silence.
+credential_free_tiers: [public, internal]
 artifacts:
   session-token:
     access_tier: protected

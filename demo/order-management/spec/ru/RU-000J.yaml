@@ -1,0 +1,24 @@
+id: RU-000J
+statement: 'The system shall record the number of delivery attempts the carrier reported in {audit:orders.delivered}.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-delivery
+source_ref: INT-01K4RB3XKZP9NTVQY2H6WDFB8S#L18-20
+verification:
+- type: test
+  ref: TODO(attempt count reaches the audit record)
+scope:
+  owns:
+  - service-orders/delivery
+  must_not_touch:
+  - service-billing
+tags:
+- delivery
+- audit
+draft_id: RU-draft-01K4RC1ZBQK9XN3WFHMTD5J74V
+gate1_stamp:
+  hash: sha256:a16ceabaf98bbeb343242ebb4673778d5cb5d66cf0e9eec0377ae15d3c3994d7
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'

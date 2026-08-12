@@ -60,8 +60,13 @@ the linter is the law (spec §5.9, formats §13).
 
 ## Compiling requirements (the analyst's remit, spec §8.1)
 
-- Input is an immutable INT capture under `spec/intent/` (verbatim human words — never authored
-  prose). Every RU's `source_ref` anchors into it with real line numbers (L4 checks the range).
+- Input is an immutable INT capture under `spec/intent/`: its source's words, unedited.
+  Verbatim constrains FIDELITY, not genre — a transcript, a pasted conversation and an existing
+  specification document are all capturable; a paraphrase of any of them is not. To adopt over an
+  existing corpus, follow the `spec-store` skill ("Bringing an area under the store"): capture the
+  documents verbatim with a provenance header of path + sha, then compile. No lint checks that
+  words are unedited; L4 checks that the anchor resolves and the line range is in bounds, for
+  FEATs as well as RUs.
 - **One acceptance criterion = one RU.** The story narrative → the FEAT `goal` (one sentence, no
   normative keywords — L11). Interface/value facts → the manifest, referenced by token.
 - Ambiguity NEVER gets defaulted: unstated bounds, actors, triggers → a GAP artifact
@@ -73,6 +78,11 @@ the linter is the law (spec §5.9, formats §13).
 - Wire shapes are MANIFEST facts, not a separate artifact: a surface declares its census inline
   (`inbound`/`outbound`), and a structure hidden behind an encoding boundary — a JWT's claims
   inside `access_token: string` — is a shared `artifacts` entry the field names via `artifact:`.
+  Artifacts live in the SHARED manifest whoever consumes them. A credential is minted, so its
+  census uses the outbound presence vocabulary, and `fields: none` is the census for an opaque
+  token. Every access tier a surface uses resolves to exactly one artifact carrying that tier, or
+  is listed in `credential_free_tiers` (C17); an endpoint declares its tier and never an
+  `artifact:` key.
   RUs never restate a census; they ADDRESS it with a token
   (`{endpoint:get_order.outbound.cost_basis}`, `{artifact:jwt-access-token.iss}`) and prove it
   with a test. Memberships = C5; census well-formedness = C11; editing a manifest flips
@@ -86,8 +96,8 @@ the linter is the law (spec §5.9, formats §13).
   it from `scope.owns`: a domain can span several services and one service can host
   several domains. L27 warns on a draft whose declaration contradicts its tier, in either
   direction. This is the last moment the choice is free — a permanent id can never acquire
-  or shed a segment, because renaming ids is not a thing this framework does. A store with
-  no segments file has no segments, and drafts omit the field entirely.
+  or shed a segment, because renaming ids is not a thing this framework does. An empty
+  registry means the store has no segments, and drafts omit the field entirely.
 - Non-obvious decisions get an ADR: `spec/rationale/ADR-<slug>.md` (headings per formats §10:
   Context, Decision, Alternatives, Consequences) linked via `rationale_ref: ADR-<slug>` — a
   dangling ref is an L7 error. ADRs are editable prose; once a stamped RU fingerprints one,

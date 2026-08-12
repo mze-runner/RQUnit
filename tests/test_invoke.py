@@ -176,15 +176,38 @@ def test_manifest_catches_a_declared_role_the_adapter_does_not_ship(tmp_path):
 
 def test_doctor_says_when_a_whole_config_table_is_unchecked(tmp_path):
     """Core deliberately never interprets passthrough keys, so without a
-    manifest NOTHING validates them and a typo reads as configured. This note
-    was withheld while no consumer could obtain a manifest — a finding whose
-    fix is impossible teaches people to ignore doctor — and that premise no
-    longer holds."""
-    (tmp_path / "rqunit.toml").write_text('[stacks.rust]\ntrace_scan = ["x"]\n')
+    manifest NOTHING validates them and a typo reads as configured. The stack
+    here is one this build ships no adapter for — the only case where the note
+    is still true, and the case it must name a real source of a manifest for."""
+    (tmp_path / "rqunit.toml").write_text('[stacks.jvm]\nsome_key = ["x"]\n')
     findings = [f for f in stack_config_health(tmp_path) if f.kind == "stack-config"]
     assert len(findings) == 1 and findings[0].severity == "info"
-    assert "trace_scan" in findings[0].message
+    assert "some_key" in findings[0].message
     assert "manifest" in findings[0].suggestion
+
+
+def test_a_first_party_stack_validates_its_keys_with_nothing_wired(tmp_path):
+    """The note used to fire here, instructing the reader to point `manifest`
+    at a file that existed only inside this repository — well written, and
+    terminating in a dead end. A first-party adapter's manifest ships in the
+    pack, so the keys are validated with no wiring and there is nothing to
+    report."""
+    (tmp_path / "rqunit.toml").write_text('[stacks.rust]\ntrace_scan = ["x"]\n')
+    assert [f for f in stack_config_health(tmp_path) if f.kind == "stack-config"] == []
+
+
+def test_a_typo_is_caught_against_the_bundled_manifest(tmp_path):
+    """The point of shipping it: the vocabulary authority is present, so a
+    misspelled passthrough key is named instead of reading as configured. And the
+    remedy offered has to be one the reader can perform — a bundled manifest sits
+    inside the installed package, so "add the key to its config_keys" would be
+    the same dead end this finding was about."""
+    (tmp_path / "rqunit.toml").write_text('[stacks.rust]\ntrace_scam = ["x"]\n')
+    findings = [f for f in stack_config_health(tmp_path) if f.kind == "stack-config"]
+
+    named = [f for f in findings if f.severity == "warning" and "trace_scam" in f.message]
+    assert named
+    assert "config_keys" not in named[0].message
 
 
 def test_doctor_says_nothing_about_a_stack_with_nothing_to_validate(tmp_path):

@@ -1,6 +1,7 @@
 """The `rqunit` umbrella CLI: every lifecycle verb is mounted and delegates to
 the same implementation the spec-* aliases use."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -86,6 +87,138 @@ def test_the_schema_report_locates_the_problem_and_teaches(tmp_path, verb):
     assert "suggestion:" in result.output
     assert str(root) not in result.output, "absolute paths differ per machine"
     assert "is not valid under any of the given schemas" not in result.output
+
+
+def test_the_output_shape_follows_the_destination(monkeypatch):
+    """`doctor` printed prose and `lint`/`check`/`conformance` printed JSON, so a
+    consumer running them together got two shapes and reached for `--format text`
+    on every command — which is what this product's own gate script does on every
+    line. Text for a human, JSON for a pipe, and an explicit flag still wins."""
+    from rqunit.violations import resolve_format
+
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True, raising=False)
+    assert resolve_format(None) == "text"
+    assert resolve_format("json") == "json", "an explicit flag wins over the terminal"
+
+    monkeypatch.setattr("sys.stdout.isatty", lambda: False, raising=False)
+    assert resolve_format(None) == "json"
+    assert resolve_format("text") == "text", "an explicit flag wins over the pipe"
+
+
+def test_every_reporting_verb_answers_a_pipe_with_json():
+    """One shape for one destination, across the verbs a consumer runs together.
+    CliRunner is not a terminal, so this is the piped case by construction."""
+    for verb in ("lint", "check", "doctor"):
+        result = CliRunner().invoke(rqunit, [verb, "--store", str(FIXTURES / "store" / "valid")])
+        assert result.exit_code == 0, result.output
+        json.loads(result.stdout)          # raises unless the default resolved to JSON
+
+
+def test_lint_reports_an_unwritable_projection_as_a_tool_error(tmp_path):
+    """`lint` owns one projection and refreshes it in place, so it is the one
+    command in the product that writes while promising to read. Unguarded that
+    ended a read-only checkout — an ordinary CI shape — with a traceback, which
+    is none of the three exits the CLI contract states."""
+    import shutil
+    from rqunit.cli.lint import main as lint_main
+
+    root = tmp_path / "store"
+    shutil.copytree(Path(__file__).parent.parent / "fixtures" / "store" / "valid", root)
+    queue = root / "spec" / "projections" / "suspect-queue.json"
+    queue.unlink(missing_ok=True)
+    queue.parent.chmod(0o500)
+    try:
+        result = CliRunner().invoke(lint_main, ["--store", str(root), "--format", "text"])
+    finally:
+        queue.parent.chmod(0o700)
+
+    assert result.exit_code == 2, result.output
+    assert "tool error" in result.output
+    assert "suspect-queue.json" in result.output
+    assert "writable" in result.output          # names what to do about it
+    assert not isinstance(result.exception, PermissionError)
+
+
+def test_lint_announces_a_projection_it_refreshed_and_stays_quiet_otherwise(tmp_path):
+    """A command that writes says so — but only when it wrote. The write is
+    conditional on the content changing, which is what keeps a lint run out of
+    `git status` and is why announcing unconditionally would be noise."""
+    import shutil
+    from rqunit.cli.lint import main as lint_main
+
+    root = tmp_path / "store"
+    shutil.copytree(Path(__file__).parent.parent / "fixtures" / "store" / "valid", root)
+    (root / "spec" / "projections" / "suspect-queue.json").unlink(missing_ok=True)
+
+    runner = CliRunner()
+    first = runner.invoke(lint_main, ["--store", str(root), "--format", "text"])
+    second = runner.invoke(lint_main, ["--store", str(root), "--format", "text"])
+
+    assert "refreshed" in first.output
+    assert "suspect-queue.json" in first.output
+    assert "refreshed" not in second.output, "an unchanged queue is written and said nothing"
+
+
+def test_the_json_report_stays_parseable_while_a_projection_is_announced(tmp_path):
+    """The announcement goes to stderr for this reason: stdout is the report, and
+    a consumer piping `--format json` into a parser must not receive prose."""
+    import shutil
+    from rqunit.cli.lint import main as lint_main
+
+    root = tmp_path / "store"
+    shutil.copytree(Path(__file__).parent.parent / "fixtures" / "store" / "valid", root)
+    (root / "spec" / "projections" / "suspect-queue.json").unlink(missing_ok=True)
+
+    result = CliRunner().invoke(lint_main, ["--store", str(root)])
+
+    json.loads(result.stdout)                    # raises if the line leaked into stdout
+    assert "refreshed" in result.stderr
+
+
+def test_every_refused_table_is_named_rather_than_echoed():
+    """One spelling for one idea. `<key>: false` reports "False schema does not
+    allow {…}" with the offending table echoed and nothing named — the first error
+    a consumer meets when hand-writing a manifest — so every refusal in the file
+    uses `not: {required: [<key>]}`, one key per entry, and the humanizer states
+    it. A single `not` over several keys would mean "not BOTH" and admit either."""
+    import yaml
+    from jsonschema.exceptions import best_match
+
+    from rqunit.schemas import describe_violation, validator
+
+    for name, key in (("shared_with_endpoint", "endpoints"),
+                      ("defaults_in_shared_manifest", "defaults"),
+                      ("conventions_in_service_manifest", "conventions"),
+                      ("artifacts_in_service_manifest", "artifacts"),
+                      ("credential_free_tiers_in_service_manifest", "credential_free_tiers")):
+        path = FIXTURES / "schemas" / "manifest" / "fail" / f"{name}.yaml"
+        error = best_match(validator("manifest").iter_errors(yaml.safe_load(path.read_text())))
+        message = describe_violation(error)
+
+        assert f"`{key}`" in message, name
+        assert "False schema" not in message, name
+
+
+def test_a_refused_table_is_named_rather_than_echoed(tmp_path):
+    """`artifacts` on a service manifest is refused because C5 resolves the
+    reference against the shared table only, so a local one is unreferenceable.
+    A boolean subschema would report "False schema does not allow {…}" with the
+    whole table echoed and nothing named — Hard Rule 6's failure mode — so the
+    refusal is spelled as a `not: required` the report can state."""
+    from rqunit.cli.lint import main as lint_main
+
+    root = _broken_store(
+        tmp_path,
+        'service: service-orders\nversion: "1.0"\nendpoints:\n'
+        '  - {id: get_order, method: GET, path: /x, access: public, ru: FEAT-x}\n'
+        'artifacts:\n  jwt-access-token:\n'
+        '    fields: [{name: sub, presence: always}]\n')
+    result = CliRunner().invoke(lint_main, ["--store", str(root), "--format", "text"])
+
+    assert "`artifacts`" in result.output
+    assert "does not carry" in result.output
+    assert "False schema" not in result.output
+    assert "jwt-access-token" not in result.output, "the table must not be echoed back"
 
 
 def test_a_leaf_failure_names_its_key_and_not_the_whole_document(tmp_path):

@@ -8,11 +8,12 @@ from pathlib import Path
 import pytest
 
 from rqunit.checks.base import discover, run_checks
+from rqunit.errors import UnresolvedRef
 from rqunit.checks.normalize import content_words, lemma
 from rqunit.store import Store
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "checks"
-CHECKS = [f"C{i}" for i in range(1, 17)]
+CHECKS = [f"C{i}" for i in range(1, 18)]
 
 
 def _run(code: str, kind: str):
@@ -206,13 +207,98 @@ def test_c11_judges_an_audit_census_by_the_outbound_vocabulary(tmp_path):
     assert violations and "belongs to inbound shapes" in violations[0].message
 
 
+def test_c11_judges_an_artifact_census_and_allows_only_it_a_where(tmp_path):
+    """Artifacts were the one census in the manifest that nothing visited — and
+    the slot holding the credential shapes. Two halves to the fix: the census is
+    judged (a credential is minted, so an inbound presence value asserts nothing),
+    and `where` survives, because placement inside an encoded structure is real
+    here and meaningless on a payload."""
+    flagged = [v for v in _run("C11", "fail")
+               if v.artifact.startswith("shared:artifacts.")]
+
+    assert flagged, "the artifact census is visited at all"
+    messages = " ".join(v.message for v in flagged)
+    assert "belongs to inbound shapes" in messages
+    assert "in: query" in messages                    # minted: nothing is client-supplied
+    assert "`where`" not in messages                  # legal here, and only here
+    assert all("minted, never accepted" in v.suggestion
+               for v in flagged if "presence" in v.message)
+
+
+def test_c11_still_rejects_a_where_on_a_surface_census(tmp_path):
+    """The artifact exemption must not become a general one — the guard it
+    replaced was unconditional, and on a payload the position IS the field name."""
+    root = tmp_path / "s"
+    shutil.copytree(FIXTURES / "C11" / "pass", root)
+    manifest = root / "spec" / "manifests" / "service-orders.manifest.yaml"
+    manifest.write_text(manifest.read_text().replace(
+        "{ name: order_id,   in: path, presence: required, type: string }",
+        "{ name: order_id, in: path, presence: required, type: string, where: header }"))
+
+    violations = [v for v in run_checks(Store.load(root), only="C11") if v.rule == "C11"]
+    assert any("on a surface census" in v.message for v in violations), \
+        [v.message for v in violations]
+
+
+def test_c17_reports_each_way_a_tier_can_fail_to_bind():
+    """C5 validates membership on both sides and never relates them, so all three
+    of these passed: a tier in use that nothing describes, a tier two credentials
+    claim, and a tier declared open while a credential claims it."""
+    by_tier = {v.artifact: v.message for v in _run("C17", "fail")}
+
+    assert "no artifact declares it" in by_tier["shared:access_tiers.refresh"]
+    assert "claimed by 2 artifacts" in by_tier["shared:access_tiers.protected"]
+    assert "credential-free" in by_tier["shared:access_tiers.public"]
+
+
+def test_c17_names_both_remedies_for_an_unbound_tier():
+    """Turning green stores red needs the escape valve visible in the message:
+    declare the credential, or declare that there is none. The second is a claim
+    worth having on the record, not a waiver."""
+    unbound = next(v for v in _run("C17", "fail")
+                   if v.artifact == "shared:access_tiers.refresh")
+
+    assert "fields: none" in unbound.suggestion          # the opaque-credential answer
+    assert "credential_free_tiers" in unbound.suggestion  # the genuinely-open answer
+
+
+def test_c17_spares_a_tier_no_surface_uses(tmp_path):
+    """A vocabulary may run ahead of the surfaces that will use it. Demanding a
+    credential for a tier nothing serves would enforce target state."""
+    root = tmp_path / "s"
+    shutil.copytree(FIXTURES / "C17" / "pass", root)
+    shared = root / "spec" / "manifests" / "shared.manifest.yaml"
+    shared.write_text(shared.read_text().replace(
+        "access_tiers: [public, internal, protected, scoped, refresh]",
+        "access_tiers: [public, internal, protected, scoped, refresh, partner]"))
+
+    assert [v for v in run_checks(Store.load(root), only="C17") if v.rule == "C17"] == []
+
+
+def test_an_opaque_credential_binds_its_tier_and_resolves_no_members(tmp_path):
+    """`fields: none` exists so a total binding is possible without inventing
+    internals for a token that has none. It must bind, and it must not be
+    mistaken for a census with members."""
+    store = Store.load(FIXTURES / "C17" / "pass")
+
+    assert [v for v in run_checks(store, only="C17") if v.rule == "C17"] == []
+    assert store.resolve_ref("{artifact:refresh-token}").value is not None
+    with pytest.raises(UnresolvedRef):
+        store.resolve_ref("{artifact:refresh-token.sub}")
+
+
 def test_c14_is_finding_class_and_spares_reads_and_planned_surfaces():
     """HTTP method is a heuristic for mutation — POST /search is routine — so an
     error here would false-positive on real designs and teach gate-avoidance."""
     assert _run("C14", "pass") == []                  # GET and `planned` both spared
     violations = _run("C14", "fail")
     assert violations and all(v.severity == "finding" for v in violations)
-    assert all("RU-0002" in v.suggestion for v in violations)
+    # The obligation, not the citation. This product's reference fixtures call it
+    # RU-0002; a consumer store seeds no RUs, so naming the id pointed at nothing
+    # in the store reading the message — the mirror of the leakage rule this
+    # codebase enforces on itself.
+    assert all("no evidence trail" in v.suggestion for v in violations)
+    assert not any("RU-" in v.suggestion for v in violations)
 
 
 def test_c5_rejects_a_field_carrying_an_undeclared_artifact(tmp_path):

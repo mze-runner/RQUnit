@@ -198,9 +198,13 @@ properties:
       Structures that are minted somewhere, carried as a VALUE inside payloads, and
       validated elsewhere — credentials above all. It is a table rather than a
       separate artifact kind because a manifest already IS a contract, and
-      two words for one idea cost every consumer an explanation. Promotion by
-      demonstrated reuse applies (§5.5), so an artifact used by one service stays in
-      that service's manifest.
+      two words for one idea cost every consumer an explanation.
+      SHARED BY CONSTRUCTION: artifacts live in the shared manifest whoever consumes
+      them, so a credential has one registry and one place to look. There is nothing
+      to promote, because nothing may begin anywhere else — which is why the
+      conditional below refuses this table on a service manifest rather than leaving
+      it to validate and be unreferenceable. The cost is real and chosen: `shared`
+      accumulates structures only one service consumes.
     propertyNames: { pattern: "^[a-z][a-z0-9-]*$" }
     additionalProperties:
       type: object
@@ -214,9 +218,15 @@ properties:
             The credential tier whose surfaces consume this artifact ("surfaces of
             this tier consume artifacts of this shape"). Membership is C5's check.
         fields:
-          type: array
-          minItems: 1
-          items: { $ref: "#/$defs/field" }
+          # The one census dialect, like `audit_events[].fields` — which is the
+          # structurally identical case, also minted, also outbound-only. This
+          # slot used to re-state the array branch inline and drop the `none`
+          # branch the other three carry; `fields: none` is legal as a
+          # consequence of the schema speaking one dialect, and it is what an
+          # OPAQUE credential needs. An artifact has two jobs — describing
+          # internals where they exist, and naming the credential in every case
+          # — and naming is what the tier join (C17) requires.
+          $ref: "#/$defs/field_census"
 
   audit_forbidden:
     type: array
@@ -306,6 +316,21 @@ properties:
       minItems: 1
       uniqueItems: true
       items: { type: string }
+
+  credential_free_tiers:
+    type: array
+    uniqueItems: true
+    items: { type: string }
+    description: >
+      Access tiers whose surfaces admit a request carrying no credential — the
+      declared half of C17, which otherwise requires every tier in use to resolve
+      to exactly one artifact describing what admits it. Listing a tier here is a
+      POSITIVE claim ("these surfaces are open"), which is why it is a declared
+      key rather than a member of `vocabularies`: that map is open, its members
+      exist to be membership-checked, and a tool-read name hidden inside it would
+      give a consumer behaviour they never declared. Shared manifest only, beside
+      the tiers and the artifacts it relates — the whole relation lives in one
+      file and can simply be evaluated.
 
   endpoints:
     type: array
@@ -453,17 +478,24 @@ properties:
               direction: { enum: [inbound, outbound] }
               payload:   { type: string, pattern: "^[A-Za-z0-9_:.-]+$" }
 
+# Every refusal below is spelled `not: { required: [<key>] }`, one key per entry,
+# and never `<key>: false`. A boolean subschema reports "False schema does not
+# allow {…}" with the whole offending table echoed back and nothing named as the
+# problem — Hard Rule 6's failure mode, and the first error a consumer meets when
+# they hand-write their first manifest. This form carries the key, and the report
+# humanizer turns it into a sentence naming it. One key per entry because a single
+# `not: { required: [a, b] }` means "not BOTH", which would admit either alone.
 allOf:
   # Shared manifest: facts only, no interface surfaces (§5.5). `defaults` is a
   # surface-shaping fact and belongs with the surfaces it shapes.
   - if:
       properties: { service: { const: shared } }
     then:
-      properties:
-        endpoints: false
-        messages:  false
-        channels:  false
-        defaults:  false
+      allOf:
+        - not: { required: [endpoints] }
+        - not: { required: [messages] }
+        - not: { required: [channels] }
+        - not: { required: [defaults] }
   # `conventions` is store-wide by definition: per-service tables would let the
   # house standard diverge service by service, which is the thing it exists to
   # prevent. Declared once, in the shared manifest, or not at all.
@@ -471,9 +503,32 @@ allOf:
       not:
         properties: { service: { const: shared } }
     then:
-      properties:
-        conventions: false
-        audit_forbidden: false
+      allOf:
+        - not: { required: [conventions] }
+        - not: { required: [audit_forbidden] }
+  # C5 resolves a field's `artifact:` reference against the shared table and no
+  # other, so a service-local artifact validated, sat in the manifest, and could
+  # never be pointed at — configured and doing nothing, which is the failure this
+  # schema refuses everywhere else. Rejecting the table is the other half of the
+  # shared-by-construction decision on `artifacts` above: without it the doctrine
+  # is documented and the defect still ships.
+  #
+  # Spelled `not: required` rather than `artifacts: false` because a boolean
+  # subschema reports "False schema does not allow {…}" with the whole table
+  # echoed back and nothing named — Hard Rule 6's failure mode. This form carries
+  # the key, and the report humanizer turns it into a sentence.
+  - if:
+      not:
+        properties: { service: { const: shared } }
+    then:
+      allOf:
+        - not: { required: [artifacts] }
+        # `credential_free_tiers` is a statement about the shared tier
+        # vocabulary, so a per-service copy could contradict the store it is a
+        # policy for. Same locality argument as `conventions`.
+        - not: { required: [credential_free_tiers] }
+        # A `not` over a bare `required` is spelled the same way for every key
+        # in this file; see the note above `allOf`.
   # Non-shared boundary manifests: at least one surface. Pure-internal
   # services with no surface set service kind via absence — the anyOf below
   # is enforced only when any surface key is expected; operator may relax by

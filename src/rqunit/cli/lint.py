@@ -13,16 +13,19 @@ from ..errors import BadConfig, StoreError
 from ..lints.base import run_lints
 from ..schemas import repo_root
 from ..store import Store
-from ..violations import Violation, build_report, exit_code, render_text, schema_violation
+from ..violations import (Violation, build_report, empty_store_findings, exit_code,
+                          render_text, resolve_format, schema_violation)
 
 
 @click.command()
 @click.option("--store", "store_path", type=click.Path(path_type=Path), default=None,
               help="Store root (directory containing spec/). Defaults to the repo root.")
 @click.option("--only", default=None, help="Run a single lint, e.g. --only L3.")
-@click.option("--format", "fmt", type=click.Choice(["json", "text"]), default="json")
+@click.option("--format", "fmt", type=click.Choice(["json", "text"]), default=None,
+              help="Output shape. Default: text on a terminal, JSON when piped.")
 @click.option("--strict", is_flag=True, help="Warnings also fail the run.")
-def main(store_path: Path | None, only: str | None, fmt: str, strict: bool) -> None:
+def main(store_path: Path | None, only: str | None, fmt: str | None, strict: bool) -> None:
+    fmt = resolve_format(fmt)
     try:
         root = store_path or repo_root()
     except FileNotFoundError as e:
@@ -53,6 +56,7 @@ def main(store_path: Path | None, only: str | None, fmt: str, strict: bool) -> N
                            "the tool does not have.")
             for stack, key, instruction in retired_key_uses(config)
         ]
+        violations += empty_store_findings(store)
         checked = (len(store.rus()) + len(store.features()) + len(store.gaps())
                    + len(store.manifests()) + len(store.models()) + len(store.intents()))
     except BadConfig as e:
@@ -82,19 +86,44 @@ def main(store_path: Path | None, only: str | None, fmt: str, strict: bool) -> N
         sys.exit(2)
     report = build_report("spec-lint", violations, checked, root)
     if only in (None, "L20"):
-        _write_suspect_queue(root, [v for v in violations if v.rule == "L20"])
+        try:
+            refreshed = _write_suspect_queue(root, [v for v in violations if v.rule == "L20"])
+        except OSError as e:
+            # A read-only checkout or a read-only container mount is an ordinary
+            # CI shape, and this is the one command in the product that writes
+            # while promising to read. Unguarded, it ended the run with a
+            # traceback — which is neither of the three exits the CLI contract
+            # states, from the least surprising configuration in CI.
+            click.echo(f"spec-lint: tool error: cannot refresh {e.filename or 'a projection'} "
+                       "— the L20 suspect queue is written where the lint runs, so this "
+                       "store must be writable, or run the lint on a writable checkout",
+                       err=True)
+            sys.exit(2)
+        if refreshed:
+            # Announced, and only when it actually happened: the write is
+            # conditional on the content changing, so a silent run means the
+            # queue was already current. On stderr, because stdout is the report
+            # and `--format json` must stay parseable.
+            click.echo(f"spec-lint: refreshed {refreshed}", err=True)
     click.echo(json.dumps(report, indent=2) if fmt == "json" else render_text(report))
     sys.exit(exit_code(report, strict=strict))
 
 
-def _write_suspect_queue(root: Path, findings) -> None:
+def _write_suspect_queue(root: Path, findings) -> str | None:
     """spec/projections/suspect-queue.json (TASK-052, plan D-P4.4): refreshed
     when L20 findings exist, emptied when none. Entries only — no timestamp,
-    so an unchanged queue produces no diff noise."""
+    so an unchanged queue produces no diff noise.
+
+    Returns the store-relative path when it wrote, so the caller can say so, and
+    None when the queue was already current. Raises OSError to the caller rather
+    than swallowing it: a projection this command owns and cannot write is a tool
+    error, not a silently skipped step."""
     path = Path(root) / "spec" / "projections" / "suspect-queue.json"
     entries = [{"ru": v.artifact, "message": v.message} for v in findings]
     payload = json.dumps({"suspect": entries}, indent=2) + "\n"
     if not path.parent.is_dir():
-        return  # not a full store (fixture subsets) — nothing to project
+        return None  # not a full store (fixture subsets) — nothing to project
     if not path.exists() or path.read_text() != payload:
         path.write_text(payload)
+        return str(path.relative_to(root))
+    return None

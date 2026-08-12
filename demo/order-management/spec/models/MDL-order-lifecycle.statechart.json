@@ -6,15 +6,32 @@
   "vocabulary": {
     "CANCEL": "{endpoint:cancel_order}",
     "REFUND_SETTLED": "{message:refund_settled}",
-    "SHIP": "internal"
+    "DELIVERY_REPORTED": "{endpoint:record_delivery}",
+    "SHIP": "internal",
+    "RETRY": "internal",
+    "RETURN": "internal"
   },
   "states": {
-    "placed": { "on": { "CANCEL": "cancelling", "SHIP": "shipped" } },
+    "placed": {
+      "invariant": "total_is_server_derived",
+      "on": { "CANCEL": "cancelling", "SHIP": "shipped" }
+    },
     "cancelling": {
       "invariant": "no_new_picks_dispatched",
       "on": { "REFUND_SETTLED": "cancelled" }
     },
-    "shipped": { "type": "final" },
-    "cancelled": { "type": "final" }
+    "shipped": {
+      "on": { "DELIVERY_REPORTED": "delivered", "RETRY": "delivery_attempted" }
+    },
+    "delivery_attempted": {
+      "invariant": "attempt_count_recorded",
+      "on": { "DELIVERY_REPORTED": "delivered", "RETRY": "delivery_attempted", "RETURN": "returned" }
+    },
+    "delivered": {
+      "invariant": "proof_of_delivery_retained",
+      "type": "final"
+    },
+    "cancelled": { "type": "final" },
+    "returned": { "type": "final" }
   }
 }

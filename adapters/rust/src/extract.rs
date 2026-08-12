@@ -493,22 +493,43 @@ impl MetaText for syn::Meta {
     }
 }
 
+/// Type names that identify no shape. `Response` is what every axum handler
+/// returns after `.into_response()`: the type is real and carries nothing, so
+/// reporting it would name a shape that does not exist. `impl IntoResponse`
+/// needs no entry — it is not a `Type::Path` and never reaches here.
+///
+/// This is language knowledge, which is why it lives in the adapter. What an
+/// ABSENT name means stays core's judgment: `type_name` is optional in
+/// `actual-surface.schema.json`, and core skips the same-type comparison (CF8)
+/// when no name arrives. Reporting the wrapper as though it named a shape made
+/// every pair of handlers in a service look like it served one type while
+/// declaring different censuses — sound rule, false observation.
+const ERASED: [&str; 2] = ["Response", "IntoResponse"];
+
 /// The innermost named type of `Json<T>`, `Option<T>`, `Vec<T>`, `Result<T, _>`
-/// — the shape a wrapper carries, which is what the manifest declares.
+/// — the shape a wrapper carries, which is what the manifest declares. `None`
+/// when the innermost name identifies no shape.
 pub(crate) fn inner_type_name(ty: &syn::Type) -> Option<String> {
     let syn::Type::Path(path) = ty else {
         return None;
     };
     let segment = path.path.segments.last()?;
-    let name = segment.ident.to_string();
     if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-        for arg in &args.args {
-            if let syn::GenericArgument::Type(inner) = arg {
-                if let Some(found) = inner_type_name(inner) {
-                    return Some(found);
-                }
-            }
+        // The FIRST type argument, and only it. Falling through to the next on a
+        // `None` walked past an erased success type into the ERROR type:
+        // `Result<impl IntoResponse, AppError>` reported `AppError` as the shape
+        // served, which grouped every fallible handler in a service under one
+        // name. A wrapper's payload is its first type argument or nothing.
+        if let Some(inner) = args.args.iter().find_map(|arg| match arg {
+            syn::GenericArgument::Type(inner) => Some(inner),
+            _ => None,
+        }) {
+            return inner_type_name(inner);
         }
+    }
+    let name = segment.ident.to_string();
+    if ERASED.contains(&name.as_str()) {
+        return None;
     }
     Some(name)
 }
@@ -684,6 +705,9 @@ mod tests {
         pub async fn get_order(Path(id): Path<String>) -> Json<OrderView> { todo!() }
         pub async fn place_order(Json(body): Json<NewOrder>) -> Result<Json<OrderView>, Error> { todo!() }
         pub async fn healthz() -> StatusCode { todo!() }
+        pub async fn signup(Json(body): Json<NewOrder>) -> Response { todo!() }
+        pub async fn cancel_order(Path(id): Path<String>) -> Result<impl IntoResponse, AppError> { todo!() }
+        pub async fn amend_order(Path(id): Path<String>) -> Result<Response, AppError> { todo!() }
     "#;
 
     #[test]
@@ -731,6 +755,46 @@ mod tests {
             Some("NewOrder"),
             "from the Json<T> parameter"
         );
+    }
+
+    #[test]
+    fn an_erased_return_type_is_reported_as_no_shape_at_all() {
+        // `Response` is what every axum handler returns after `.into_response()`:
+        // a real type carrying no shape information. Reporting it as a type NAME
+        // made CF8 conclude that two handlers serving entirely different bodies
+        // served one type and disagreed about its census — one false pair at two
+        // declared endpoints, and another for every endpoint after that.
+        let files = tree("erased", &[("src/lib.rs", SOURCE)]);
+        let signatures = handler_signatures(&files);
+
+        let (request, response) = signatures.get("signup").expect("handler found");
+        assert_eq!(response.as_deref(), None, "Response names no shape");
+        assert_eq!(
+            request.as_deref(),
+            Some("NewOrder"),
+            "the request half is unaffected"
+        );
+    }
+
+    #[test]
+    fn an_erased_success_type_never_reports_the_error_type_instead() {
+        // The quiet half of the same defect: the wrapper walk fell through to the
+        // NEXT type argument when the first yielded nothing, so
+        // `Result<impl IntoResponse, AppError>` reported `AppError` as the shape
+        // served — grouping every fallible handler in a service under one name.
+        let files = tree("erased-result", &[("src/lib.rs", SOURCE)]);
+        let signatures = handler_signatures(&files);
+
+        for handler in ["cancel_order", "amend_order"] {
+            match signatures.get(handler) {
+                None => {} // no observable types at all: also correct
+                Some((_, response)) => assert_eq!(
+                    response.as_deref(),
+                    None,
+                    "{handler}: the error type is not the shape served"
+                ),
+            }
+        }
     }
 
     #[test]

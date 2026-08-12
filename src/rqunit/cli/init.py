@@ -43,6 +43,11 @@ STORE_DIRS = ("framework", "intent", "ru", "features", "manifests", "models",
 SEEDS = {
     "tags.yaml": "framework",
     "actors.yaml": "framework",
+    # Seeded empty, like the vocabularies above it: an empty segment registry
+    # means the store has no segments, which is a complete state. It ships so the
+    # choice is in front of the operator while it is still free — a segment name
+    # is permanent once its first id is minted.
+    "segments.yaml": "framework",
     "coverage.policy.yaml": "framework",
     "conformance-exceptions.yaml": "framework",
     "shims.yaml": "framework",
@@ -91,6 +96,12 @@ trace_scan = ["**/Cargo.toml"]
 # Crate receiving generated constants and statechart conformance suites.
 conformance_crate = "spec-conformance-tests"
 # Manifest service slug the extractor reports on. It does not guess this.
+#
+# One service per run, matching one service manifest. A [stacks.<name>] table
+# names an adapter, so several services means several extractor runs and one
+# actual-surface.json each; `rqunit conformance` accepts `--artifact` repeatedly
+# and reconciles them together. Producing those files is your pipeline's job, the
+# same as building the adapter.
 service = ""
 
 # ---- adapter roles -----------------------------------------------------------
@@ -141,6 +152,10 @@ extractor = { artifact = "spec-conformance-tests/actual-surface.json" }
 # fail from one that has only ever been green (L26).
 # evidence = { artifact = "spec-conformance-tests/check-evidence.json" }
 # The adapter's manifest, declaring its roles and the config keys it reads.
+# A first-party adapter's manifest ships inside rqunit and is found without being
+# wired. Set this key for an adapter rqunit does not carry — a third-party one, or
+# your own while you are writing it — pointing at the adapter.yaml that came with
+# it.
 # manifest = "tools/rqunit/adapter.yaml"
 
 # HTTP composition: which router function, in which file, mounts at what prefix
@@ -313,6 +328,13 @@ def main(store_path: Path | None, stack_override: str | None,
         click.echo(f"  agent templates: {len(emitted)} written under .claude/ "
                    "(skills, agents, hooks). The hooks are inert until a packet is armed; "
                    "wire them with .claude/settings-hook-snippet.jsonc.")
+        # Named, not counted. These land in a directory the consumer also authors
+        # in, and `.claude/` is commonly gitignored — so a count left the reader
+        # with no way to reconstruct what arrived. `--refresh-integrations`
+        # already lists what it wrote; the two halves of one command should not
+        # answer the same question differently.
+        for name in emitted:
+            click.echo(f"    {name}")
     if kept:
         click.echo(f"  agent templates: {len(kept)} already existed — left untouched. "
                    "`rqunit init --refresh-integrations` overwrites them.")

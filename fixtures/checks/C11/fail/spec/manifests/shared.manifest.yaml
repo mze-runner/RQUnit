@@ -1,0 +1,15 @@
+service: shared
+version: "1.0"
+vocabularies:
+  access_tiers: [public, protected]
+credential_free_tiers: [public, protected]
+artifacts:
+  jwt-access-token:
+    access_tier: protected
+    fields:
+      # inbound vocabulary on a minted structure: a credential is issued, never
+      # accepted, so `optional` asserts nothing here
+      - { name: sub, where: claims, presence: optional, type: string }
+      # `in` describes where a CLIENT supplies a value — meaningless on a
+      # structure this system mints
+      - { name: kid, where: header, in: query, presence: always }

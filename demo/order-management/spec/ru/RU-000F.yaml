@@ -1,0 +1,24 @@
+id: RU-000F
+statement: 'When a customer reads an order that a carrier has reported on, the system
+  shall return {endpoint:get_order.outbound.delivery.outcome} in the response.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-delivery
+source_ref: INT-01K4RB3XKZP9NTVQY2H6WDFB8S#L15-16
+verification:
+- type: test
+  ref: TODO(delivery outcome is visible on the order)
+scope:
+  owns:
+  - service-orders/delivery
+  must_not_touch:
+  - service-billing
+tags:
+- delivery
+draft_id: RU-draft-01K4RC13KQBZXN9WFHMTD7J52X
+gate1_stamp:
+  hash: sha256:85998ba1ab3bd62b30c42a6067fd1bb086757b28843a381d0850d3442622e172
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'

@@ -1,0 +1,24 @@
+id: RU-000C
+statement: 'When a customer repeats a request carrying an {endpoint:place_order.inbound.idempotency_key}
+  already recorded, the system shall return the order created by the first request.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-order-placement
+source_ref: INT-01K4RB2QDXH7YFEWZ3M8TKQ4VN#L18-20
+verification:
+- type: test
+  ref: TODO(a repeated key returns the first order)
+scope:
+  owns:
+  - service-orders/orders
+  must_not_touch:
+  - service-billing
+tags:
+- orders
+draft_id: RU-draft-01K4RC1WPX2ZQKB9FHNMD3TV5R
+gate1_stamp:
+  hash: sha256:a5ae87f3fa45ccc3d0f0327417cbbb5a643060319c88a992331f3ba16cd4af77
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'

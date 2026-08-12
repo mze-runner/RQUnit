@@ -63,12 +63,17 @@ Run `rqunit <verb>` from anywhere at or below the store root. Repo-specific
 inputs (trace scan globs, conformance-crate location) come from `rqunit.toml`
 at the repo root — the tools carry no consumer paths in code.
 
+Every reporting verb prints **text at a terminal and JSON when piped**. Pass
+`--format text` or `--format json` to fix the shape regardless of destination.
+Exit codes are the same either way: `0` pass, `1` violations, `2` tool error;
+`finding` severity never affects them.
+
 | Command | Purpose | Typical moment |
 |---|---|---|
 | `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`, and the agent-runtime templates into `.claude/`. Reports the stack it detected; refuses a non-empty store; never overwrites a runtime file the consumer already has | once, at adoption |
 | `rqunit init --refresh-integrations` | rewrite the agent-runtime templates and touch nothing else. They teach the current vocabulary, so a store on a newer tool with older templates is being taught the wrong one | after upgrading the tool |
 | `rqunit lint [--only L3]` | lints L1–L27 + the M dialect family, and `rqunit.toml` itself — a config the loader rejects is a `CONFIG` error here, not a tool error somewhere else, and a retired key still sitting where core used to read it is a `CONFIG` warning naming its successor | after any spec/ edit |
-| `rqunit check [--only C4]` | consistency C1–C16 | same |
+| `rqunit check [--only C4]` | consistency C1–C17 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
 | `rqunit trace --strip [--all] [--apply]` | the off-ramp: remove trace annotations naming no active RU (`--all`: every annotation, `infrastructure` markers included). Dry unless `--apply` — it rewrites source you own. Needs the stack's `stripper` role; a stack without one is reported un-strippable, never swept silently | off-boarding; before re-adopting onto a fresh corpus |
@@ -226,6 +231,25 @@ replace the area's bridge-FEAT links → one Gate 1 sitting activates and flips
 the ledger row → tombstone the legacy files. The C7 orphan count is the
 progress bar.
 
+Migration runs one area at a time, and three rules shape the order:
+
+**Surfaces may land before their requirements.** An endpoint's `ru:` link accepts
+a `FEAT-<slug>` as well as an `RU-XXXX`. Declare the feature, point the area's
+surfaces at it, compile the RUs afterwards, and replace the bridge links at the
+next Gate 1 sitting.
+
+**Facts land with the first surface.** A service manifest declares at least one
+of `endpoints`, `messages` or `channels`, so a service's `values` and
+`problem_types` arrive in the same manifest as its first surface. Cross-service
+facts go in `shared.manifest.yaml`, which carries facts and no surfaces.
+
+**One extracted surface per service, matching its manifest.** A `[stacks.<name>]`
+table names an adapter, and its name is the adapter the manifest declares. Each
+extractor run reports one service, so four services produce four
+`actual-surface.json` files — one per service manifest — and
+`rqunit conformance --artifact a.json --artifact b.json …` reconciles them
+together. Producing those files is a step in your own pipeline.
+
 **Re-adopt onto a fresh corpus** (the store was emptied and adoption restarts):
 the previous corpus's `verifies` annotations are still in your tests, naming ids
 that no longer exist. Clear them BEFORE the first activation — ids are allocated
@@ -309,6 +333,14 @@ an earlier run's edits applied to today's source. Off-boarding therefore needs a
 working command: if being able to leave matters to you, wire the stripper while
 adoption is easy rather than when you want out.
 
+**The manifest is not one of the things you obtain.** A first-party adapter's
+`adapter.yaml` ships inside `rqunit`, so the passthrough keys under
+`[stacks.<name>]` are validated with nothing wired and a misspelled key is
+reported by `rqunit doctor`. Use `manifest = "…"` for an adapter `rqunit` does not
+carry — a third-party one, or your own while you are writing it — pointing at the
+`adapter.yaml` that came with it. The binaries are still your build's job, per the
+table above.
+
 An extractor's repo-specific inputs — which router functions mount at which
 prefix and tier, where subject constants live, which manifest service the
 artifact is keyed by — are `[stacks.*]` config in `rqunit.toml`, never
@@ -382,12 +414,13 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | C8 | error | every model vocabulary binding resolves to a manifest entry — manifests own vocabulary, models own dynamics |
 | C9 | error | message topology: each inbound subject has exactly one in-store outbound declarer with an identical payload type, unless `external: true`; multiple declarers, payload disagreement, and external-with-in-store-declarer are all errors |
 | C10 | error | every endpoint declares `inbound` and `outbound` (§5.9). `none` is a declaration; an absent slot is unfinished work; `planned` is no exemption |
-| C11 | error | shape well-formedness: presence vocabulary matches the direction (`always\|never` out, `required\|optional\|forbidden` in), inbound resolves an unknown-field policy, `in` is inbound-only, `nullable` is meaningless on a never/forbidden field, arrays name `items`, objects declare members, bound keys suit the type, dotted children imply declared parents |
+| C11 | error | shape well-formedness across every census — an endpoint's two directions, an audit record's fields, a shared artifact's. Presence vocabulary matches the direction (`always\|never` outbound, `required\|optional\|forbidden` inbound; audit records and credentials are minted, so both take the outbound set), inbound resolves an unknown-field policy, `in` is inbound-only, `where` is artifact-only, `nullable` is meaningless on a never/forbidden field, arrays name `items`, objects declare members, bound keys suit the type, dotted children imply declared parents |
 | C12 | error | path placeholders and `in: path` fields reconcile both ways; placeholder names unique within a path |
 | C13 | error | wire-visible names follow the `conventions` declared in the shared manifest (absent table = unenforced) |
-| C14 | finding | a state-changing route declares no audit event (constitutional RU-0002 made checkable; the method is a heuristic, so it reports rather than blocks) |
+| C14 | finding | a state-changing route declares no audit event — the audit-on-mutation invariant made checkable. HTTP method is a heuristic for mutation, so it reports rather than blocks |
 | C15 | error | every shim registration names a model the store carries, once each |
 | C16 | error (`warning` for a missing `domain` — nothing reads it) | the segment registry is well formed and every segment an id uses is declared. A segment name is permanent — add and close, never rename or merge — so a name that stops being declared while ids still carry it is unrepairable |
+| C17 | error | every access tier a declared surface uses resolves to exactly one artifact carrying that `access_tier`, or is listed in `credential_free_tiers`. The tier string is the join: an endpoint names its tier and nothing else, and the credential is derived from it |
 
 ⚠ **Naming collision:** consumers migrating from a pre-existing requirements
 system may carry an unrelated legacy control catalog reusing C-numbers. Legacy
@@ -413,7 +446,7 @@ the stack's currency test proves the artifact still matches the code.
 | CF5 | error | a declared outbound message the code never publishes (`external: true` exempts) |
 | CF6 | error | the code publishes a message no manifest declares |
 | CF7 | error | the route matches but its declared shape and the code's disagree — a field declared and not carried, or carried and not declared. Silent where the adapter reports no shape: omission means *not observed*, never *empty* |
-| CF8 | error | two routes serve the same request/response type while their manifests declare different censuses. The code's type is the shape identity the store deliberately does not carry |
+| CF8 | error | two routes serve the same request/response type while their manifests declare different censuses. The code's type is the shape identity the store does not carry itself. An adapter reports a type name only when the name identifies a shape, so type-erased response wrappers are reported as no shape at all and group nothing |
 | CF9 | error | a covered service declares a surface family no probe examined. `covers` stops an unexamined family reading as an absent one; this stops it reading as a passing one |
 | CF10 | error | a declared audit event the code never records. A probe proves the emitting call site EXISTS — not that it runs; dead code and never-taken branches pass, which the proof classes report |
 | CF11 | error | an audit code the code records that no manifest declares — evidence with no retention rule and no forbidden-field check |

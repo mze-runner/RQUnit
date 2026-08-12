@@ -36,6 +36,94 @@ def test_seeded_vocabularies_are_the_packs_own(tmp_path):
     assert (spec / "framework" / "tags.yaml").read_text() == (SEED_DIR / "tags.yaml").read_text()
 
 
+def test_the_seeded_segment_registry_declares_nothing(tmp_path):
+    """The one identity decision a store cannot revisit was previously reached by
+    omission: no file, no segments, permanent ids, and nothing anywhere telling
+    the consumer a decision was being made. The seed exists to disclose it, so
+    the invariant is that it discloses WITHOUT deciding — a scaffolded store has
+    no segments, exactly as before."""
+    from rqunit.segments import declared, load_segments
+
+    _init(tmp_path)
+
+    assert (tmp_path / "spec" / "framework" / "segments.yaml").is_file()
+    assert load_segments(tmp_path) == []
+    assert declared(tmp_path) == set()
+
+
+def test_deleting_the_seeded_registry_changes_no_report(tmp_path):
+    """Byte-identical in effect to an absent file, or every existing store
+    changes meaning on upgrade. Reports are compared rather than the loader,
+    because the loader agreeing is not the same claim as the tools agreeing."""
+    from rqunit.checks.base import run_checks
+    from rqunit.lints.base import run_lints
+
+    _init(tmp_path)
+    seeded = (run_lints(Store.load(tmp_path)), run_checks(Store.load(tmp_path)))
+
+    (tmp_path / "spec" / "framework" / "segments.yaml").unlink()
+
+    assert (run_lints(Store.load(tmp_path)), run_checks(Store.load(tmp_path))) == seeded
+
+
+def test_init_names_the_runtime_files_it_wrote(tmp_path):
+    """These land in a directory the consumer also authors in, and `.claude/` is
+    commonly gitignored — so a count alone left no way to reconstruct what
+    arrived. An existing file is never overwritten and the skipped set was
+    already reported; what was missing was the names on the way in."""
+    result = _init(tmp_path)
+
+    assert result.exit_code == 0
+    assert ".claude/skills/ru-authoring/SKILL.md" in result.output
+    assert ".claude/hooks/h1-scope-guard.sh" in result.output
+
+
+def test_init_never_overwrites_a_runtime_file_and_says_which_it_kept(tmp_path):
+    """The guarantee is by design, not by filename luck: a scaffold that silently
+    replaced someone's edited hook is a scaffold nobody runs twice."""
+    hook = tmp_path / ".claude" / "hooks" / "h1-scope-guard.sh"
+    hook.parent.mkdir(parents=True)
+    hook.write_text("# mine\n")
+
+    result = _init(tmp_path)
+
+    assert hook.read_text() == "# mine\n", "an existing file is never touched"
+    assert "already existed — left untouched" in result.output
+    assert "--refresh-integrations" in result.output       # names the way to overwrite
+
+
+def test_a_scaffolded_store_says_it_holds_no_requirements(tmp_path):
+    """An empty store used to produce output byte-identical in spirit to a mature
+    healthy one, from every command in the product. Visible debt is by design and
+    status belongs in tool output — and an empty store is the largest debt there
+    is. Finding-class, so the exit code stays 0: nothing is WRONG on day one."""
+    _init(tmp_path)
+
+    for verb in ("lint", "check"):
+        result = CliRunner().invoke(rqunit, [verb, "--store", str(tmp_path), "--format", "text"])
+        assert result.exit_code == 0, result.output
+        assert "holds no requirements" in result.output, verb
+        assert "STORE/finding" in result.output, verb
+
+    doctor = CliRunner().invoke(rqunit, ["doctor", "--store", str(tmp_path), "--format", "text"])
+    assert doctor.exit_code == 0
+    assert "holds no requirements" in doctor.output
+    assert "structurally sound" not in doctor.output
+
+
+def test_the_empty_store_finding_stops_once_a_requirement_exists():
+    """It must be resolvable, or it is the kind of note that teaches people to
+    skim the tool. Keyed on "no RUs at all" and not on any count, because a
+    threshold would pin point-in-time state."""
+    from rqunit.doctor import empty_store
+    from rqunit.violations import empty_store_findings
+
+    populated = Store.load(Path(__file__).parent.parent / "fixtures" / "store" / "valid")
+
+    assert empty_store_findings(populated) == []
+    assert empty_store(populated) == []
+
+
 def test_pack_pin_records_the_spec_version_not_the_tool_version(tmp_path):
     """The pin names the VOCABULARY a store was authored in. It recorded the
     package version until v0.14, and the two had drifted a minor apart — so a

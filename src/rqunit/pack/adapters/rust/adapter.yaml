@@ -1,0 +1,23 @@
+# Self-declaration for the first-party Rust adapter (contract:
+# rqunit interfaces/adapter-manifest.schema.json). Read by core, never by the
+# adapter.
+#
+# Ships inside rqunit, so a store declaring `[stacks.rust]` gets its passthrough
+# keys validated without wiring a `manifest` path.
+#
+# No `kit` block: a compliance kit is a fixed input tree and expected output that
+# live with the adapter's source, and its commands are that build's own paths.
+# `rqunit adapter verify` runs where the adapter is developed.
+contract_version: 1
+stack: rust
+roles: [extractor, scanner, emitter, stripper]
+config_keys:
+  # Read by extract.rs.
+  - service
+  - routers
+  - messages
+  - audit
+  # Read by scan.rs.
+  - trace_scan
+  # Read by emit.rs (arrives as request data, not from disk).
+  - conformance_crate

@@ -2,4 +2,4 @@
 # vocabulary its manifests and RUs are written in. Not the tool version: a tool
 # fix changes no vocabulary, and the two move independently on purpose.
 # Tooling reports this; the store is not rewritten when the tool moves ahead.
-pack: "0.16.0"
+pack: "0.17.0"

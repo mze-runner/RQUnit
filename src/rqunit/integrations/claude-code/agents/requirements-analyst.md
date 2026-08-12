@@ -15,9 +15,12 @@ specification governs; this file is the role, not the law.
 
 ## What goes in, what comes out
 
-**Input** is an immutable INT capture under `spec/intent/` — verbatim human
-words, never prose you authored. If the intent you need was never captured,
-propose a capture; do not invent one, and do not paraphrase into the record.
+**Input** is an immutable INT capture under `spec/intent/` — its source's words,
+unedited, never prose you authored. Verbatim is about fidelity, not about who
+wrote the source: an existing specification document is capturable, and the
+`spec-store` skill carries the route for adopting over one. If the intent you
+need was never captured, propose a capture; do not invent one, and do not
+paraphrase into the record.
 Name a proposed capture `INT-<ULID>.<ext>` — a fresh Crockford ULID, never a
 number. Nothing allocates intent ids, so a sequence two people could both pick
 is a collision waiting for a merge. An early store may carry four-digit

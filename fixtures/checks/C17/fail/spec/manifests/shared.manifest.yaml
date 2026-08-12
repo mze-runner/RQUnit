@@ -1,0 +1,24 @@
+# Red for C17's reason alone, three ways.
+#
+#   refresh    — used by a surface, no artifact declares it, not credential-free:
+#                a door with no stated lock.
+#   protected  — claimed by two artifacts: a tier that cannot tell a test what
+#                to send.
+#   public     — declared credential-free while an artifact claims it: a tier
+#                either requires a credential or it does not.
+service: shared
+version: "1.0"
+vocabularies:
+  access_tiers: [public, internal, protected, refresh]
+credential_free_tiers: [public, internal]
+artifacts:
+  jwt-access-token:
+    access_tier: protected
+    fields:
+      - { name: sub, where: claims, presence: always, type: string }
+  api-key:
+    access_tier: protected
+    fields: none
+  anonymous-cookie:
+    access_tier: public
+    fields: none

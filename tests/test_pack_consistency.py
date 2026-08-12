@@ -121,6 +121,37 @@ def test_tool_and_spec_versions_are_allowed_to_differ():
     assert SPEC_VERSION and installed_version()          # both exist, independently
 
 
+def test_a_report_stamps_the_version_that_produced_it(tmp_path):
+    """`tool_version` was a hardcoded constant for fifteen minor releases, so
+    every committed report claimed 0.1.0 and no consumer holding one could tell
+    what enforced it. The invariant is that the stamp and the installed package
+    are the same answer — never a literal, which would only re-pin the defect at
+    a newer number."""
+    from rqunit.schemas import installed_version
+    from rqunit.violations import build_report
+
+    report = build_report("rqunit lint", [], 0, tmp_path)
+
+    assert report["tool_version"] == installed_version()
+
+
+def test_the_cli_can_be_asked_what_it_is():
+    """A consumer reconciling a committed report needs to ask the tool directly,
+    and the answer names both versions the report carries — the enforcing
+    package and the specification vocabulary — because answering one alone is
+    the confusion `pack.yaml` exists to explain."""
+    from click.testing import CliRunner
+
+    from rqunit.cli.rqunit import main
+    from rqunit.schemas import SPEC_VERSION, installed_version
+
+    result = CliRunner().invoke(main, ["--version"])
+
+    assert result.exit_code == 0
+    assert installed_version() in result.output
+    assert SPEC_VERSION in result.output
+
+
 def test_no_shipped_text_advertises_a_stale_rule_range():
     """A rule catalogue quoted as a range rots the moment a rule is added, and
     the quote is what a reader meets BEFORE the rules — the CLI's own help, the

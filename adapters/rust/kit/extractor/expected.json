@@ -6,6 +6,8 @@
     "service-orders": {
       "endpoints": [
         { "method": "GET", "path": "/api/v1/orders/{id}", "access": "protected", "outbound": { "type_name": "OrderView", "fields": ["id", "total", "total.amount", "total.currency", "placed_at"] } },
+        { "method": "PATCH", "path": "/api/v1/orders/{id}/amend", "access": "protected" },
+        { "method": "POST", "path": "/api/v1/orders/bulk", "access": "protected", "inbound": { "type_name": "CancelRequest", "fields": ["reason"] } },
         { "method": "POST", "path": "/api/v1/orders/{id}/cancel", "access": "protected", "inbound": { "type_name": "CancelRequest", "fields": ["reason"] }, "outbound": { "type_name": "OrderView", "fields": ["id", "total", "total.amount", "total.currency", "placed_at"] } }
       ],
       "messages": [

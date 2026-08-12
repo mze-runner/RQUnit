@@ -123,3 +123,47 @@ def test_the_probe_judges_structure_not_serialized_text(tmp_path):
         f"    print(json.dumps({EMPTY!r}, separators=(',', ':')))\n"))
     result = _verify(root)
     assert result.exit_code == 0, result.output
+
+
+# ---------------------------------------------- the bundled manifest's currency
+
+def test_the_bundled_manifest_speaks_the_adapters_own_vocabulary():
+    """The consumer-facing copy ships in the wheel; the authoring copy lives with
+    the adapter's source and carries the kit its own build runs. Two files exist
+    because they answer to two different roots — and the vocabulary core reads
+    from either one must be the same, or a consumer's passthrough keys are
+    validated against a snapshot of what the adapter used to read."""
+    import yaml
+
+    from rqunit.schemas import ADAPTER_DIR
+
+    repo = Path(__file__).parent.parent
+    authoring = yaml.safe_load((repo / "adapters" / "rust" / "adapter.yaml").read_text())
+    bundled = yaml.safe_load((ADAPTER_DIR / "rust" / "adapter.yaml").read_text())
+
+    for key in ("contract_version", "stack", "roles", "config_keys"):
+        assert bundled[key] == authoring[key], key
+
+
+def test_the_bundled_manifest_carries_no_kit():
+    """A kit is a fixed input tree beside the adapter's source and dev-time argv
+    into its build directory — the schema says consumers never need them. Shipping
+    them would hand a consumer paths that resolve nowhere, and `adapter verify`
+    would run a kit that is not there instead of saying where kits live."""
+    import yaml
+
+    from rqunit.schemas import ADAPTER_DIR
+
+    bundled = yaml.safe_load((ADAPTER_DIR / "rust" / "adapter.yaml").read_text())
+    assert "kit" not in bundled
+
+
+def test_the_bundled_manifest_satisfies_the_pinned_contract():
+    """It is read through the same validator as any adapter's, so a hand edit
+    that breaks the contract fails here rather than in a consumer's store."""
+    from rqunit.config import Stack
+    from rqunit.invoke import load_adapter_manifest
+
+    loaded = load_adapter_manifest(Path("/nonexistent-root"), Stack(name="rust"))
+
+    assert loaded is not None and loaded["stack"] == "rust"

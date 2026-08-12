@@ -24,6 +24,7 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from .config import ROLES, Stack
 from .errors import BadConfig, RoleUnavailable
+from .schemas import ADAPTER_DIR
 
 INTERFACES = Path(__file__).parent / "interfaces"
 
@@ -149,10 +150,27 @@ def validate_payload(data: object, schema_file: str, where: str) -> dict:
 # ------------------------------------------------------------ adapter manifest
 
 def manifest_path(root: Path, stack: Stack) -> Path:
+    """Where this stack's manifest is read from, in precedence order.
+
+    A DECLARED path wins and is resolved against the store, as every other path
+    in `rqunit.toml` is. Undeclared, an adapter SOURCE TREE at this root wins
+    next — that is the adapter's authoring copy, the only one carrying a kit, so
+    anyone developing an adapter verifies against their own work rather than a
+    shipped snapshot of it. Otherwise the bundled first-party manifest, which is
+    what makes a consumer's passthrough keys validated out of the box.
+
+    The middle branch used to be the unconditional default, and it asserted this
+    repository's own directory layout onto every consumer: a path that resolves
+    for its author and for nobody else, which is exactly what the handbook warns
+    consumers never to commit. A stack with no manifest anywhere returns the
+    bundled path it looked for, and the caller reports the absence."""
     declared = stack.adapter.manifest
     if declared:
         return Path(root) / declared
-    return Path(root) / "adapters" / stack.name / "adapter.yaml"
+    local = Path(root) / "adapters" / stack.name / "adapter.yaml"
+    if local.is_file():
+        return local
+    return ADAPTER_DIR / stack.name / "adapter.yaml"
 
 
 def load_adapter_manifest(root: Path, stack: Stack) -> dict | None:
@@ -191,10 +209,21 @@ def stack_declaration_problems(root: Path, stack: Stack) -> list[str]:
     known = set(manifest.get("config_keys") or [])
     unknown = sorted(set(stack.options) - known)
     if unknown:
+        where = manifest_path(root, stack)
+        # A bundled manifest lives inside the installed package, so "add the key
+        # to its config_keys" is advice the reader cannot take — the same dead
+        # end this note used to be. For a manifest they own, editing it is a real
+        # second option; for ours, extending the vocabulary means their own
+        # adapter and their own manifest.
+        remedy = ("fix the typo — this stack's vocabulary is the adapter's, and it ships "
+                  "with rqunit; a key it does not read needs an adapter that does, wired "
+                  "with `manifest = \"…\"`"
+                  if where.is_relative_to(ADAPTER_DIR) else
+                  f"fix the typo, or add the key to the adapter manifest's config_keys "
+                  f"({where})")
         problems.append(
             f"[stacks.{stack.name}] key(s) the adapter does not read: "
-            f"{', '.join(unknown)} — fix the typo, or add the key to the adapter "
-            f"manifest's config_keys ({manifest_path(root, stack)})")
+            f"{', '.join(unknown)} — {remedy}")
     implemented = set(manifest.get("roles") or [])
     for role_name in ROLES:
         if getattr(stack.adapter, role_name) is not None and role_name not in implemented:

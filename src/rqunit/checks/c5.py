@@ -107,7 +107,8 @@ def run(store):
                         f"({', '.join(sorted(tiers))}).",
                 suggestion="Bind the artifact to a declared tier, or extend the vocabulary at "
                            "Gate 1."))
-        for field in artifact.get("fields") or []:
+        fields = artifact.get("fields")
+        for field in fields if isinstance(fields, list) else []:
             vocab = field.get("vocab")
             if vocab is not None and vocab not in all_vocabs:
                 out.append(Violation(

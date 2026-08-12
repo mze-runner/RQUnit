@@ -1,0 +1,4 @@
+id: FEAT-retention
+goal: The decision log is kept long enough for an audit review to reach it.
+source_ref: INT-0001#L50-60
+status: active

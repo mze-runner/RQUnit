@@ -1,0 +1,25 @@
+id: RU-0007
+statement: 'If a request supplies {endpoint:search_products.inbound.query} shorter
+  than {value:search.min_query_chars} characters, then the system shall reject it
+  with {problem:validation}.
+
+  '
+syntax: ears
+status: active
+feature: FEAT-product-discovery
+source_ref: INT-01K4RB2QDXH7YFEWZ3M8TKQ4VN#L3-5
+verification:
+- type: test
+  ref: TODO(query below the minimum is rejected)
+scope:
+  owns:
+  - service-catalogue/search
+  must_not_touch:
+  - service-billing
+tags:
+- catalogue
+draft_id: RU-draft-01K4RC1QDXH7YFEWZ3M8TKQ4VN
+gate1_stamp:
+  hash: sha256:bcbc19b0ceae0e13d84a720554ba00436e6cebddf35462ac17a7c1cd6f296f81
+  by: demo-operator
+  at: '2026-08-12T12:50:49+00:00'

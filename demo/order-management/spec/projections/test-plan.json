@@ -3,12 +3,13 @@
   "models": [
     {
       "model": "order-lifecycle",
-      "model_hash": "sha256:8d9f1f8a86f4c04fae5fd8c9f07259005c247caf0fe19e2f119c56d6cb507d1b",
+      "model_hash": "sha256:3e87d6b65e1bc9535448009045b876d0faf12e611df75a90b5b42d60e4c37b1f",
       "undeclared_event_policy": "error",
       "shim_registered": false,
       "verified_by": [
         "RU-0002",
-        "RU-0006"
+        "RU-0006",
+        "RU-000E"
       ],
       "checks": [
         {
@@ -17,6 +18,27 @@
           "from": "cancelling",
           "event": "REFUND_SETTLED",
           "to": "cancelled"
+        },
+        {
+          "kind": "transition",
+          "id": "transition_delivery_attempted_on_delivery_reported_to_delivered",
+          "from": "delivery_attempted",
+          "event": "DELIVERY_REPORTED",
+          "to": "delivered"
+        },
+        {
+          "kind": "transition",
+          "id": "transition_delivery_attempted_on_retry_to_delivery_attempted",
+          "from": "delivery_attempted",
+          "event": "RETRY",
+          "to": "delivery_attempted"
+        },
+        {
+          "kind": "transition",
+          "id": "transition_delivery_attempted_on_return_to_returned",
+          "from": "delivery_attempted",
+          "event": "RETURN",
+          "to": "returned"
         },
         {
           "kind": "transition",
@@ -33,6 +55,20 @@
           "to": "shipped"
         },
         {
+          "kind": "transition",
+          "id": "transition_shipped_on_delivery_reported_to_delivered",
+          "from": "shipped",
+          "event": "DELIVERY_REPORTED",
+          "to": "delivered"
+        },
+        {
+          "kind": "transition",
+          "id": "transition_shipped_on_retry_to_delivery_attempted",
+          "from": "shipped",
+          "event": "RETRY",
+          "to": "delivery_attempted"
+        },
+        {
           "kind": "rejection",
           "id": "rejects_cancelled_on_cancel",
           "state": "cancelled",
@@ -41,9 +77,30 @@
         },
         {
           "kind": "rejection",
+          "id": "rejects_cancelled_on_delivery_reported",
+          "state": "cancelled",
+          "event": "DELIVERY_REPORTED",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
           "id": "rejects_cancelled_on_refund_settled",
           "state": "cancelled",
           "event": "REFUND_SETTLED",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_cancelled_on_retry",
+          "state": "cancelled",
+          "event": "RETRY",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_cancelled_on_return",
+          "state": "cancelled",
+          "event": "RETURN",
           "expect": "error"
         },
         {
@@ -62,6 +119,27 @@
         },
         {
           "kind": "rejection",
+          "id": "rejects_cancelling_on_delivery_reported",
+          "state": "cancelling",
+          "event": "DELIVERY_REPORTED",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_cancelling_on_retry",
+          "state": "cancelling",
+          "event": "RETRY",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_cancelling_on_return",
+          "state": "cancelling",
+          "event": "RETURN",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
           "id": "rejects_cancelling_on_ship",
           "state": "cancelling",
           "event": "SHIP",
@@ -69,9 +147,135 @@
         },
         {
           "kind": "rejection",
+          "id": "rejects_delivered_on_cancel",
+          "state": "delivered",
+          "event": "CANCEL",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_delivered_on_delivery_reported",
+          "state": "delivered",
+          "event": "DELIVERY_REPORTED",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_delivered_on_refund_settled",
+          "state": "delivered",
+          "event": "REFUND_SETTLED",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_delivered_on_retry",
+          "state": "delivered",
+          "event": "RETRY",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_delivered_on_return",
+          "state": "delivered",
+          "event": "RETURN",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_delivered_on_ship",
+          "state": "delivered",
+          "event": "SHIP",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_delivery_attempted_on_cancel",
+          "state": "delivery_attempted",
+          "event": "CANCEL",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_delivery_attempted_on_refund_settled",
+          "state": "delivery_attempted",
+          "event": "REFUND_SETTLED",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_delivery_attempted_on_ship",
+          "state": "delivery_attempted",
+          "event": "SHIP",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_placed_on_delivery_reported",
+          "state": "placed",
+          "event": "DELIVERY_REPORTED",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
           "id": "rejects_placed_on_refund_settled",
           "state": "placed",
           "event": "REFUND_SETTLED",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_placed_on_retry",
+          "state": "placed",
+          "event": "RETRY",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_placed_on_return",
+          "state": "placed",
+          "event": "RETURN",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_returned_on_cancel",
+          "state": "returned",
+          "event": "CANCEL",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_returned_on_delivery_reported",
+          "state": "returned",
+          "event": "DELIVERY_REPORTED",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_returned_on_refund_settled",
+          "state": "returned",
+          "event": "REFUND_SETTLED",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_returned_on_retry",
+          "state": "returned",
+          "event": "RETRY",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_returned_on_return",
+          "state": "returned",
+          "event": "RETURN",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
+          "id": "rejects_returned_on_ship",
+          "state": "returned",
+          "event": "SHIP",
           "expect": "error"
         },
         {
@@ -90,6 +294,13 @@
         },
         {
           "kind": "rejection",
+          "id": "rejects_shipped_on_return",
+          "state": "shipped",
+          "event": "RETURN",
+          "expect": "error"
+        },
+        {
+          "kind": "rejection",
           "id": "rejects_shipped_on_ship",
           "state": "shipped",
           "event": "SHIP",
@@ -100,6 +311,24 @@
           "id": "invariant_no_new_picks_dispatched",
           "state": "cancelling",
           "name": "no_new_picks_dispatched"
+        },
+        {
+          "kind": "invariant",
+          "id": "invariant_proof_of_delivery_retained",
+          "state": "delivered",
+          "name": "proof_of_delivery_retained"
+        },
+        {
+          "kind": "invariant",
+          "id": "invariant_attempt_count_recorded",
+          "state": "delivery_attempted",
+          "name": "attempt_count_recorded"
+        },
+        {
+          "kind": "invariant",
+          "id": "invariant_total_is_server_derived",
+          "state": "placed",
+          "name": "total_is_server_derived"
         }
       ]
     }

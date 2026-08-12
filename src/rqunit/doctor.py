@@ -166,6 +166,30 @@ def id_headroom(store: Store) -> list[Finding]:
     return out
 
 
+def empty_store(store: Store) -> list[Finding]:
+    """A store with no requirements, said out loud.
+
+    `doctor` reported "store is structurally sound" on a freshly scaffolded
+    store, which is true and useless: nothing is unsound because nothing is
+    there. This is the wiring report, and having no requirements yet is the most
+    load-bearing fact about a store on its first day.
+
+    Keyed on "no RUs at all", never on a count — a note that fired below a
+    threshold would pin point-in-time state and need re-tuning as the store
+    grows. It stops the moment the first requirement lands, so it is a note a
+    consumer can actually resolve, which is the test every doctor note has to
+    pass."""
+    if store.rus():
+        return []
+    return [Finding(
+        kind="empty-store", severity="info",
+        message="this store holds no requirements — every gate here is green "
+                "because there is nothing to judge.",
+        suggestion="Capture intent under spec/intent/, register the tags and actors your "
+                   "requirements will use, then compile one draft per acceptance criterion "
+                   "(§8.1). Structural soundness is not health while the store is empty.")]
+
+
 def orphan_artifacts(store: Store) -> list[Finding]:
     """Artifacts nothing references. Legitimate while authoring ahead of the
     RUs that will cite them — a standing entry means dead weight or a missing link."""
@@ -273,6 +297,14 @@ def stack_config_health(root: Path) -> list[Finding]:
             # actually apply, and withholding the note now hides the fact that
             # a whole table of their configuration is unchecked.
             #
+            # A first-party stack no longer reaches here at all: its manifest
+            # ships in the pack and resolves with nothing wired. So this note
+            # now addresses the case it is actually true of — a stack whose
+            # adapter this build does not carry — and it must name where such a
+            # manifest comes from. Naming the file without naming its source is
+            # how the note used to terminate in a dead end, which reads as
+            # actionable and is worse than saying nothing.
+            #
             # Scoped to stacks that HAVE passthrough keys. A stack with none
             # loses nothing by having no manifest, and a note whose subject is
             # empty is the noise that teaches people to skim doctor.
@@ -283,11 +315,14 @@ def stack_config_health(root: Path) -> list[Finding]:
                     message=(f"[stacks.{stack.name}] declares {len(stack.options)} "
                              f"adapter-owned key(s) that nothing validates ({keys}) — "
                              "no adapter manifest is wired."),
-                    suggestion="Point `manifest = \"…\"` at the adapter's adapter.yaml. It "
-                               "is the vocabulary authority for this stack's passthrough "
-                               "keys, and core deliberately never interprets them — so "
-                               "until it is wired, a typo reads as configured and surfaces "
-                               "as the role that needed the key behaving oddly."))
+                    suggestion="Point `manifest = \"…\"` at the adapter.yaml that came "
+                               "with this stack's adapter — it ships beside the adapter, "
+                               "and a first-party adapter's is carried inside rqunit "
+                               "itself and needs no wiring. It is the vocabulary authority "
+                               "for this stack's passthrough keys, and core deliberately "
+                               "never interprets them — so until one is wired, a typo "
+                               "reads as configured and surfaces as the role that needed "
+                               "the key behaving oddly."))
             continue
         for problem in stack_declaration_problems(root, stack):
             out.append(Finding(
@@ -340,6 +375,6 @@ def role_wiring(root: Path) -> list[Finding]:
 
 
 def run(store: Store, root: Path) -> list[Finding]:
-    return (lost_rus(store, root) + id_headroom(store) + orphan_artifacts(store)
-            + dangling_reviews(store, root) + branch_staleness(root)
-            + stack_config_health(root) + role_wiring(root))
+    return (empty_store(store) + lost_rus(store, root) + id_headroom(store)
+            + orphan_artifacts(store) + dangling_reviews(store, root)
+            + branch_staleness(root) + stack_config_health(root) + role_wiring(root))

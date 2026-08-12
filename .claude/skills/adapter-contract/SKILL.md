@@ -35,6 +35,16 @@ exists. It does not decide whether a missing route is acceptable, whether a
 tier difference is tolerable, or whether something counts as planned. Every one
 of those is the framework's, so that all languages answer them identically.
 
+Observing accurately includes saying nothing where there is nothing to say.
+`type_name` is optional in `actual-surface.json` precisely so a shape can be
+reported without a name, and an adapter reports one only when the name
+IDENTIFIES a shape: a type-erased response wrapper (axum's `Response`, and every
+stack has one) is a real type carrying no shape, so naming it is the
+inaccuracy — it made CF8 conclude that two routes serving different bodies
+served one type. Which names are erased is language knowledge and belongs here;
+what an absent name MEANS stays core's judgment, and core already skips the
+comparison.
+
 **The core never invokes a language toolchain.** It may exec a *declared,
 prebuilt* adapter command as an opaque black box behind a pinned schema — but
 it never runs a compiler, build tool, or test runner. Building the adapter is
@@ -82,7 +92,12 @@ justification nobody could defend in prose is a defect wearing a waiver.
    request computed moments earlier.
 6. **Manifest + kit** → `adapter.yaml` declaring roles, `config_keys`, and a
    compliance kit; `rqunit adapter verify --stack <name>` passing is the
-   definition of done — no Python read, no framework source read.
+   definition of done — no Python read, no framework source read. A FIRST-PARTY
+   adapter also ships a consumer-facing copy of the manifest at
+   `src/rqunit/pack/adapters/<stack>/adapter.yaml`: same vocabulary, no `kit`
+   (its paths are the adapter build's), so a consumer's passthrough keys are
+   validated with nothing wired. A meta-test holds the two copies to one
+   vocabulary — add the stack's copy in the same change as its manifest.
 7. **Config** → a `[stacks.<name>]` block in the consumer's `rqunit.toml`,
    declaring each role `cmd` (core execs it) XOR `artifact` (the pipeline
    produced it).

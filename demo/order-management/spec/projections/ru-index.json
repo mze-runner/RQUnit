@@ -133,6 +133,299 @@
       "manifest_refs": [
         "value:fulfilment.halt_seconds"
       ]
+    },
+    {
+      "id": "RU-0007",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "catalogue"
+      ],
+      "feature": "FEAT-product-discovery",
+      "owns": [
+        "service-catalogue/search"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "endpoint:search_products.inbound.query",
+        "problem:validation",
+        "value:search.min_query_chars"
+      ]
+    },
+    {
+      "id": "RU-0008",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "catalogue"
+      ],
+      "feature": "FEAT-product-discovery",
+      "owns": [
+        "service-catalogue/search"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "endpoint:search_products.outbound.items.in_stock"
+      ]
+    },
+    {
+      "id": "RU-0009",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "catalogue"
+      ],
+      "feature": "FEAT-product-discovery",
+      "owns": [
+        "service-catalogue/search"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "endpoint:search_products",
+        "value:paging.max_page_size"
+      ]
+    },
+    {
+      "id": "RU-000A",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "orders",
+        "audit"
+      ],
+      "feature": "FEAT-order-placement",
+      "owns": [
+        "service-orders/orders"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "audit:orders.placed",
+        "endpoint:place_order"
+      ]
+    },
+    {
+      "id": "RU-000B",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "orders",
+        "security"
+      ],
+      "feature": "FEAT-order-placement",
+      "owns": [
+        "service-orders/orders"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "endpoint:place_order.inbound.total_cents",
+        "problem:validation"
+      ]
+    },
+    {
+      "id": "RU-000C",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "orders"
+      ],
+      "feature": "FEAT-order-placement",
+      "owns": [
+        "service-orders/orders"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "endpoint:place_order.inbound.idempotency_key"
+      ]
+    },
+    {
+      "id": "RU-000D",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "orders"
+      ],
+      "feature": "FEAT-order-placement",
+      "owns": [
+        "service-orders/orders"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "endpoint:place_order",
+        "problem:conflict"
+      ]
+    },
+    {
+      "id": "RU-000E",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "delivery",
+        "orders"
+      ],
+      "feature": "FEAT-order-delivery",
+      "owns": [
+        "service-orders/delivery"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "model",
+        "test"
+      ],
+      "manifest_refs": [
+        "endpoint:cancel_order",
+        "problem:conflict"
+      ]
+    },
+    {
+      "id": "RU-000F",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "delivery"
+      ],
+      "feature": "FEAT-order-delivery",
+      "owns": [
+        "service-orders/delivery"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "endpoint:get_order.outbound.delivery.outcome"
+      ]
+    },
+    {
+      "id": "RU-000G",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "delivery",
+        "security"
+      ],
+      "feature": "FEAT-order-delivery",
+      "owns": [
+        "service-orders/delivery"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "artifact:carrier-signature.signature",
+        "endpoint:record_delivery",
+        "problem:validation"
+      ]
+    },
+    {
+      "id": "RU-000H",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "delivery",
+        "audit"
+      ],
+      "feature": "FEAT-order-delivery",
+      "owns": [
+        "service-orders/delivery"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "audit:orders.delivered",
+        "endpoint:record_delivery"
+      ]
+    },
+    {
+      "id": "RU-000J",
+      "segment": null,
+      "status": "active",
+      "tier": "standard",
+      "computed": "blocked",
+      "tags": [
+        "delivery",
+        "audit"
+      ],
+      "feature": "FEAT-order-delivery",
+      "owns": [
+        "service-orders/delivery"
+      ],
+      "must_not_touch": [
+        "service-billing"
+      ],
+      "verification_types": [
+        "test"
+      ],
+      "manifest_refs": [
+        "audit:orders.delivered"
+      ]
     }
   ]
 }
