@@ -43,14 +43,10 @@ STORE_DIRS = ("framework", "intent", "ru", "features", "manifests", "models",
 SEEDS = {
     "tags.yaml": "framework",
     "actors.yaml": "framework",
-    # Seeded EMPTY, and the comment inside it is the whole reason: an id's
-    # segment is permanent, the default is reached by omission, and a consumer
-    # who has not read formats §1 makes an irreversible identity decision
-    # without being told a decision existed. Every other seeded file guards a
-    # reversible mistake; this one guards the only mistake in the store that
-    # cannot be corrected. An empty registry stays byte-identical in effect to
-    # an absent one — L27 is silent under both — so seeding discloses the
-    # choice without making it.
+    # Seeded empty, like the vocabularies above it: an empty segment registry
+    # means the store has no segments, which is a complete state. It ships so the
+    # choice is in front of the operator while it is still free — a segment name
+    # is permanent once its first id is minted.
     "segments.yaml": "framework",
     "coverage.policy.yaml": "framework",
     "conformance-exceptions.yaml": "framework",
@@ -101,11 +97,11 @@ trace_scan = ["**/Cargo.toml"]
 conformance_crate = "spec-conformance-tests"
 # Manifest service slug the extractor reports on. It does not guess this.
 #
-# ONE SERVICE PER RUN, 1:1 with its manifest: a stack table binds an ADAPTER, not
-# a service and not a language, so several services means several extractor runs
-# and one actual-surface.json each — `rqunit conformance` takes `--artifact`
-# repeatedly and merges them. Producing those files is your pipeline's job, the
-# same way building the adapter is.
+# One service per run, matching one service manifest. A [stacks.<name>] table
+# names an adapter, so several services means several extractor runs and one
+# actual-surface.json each; `rqunit conformance` accepts `--artifact` repeatedly
+# and reconciles them together. Producing those files is your pipeline's job, the
+# same as building the adapter.
 service = ""
 
 # ---- adapter roles -----------------------------------------------------------
@@ -156,10 +152,10 @@ extractor = { artifact = "spec-conformance-tests/actual-surface.json" }
 # fail from one that has only ever been green (L26).
 # evidence = { artifact = "spec-conformance-tests/check-evidence.json" }
 # The adapter's manifest, declaring its roles and the config keys it reads.
-# A first-party adapter's ships inside rqunit and is found with nothing wired,
-# so this key is for an adapter rqunit does not carry — a third-party one, or
-# yours while you are writing it. Point it at the adapter.yaml that came with
-# the adapter.
+# A first-party adapter's manifest ships inside rqunit and is found without being
+# wired. Set this key for an adapter rqunit does not carry — a third-party one, or
+# your own while you are writing it — pointing at the adapter.yaml that came with
+# it.
 # manifest = "tools/rqunit/adapter.yaml"
 
 # HTTP composition: which router function, in which file, mounts at what prefix

@@ -73,9 +73,9 @@ def run(store):
                           "artifact declares it — the credential admitting these requests "
                           "is unmodelled.",
                           "Declare the credential under `artifacts` with "
-                          f"`access_tier: {tier}` — `fields: none` is the honest census for "
-                          "an opaque token, and naming it is what the binding needs. If "
-                          "these surfaces genuinely admit unauthenticated requests, list "
+                          f"`access_tier: {tier}` — use `fields: none` for an opaque token, "
+                          "which names the credential without describing internals it does "
+                          "not have. If these surfaces admit unauthenticated requests, list "
                           f"'{tier}' in `credential_free_tiers` and the claim is on the "
                           "record."))
         elif len(carriers) > 1:

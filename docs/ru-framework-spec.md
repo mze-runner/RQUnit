@@ -1,6 +1,6 @@
 # Requirement Unit (RU) Framework — Specification Management for Agentic Development
 
-**Status:** v0.17.0
+**Status:** v0.16.0
 **What changed between revisions:** [CHANGELOG.md](../CHANGELOG.md) — including anything a consumer must do.
 **Canonical location:** `spec/framework/ru-framework-spec.md`
 **Normativity:** This document is normative for authoring and managing requirements. Where it conflicts with any prose story, epic, or feature description, this document wins. RFC-2119 keywords (MUST, MUST NOT, SHOULD, MAY) apply throughout.
@@ -156,8 +156,8 @@ System-wide invariants carry `tier: constitutional`: included in **every** conte
 
 ## 4. Intent Artifacts (INT)
 
-- Captured human intent — brainstorm notes, transcripts, chat exports, and the specification documents a consumer already had before adopting — stored **verbatim and unedited** under `spec/intent/`, immutable; corrections are new INT artifacts. **Verbatim constrains fidelity, not genre:** what a capture asserts is that these are its source's words unedited, never that the source was informal or spoken. Adopting over an existing corpus is the expected case rather than an exception to be argued for; §15 step 3 is where it lands, and the capture carries a provenance header naming the source path and its content hash, so what the anchors point into can be shown to be what was captured. No lint can check that words are unedited — L4 resolves the anchor and its range, nothing more — so this constraint is doctrine the tools do not enforce.
-- INT is **captured, not authored**. What is forbidden is manufacturing a new prose layer between intent and RU — writing a PRD-style document so that something exists to compile from is waste. Capturing a document that already existed is the opposite act: the document is the source, not an interpretation of one.
+- Captured human intent — brainstorm notes, transcripts, chat exports, and specification documents a consumer already had — stored **verbatim and unedited** under `spec/intent/`, immutable; corrections are new INT artifacts. **Verbatim constrains fidelity, not genre:** a capture asserts that these are its source's words unedited, whether that source was spoken, pasted, or written down long before the store existed. A capture of an existing document carries a provenance header naming the source path and its content hash. No lint checks that words are unedited — L4 resolves the anchor and its line range, nothing more — so this one is the author's to keep.
+- INT is **captured, not authored**. Writing a new PRD-style document between intent and RU is forbidden waste. Capturing a document that already exists is a different act: that document is the source.
 - Every RU MUST anchor into an INT artifact. Agent-inferred requirements are first written back as a proposal into a new INT the human explicitly acknowledges; the acknowledgment is the source. No RU cites agent reasoning as origin.
 - INT is re-read at three expensive moments — supersession, disputes, re-compilation after a pivot. It exists for those, not for daily reading.
 
@@ -188,7 +188,7 @@ One file per service at `spec/manifests/<service>.manifest.yaml`, validated agai
 - `messages` — async surface: `{id, subject, direction, payload, ru, audits[], external?, planned?}`. `audits` is inbound-only — on an outbound entry you are producing the message, not handling one — and it closes the largest gap in the old model, where an async consumer that mutated state had nowhere to declare what it recorded. `payload` is a **type name only**, owned by the shared wire-types crate/package — the compiler owns the shape; the manifest never duplicates it. `external: true` marks an inbound subject produced outside the spec store (§5.8).
 - `channels` — WebSocket surface: `{id, upgrade_path, access, ru, connection_close_codes[], frames[]}` with frames as `{id, direction, payload}` (type names only).
 
-**A manifest carries no reference to prose, deliberately.** There is no `story:` or `doc:` key on a surface, and none is coming: a manifest states FACTS, and a pointer to narrative would be provenance living in a facts file — drift-prone, and a second copy of a link that already exists. The chain is complete without it: endpoint → `ru` (required, bidirectional) → `source_ref` → the intent lines the requirement came from. A surface reaches its narrative transitively, which is why migrating a contract that carried such a key drops it rather than finding it a home.
+**A manifest carries facts, never a reference to prose.** A surface has no `story:` or `doc:` key; it reaches its narrative through the requirement that governs it — endpoint → `ru` → `source_ref` → the intent lines the requirement was compiled from.
 
 Every surface entry carries an `ru:` link (the governing RU or FEAT id) — the manifest-side half of bidirectional traceability (§6.6). Conflicts discovered while building a manifest are NEVER recorded as inline comments; they compile to `GAP-` items with `severity: blocking` (§8.1), holding activation of every RU referencing the disputed fact.
 
@@ -232,7 +232,7 @@ A manifest edit is either **additive** (a new entry; changes no existing RU's me
 For **mutating** edits the activation tool additionally generates an **impact report**: every RU and committed packet referencing the changed key, presented to the human at approval; affected RUs' verifications re-run after merge. A mutating manifest edit without an impact report MUST NOT merge.
 
 **Shared manifest** (`spec/manifests/shared.manifest.yaml`) for cross-service facts, governed by three rules:
-1. **Promotion by demonstrated reuse** — a fact enters shared only when ≥2 service manifests need it; never speculatively. `artifacts` are the one exception and are shared by construction (formats §16): a credential shape has one registry, so there is nothing to promote, and the schema refuses the table on a service manifest.
+1. **Promotion by demonstrated reuse** — a fact enters shared only when ≥2 service manifests need it; never speculatively. `artifacts` are the exception: a credential shape has one registry, so it is declared in the shared manifest from the start and a service manifest carries no `artifacts` table (formats §16).
 2. **No shadowing** — a service manifest defining a key that exists in shared is a lint error (L16); resolution is always unambiguous.
 3. **Widest impact report** — shared edits list affected RUs across all services at Gate 1.
 
@@ -267,27 +267,21 @@ The manifest is normative; code that disagrees is wrong by definition (spec stor
 - Flipping `planned` off is a **mutating** manifest edit (§5.5): Gate 1, impact report. The go-live decision lands exactly where decisions land.
 - Under the clean-room criterion, planned surfaces are part of the rebuild instructions; a rebuild produces them planned.
 
-**`planned: true` or a GAP? The test is whether the FACTS are settled.** The two
-answer different questions and a migrating consumer has to place every unbuilt
-thing in one of them, so:
+**`planned: true` or a GAP.** Both describe something that does not exist yet, and
+the interface facts decide which one to write:
 
-- **`planned: true`** — the interface is DECIDED and unbuilt. Method, path, tier
-  and both censuses are known well enough to declare, and what is missing is
-  code. Declaring it is how draft RUs get something to reference, and conformance
-  treats its absence as expected rather than drift.
-- **A GAP** — the interface is UNDECIDED. Something a requirement needs is
-  genuinely unknown or disputed, so there is nothing honest to declare yet, and
-  `severity: blocking` holds activation of every RU that depends on the answer.
+- **`planned: true`** — the interface is decided and the code is not written.
+  Method, path, tier and both censuses are known well enough to declare, draft RUs
+  can reference them, and conformance expects the surface to be absent.
+- **A GAP** — the interface is undecided. A fact a requirement needs is unknown or
+  disputed, so there is nothing to declare; `severity: blocking` holds activation
+  of every RU that depends on the answer.
 
-Worked example. A store knows it must expose a key set for token verification and
-knows the route: that is `{id: jwks, method: GET, path: /.well-known/jwks.json,
-access: public, planned: true}` with a not-done `ru:` link — the facts are
-settled, the handler is not written. A store that knows rotation must happen but
-not whether the endpoint serves one key or a set, nor who triggers rotation, has
-a GAP: declaring an `inbound: none` and a guessed census would compile a
-requirement against a shape nobody agreed to. The failure mode this separates is
-the one that looks tidiest — a `planned` entry standing in for a decision nobody
-made, which reads as designed and blocks nothing.
+For example, a store that must expose a key set for token verification and knows
+the route declares `{id: jwks, method: GET, path: /.well-known/jwks.json, access:
+public, planned: true}` with a not-done `ru:` link. A store that knows keys must
+rotate, but not whether the endpoint serves one key or a set, records a GAP — a
+declared census would put a shape nobody has agreed to in front of a requirement.
 
 **External producers.** An inbound subject whose producer lives outside the spec store (e.g., a third-party gateway) carries `external: true`. It is exempt from C9's one-outbound-declarer rule — there is no in-store declarer to find. If an in-store outbound declarer for the subject DOES exist, the `external` marker is itself a C9 error: a wrong marker does not get to disable the check. `external` on an outbound message is a schema error (we always own what we emit). Like the model-vocabulary `internal` escape, `external` markers are reviewed at Gate 1: it is the bucket that will attract exactly the traffic it was built to exclude, and its growth is watched.
 
@@ -563,13 +557,13 @@ This section is the framework. Without it, the rest of this document is prose.
 - C8: every model event, frame, emission, or close code resolves to a manifest entry → error (manifests own vocabulary; models own dynamics).
 - C9: message topology — every inbound message subject matches **exactly one** outbound declaration store-wide with an identical `payload` type, unless the inbound entry carries `external: true` (§5.8). Zero declarers (non-external) or multiple declarers → error; payload-type disagreement between the declarer and any consumer → error; an `external: true` inbound whose subject HAS an in-store outbound declarer → error (the marker is wrong, and it is silently exempting the pair from payload agreement). Planned entries participate (topology is designed before it ships).
 - C10: every endpoint declares both `inbound` and `outbound` (§5.9) → error. `none` is a legal declaration; an omitted slot is not, and `planned` is no exemption. Enforced as a rule rather than a schema requirement so a shortfall is one attributable violation per endpoint, not a parse failure.
-- C11: declared shapes are well-formed → error, over EVERY census the manifest carries: an endpoint's two directions, an audit record's field list, and a shared artifact's. Presence vocabulary matches the slot's direction (`always|never` outbound, `required|optional|forbidden` inbound) — an audit record and a credential are both MINTED rather than accepted, so both take the outbound set, and an inbound value on either asserts nothing; an inbound shape resolves an unknown-field policy; `in` is inbound-only; `where` (claims vs header) is artifact-only, because on a payload the position IS the field name; `nullable` is meaningless on a field that never appears; `type: array` names its `items`; `type: object` declares at least one member; bound keys suit the declared type; a dotted child implies a declared parent, and a `never`/`forbidden` parent carries no children.
+- C11: declared shapes are well-formed → error, across every census a manifest carries: an endpoint's two directions, an audit record's field list, and a shared artifact's. Presence vocabulary matches the slot's direction (`always|never` outbound, `required|optional|forbidden` inbound) — audit records and credentials are minted rather than accepted, so both take the outbound set; an inbound shape resolves an unknown-field policy; `in` is inbound-only; `where` (claims vs header) is artifact-only, because on a payload the position is the field name; `nullable` is meaningless on a field that never appears; `type: array` names its `items`; `type: object` declares at least one member; bound keys suit the declared type; a dotted child implies a declared parent, and a `never`/`forbidden` parent carries no children.
 - C12: path placeholders and `in: path` fields reconcile in both directions, and placeholder names are unique within a path → error.
 - C13: wire-visible names follow the `conventions` declared in the shared manifest → error where a convention is declared; absent table means unenforced.
-- C14: a state-changing route declaring no audit event → finding. The constitutional audit-on-mutation invariant made checkable; the HTTP method is a heuristic rather than proof, so it reports rather than blocks. The message states the invariant and cites no id: `RU-0002` is its number in the recommended seed set (§3.4), not a fact about any given store, and a rule naming an id the reader's store does not contain teaches nothing.
+- C14: a state-changing route declaring no audit event → finding. The audit-on-mutation invariant made checkable; the HTTP method is a heuristic rather than proof, so it reports rather than blocks. The finding states the invariant and names no RU id — a store seeds its own constitutional set (§3.4).
 - C15: every shim registration names a model the store carries, once each → error. A registration is a depth claim (§6.3): one naming a model the store does not carry proves nothing, and a duplicate makes "is this registered" ambiguous the moment two entries disagree about who registered it and when.
 - C16: the segment registry is well formed, and every segment an id uses is declared → error, except a missing `domain`, which is a warning: nothing reads it, `domain: TBD` satisfies everything a machine can check of it, and a red build for a sentence of prose teaches consumers to bypass the gate. Segments partition ALLOCATION, never verification — every rule stays store-wide (§1). A segment name is the one vocabulary in this store that is PERMANENT: it lives in filenames, gate stamps, Gate 2 review directory names, packets and `verifies:` annotations in consumer source, and ids are never rewritten, so a rename or a removal is a mass supersession rather than an edit. Retirement is `closed: true`, which keeps existing ids working.
-- C17: every access tier a declared surface uses is bound to the credential that admits it → error. Exactly one artifact carries that `access_tier`, or the tier is listed in `credential_free_tiers` (shared manifest). C5 validates both memberships and never relates them, so a protected surface with no credential modelled anywhere, two artifacts claiming one tier, and a tier in use that nothing describes all passed. The tier string is the join and the binding is DERIVED: an `artifact:` key on the endpoint would make one fact expressible twice and let `access: protected, artifact: <a scoped credential>` be written. Exactly one because a tier admitting two shapes cannot tell a test what to send — if both are genuinely accepted they are two tiers. Scoped to tiers in USE: a vocabulary may run ahead of its surfaces (§5.9, formats §16).
+- C17: every access tier a declared surface uses is bound to the credential that admits it → error. Exactly one artifact carries that `access_tier`, or the tier is listed in `credential_free_tiers` (shared manifest). The tier string is the join and the binding is derived: an endpoint declares its tier and never an artifact, so `access` and the credential cannot disagree. One tier admits one credential shape; two accepted shapes are two tiers. Scoped to tiers a surface actually uses, so a vocabulary may run ahead of the surfaces that will use it (§5.9, formats §16).
 
 ### 10.3 Hooks (runtime, blocking)
 - H1 (pre-write): writes matching in-context `must_not_touch` globs → blocked.

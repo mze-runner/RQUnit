@@ -1,26 +1,18 @@
 # The segment registry (formats §1, §14c; checked by C16).
 #
-# A segment is the domain an id is allocated into: `RU-ORD-01A2`. It bounds
-# ALLOCATION and OWNERSHIP, never verification — no rule partitions by segment,
-# and none may.
+# A segment is the domain an id is allocated into: `RU-ORD-01A2`. Segments bound
+# allocation and ownership; every rule stays store-wide.
 #
-# Seeded empty because this file is here to disclose a decision, not to make
-# one. Declaring no segments is a COMPLETE choice, not a TODO: a store with an
-# empty registry allocates every id into the unsegmented space, which is a space
-# like any other, and L27 stays silent because nothing was opted into. An empty
-# file and no file at all mean exactly the same thing to every tool.
+# An empty registry is a complete state. Ids are then allocated into the
+# unsegmented space, and an empty file means exactly what no file means.
 #
-# What makes the choice worth a file of its own: a segment name is the only
-# vocabulary here that is PERMANENT. Tags are re-cut freely and actors renamed
-# with a sweep, because they appear only in artifacts this store controls. A
-# segment appears in filenames, in gate stamps, in Gate 2 review directory
-# names, in committed packets, and in `verifies:` annotations inside your own
-# source — and ids are never rewritten. So the registry admits two edits, add
-# and close; renaming or merging a segment is a mass supersession.
-#
-# The choice binds at Gate 1. A draft names the space it will be allocated into
-# and activation consumes the field; from then on the id carries the fact. Ids
-# already minted cannot acquire a segment, and cannot lose one.
+# Declare a segment when the store has a domain to allocate into — and decide
+# before the first id is minted, because a segment name is permanent. It appears
+# in filenames, gate stamps, Gate 2 review directories, packets, and `verifies:`
+# annotations in your own source, and ids are never rewritten. The registry
+# supports two edits: add a segment, and close one. A draft names the segment it
+# will be allocated into; activation consumes that field and the id carries it
+# from then on.
 segments: []
 # Example — delete this comment block when you declare a real segment:
 #

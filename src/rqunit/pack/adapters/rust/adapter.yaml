@@ -1,21 +1,13 @@
-# Bundled self-declaration for the first-party Rust adapter (contract:
+# Self-declaration for the first-party Rust adapter (contract:
 # rqunit interfaces/adapter-manifest.schema.json). Read by core, never by the
 # adapter.
 #
-# It ships inside the wheel for the reason the schemas do: this is the
-# vocabulary core validates a consumer's `[stacks.rust]` passthrough keys
-# against, and a consumer who installed the tool has no copy of this
-# repository. Without it the only note `rqunit doctor` emitted named a file
-# nothing in the consumer's world contained.
+# Ships inside rqunit, so a store declaring `[stacks.rust]` gets its passthrough
+# keys validated without wiring a `manifest` path.
 #
-# `kit` is deliberately absent. The compliance kit is a fixed input tree plus
-# expected output living in the adapter's SOURCE, and its commands are the
-# dev-time paths that source's own build writes to — the schema says outright
-# that consumers never need them. `rqunit adapter verify` therefore runs where
-# the adapter is developed, against `adapters/rust/adapter.yaml`, which is the
-# authoring copy this one carries the consumer-facing half of. The two are held
-# to the same vocabulary by a meta-test; drift is a failing build, not a
-# surprise in someone's store.
+# No `kit` block: a compliance kit is a fixed input tree and expected output that
+# live with the adapter's source, and its commands are that build's own paths.
+# `rqunit adapter verify` runs where the adapter is developed.
 contract_version: 1
 stack: rust
 roles: [extractor, scanner, emitter, stripper]

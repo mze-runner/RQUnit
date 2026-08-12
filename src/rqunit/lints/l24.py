@@ -78,7 +78,7 @@ def run(store):
                                 f"the one this bound MEANS ({key}: \"{{value:<the fact>}}\"), or "
                                 "leave the literal if the match is coincidental. This rule "
                                 "compares numbers and cannot tell which fact you meant, so it "
-                                "does not choose for you: a bound bound to the wrong fact is "
+                                "does not choose for you: a bound referencing the wrong fact is "
                                 "worse than a duplicated one (§5.9).")
                         out.append(Violation(
                             rule="L24", severity="finding",
