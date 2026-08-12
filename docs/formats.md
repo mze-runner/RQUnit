@@ -460,12 +460,15 @@ its own checks, never the consumer's audit record (§5.10).
 ## 14c. The segment registry
 
 `spec/framework/segments.yaml` — the domains this store allocates ids into.
-Consumer-owned and Gate-1-governed like the tag and actor vocabularies, but
-unlike them it is NOT scaffolded: `rqunit init` writes no segments file, because
-a taxonomy chosen at the moment a store knows least is the fastest way to a
-taxonomy nobody obeys. The file is created when a store adopts its first
-segment. An absent file means the store has none and its ids carry none, which
-is a complete state rather than an unfinished one.
+Consumer-owned and Gate-1-governed like the tag and actor vocabularies, and
+scaffolded the same way: `rqunit init` writes it EMPTY, with the reason inside
+it. A taxonomy chosen at the moment a store knows least is the fastest way to a
+taxonomy nobody obeys, so the seed declares nothing — it discloses that the
+decision exists and that it is the only one in the store that cannot be
+corrected. An absent file and an empty registry mean the same thing to every
+tool: the store has no segments and its ids carry none, which is a complete
+state rather than an unfinished one. Deleting the seeded file changes no
+behaviour.
 
 ```yaml
 segments:

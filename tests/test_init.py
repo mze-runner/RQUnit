@@ -36,6 +36,36 @@ def test_seeded_vocabularies_are_the_packs_own(tmp_path):
     assert (spec / "framework" / "tags.yaml").read_text() == (SEED_DIR / "tags.yaml").read_text()
 
 
+def test_the_seeded_segment_registry_declares_nothing(tmp_path):
+    """The one identity decision a store cannot revisit was previously reached by
+    omission: no file, no segments, permanent ids, and nothing anywhere telling
+    the consumer a decision was being made. The seed exists to disclose it, so
+    the invariant is that it discloses WITHOUT deciding — a scaffolded store has
+    no segments, exactly as before."""
+    from rqunit.segments import declared, load_segments
+
+    _init(tmp_path)
+
+    assert (tmp_path / "spec" / "framework" / "segments.yaml").is_file()
+    assert load_segments(tmp_path) == []
+    assert declared(tmp_path) == set()
+
+
+def test_deleting_the_seeded_registry_changes_no_report(tmp_path):
+    """Byte-identical in effect to an absent file, or every existing store
+    changes meaning on upgrade. Reports are compared rather than the loader,
+    because the loader agreeing is not the same claim as the tools agreeing."""
+    from rqunit.checks.base import run_checks
+    from rqunit.lints.base import run_lints
+
+    _init(tmp_path)
+    seeded = (run_lints(Store.load(tmp_path)), run_checks(Store.load(tmp_path)))
+
+    (tmp_path / "spec" / "framework" / "segments.yaml").unlink()
+
+    assert (run_lints(Store.load(tmp_path)), run_checks(Store.load(tmp_path))) == seeded
+
+
 def test_pack_pin_records_the_spec_version_not_the_tool_version(tmp_path):
     """The pin names the VOCABULARY a store was authored in. It recorded the
     package version until v0.14, and the two had drifted a minor apart — so a

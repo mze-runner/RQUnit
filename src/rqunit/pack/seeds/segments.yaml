@@ -1,0 +1,34 @@
+# The segment registry (formats §1, §14c; checked by C16).
+#
+# A segment is the domain an id is allocated into: `RU-ORD-01A2`. It bounds
+# ALLOCATION and OWNERSHIP, never verification — no rule partitions by segment,
+# and none may.
+#
+# Seeded empty because this file is here to disclose a decision, not to make
+# one. Declaring no segments is a COMPLETE choice, not a TODO: a store with an
+# empty registry allocates every id into the unsegmented space, which is a space
+# like any other, and L27 stays silent because nothing was opted into. An empty
+# file and no file at all mean exactly the same thing to every tool.
+#
+# What makes the choice worth a file of its own: a segment name is the only
+# vocabulary here that is PERMANENT. Tags are re-cut freely and actors renamed
+# with a sweep, because they appear only in artifacts this store controls. A
+# segment appears in filenames, in gate stamps, in Gate 2 review directory
+# names, in committed packets, and in `verifies:` annotations inside your own
+# source — and ids are never rewritten. So the registry admits two edits, add
+# and close; renaming or merging a segment is a mass supersession.
+#
+# The choice binds at Gate 1. A draft names the space it will be allocated into
+# and activation consumes the field; from then on the id carries the fact. Ids
+# already minted cannot acquire a segment, and cannot lose one.
+segments: []
+# Example — delete this comment block when you declare a real segment:
+#
+# segments:
+#   - name: ORD                     # 2-8 uppercase chars, and never something the
+#                                   # sequence alphabet can spell (formats §1)
+#     domain: order management — placement, amendment, cancellation
+#   - name: BILL
+#     domain: invoicing and settlement
+#     closed: true                  # allocates nothing further; its ids keep working
+#     note: folded into order management

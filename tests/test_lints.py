@@ -331,6 +331,25 @@ def test_l27_is_silent_in_a_store_that_never_adopted_segments(tmp_path):
     assert [v for v in run_lints(Store.load(root)) if v.rule == "L27"] == []
 
 
+def test_l27_treats_an_empty_registry_exactly_as_an_absent_one(tmp_path):
+    """`rqunit init` seeds the registry empty, so this is now the shape every
+    fresh store has. Seeding must disclose the decision without making it: if an
+    empty file counted as adoption, every store would begin opted in and L27
+    would fire on stores that never chose segments — the behaviour its own
+    docstring argues against. The fixture's drafts are the proof, because they
+    are exactly what fires once a store has adopted."""
+    import shutil
+    absent = tmp_path / "absent"
+    shutil.copytree(FIXTURES / "lints" / "L27" / "fail", absent)
+    (absent / "spec" / "framework" / "segments.yaml").unlink()
+
+    empty = tmp_path / "empty"
+    shutil.copytree(FIXTURES / "lints" / "L27" / "fail", empty)
+    (empty / "spec" / "framework" / "segments.yaml").write_text("segments: []\n")
+
+    assert run_lints(Store.load(empty)) == run_lints(Store.load(absent))
+
+
 def test_l27_leaves_permanent_ids_alone():
     """An active RU minted before its store adopted segments can never acquire
     one — ids are never rewritten. Reporting it would be a warning with no

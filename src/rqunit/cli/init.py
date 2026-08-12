@@ -43,6 +43,15 @@ STORE_DIRS = ("framework", "intent", "ru", "features", "manifests", "models",
 SEEDS = {
     "tags.yaml": "framework",
     "actors.yaml": "framework",
+    # Seeded EMPTY, and the comment inside it is the whole reason: an id's
+    # segment is permanent, the default is reached by omission, and a consumer
+    # who has not read formats §1 makes an irreversible identity decision
+    # without being told a decision existed. Every other seeded file guards a
+    # reversible mistake; this one guards the only mistake in the store that
+    # cannot be corrected. An empty registry stays byte-identical in effect to
+    # an absent one — L27 is silent under both — so seeding discloses the
+    # choice without making it.
+    "segments.yaml": "framework",
     "coverage.policy.yaml": "framework",
     "conformance-exceptions.yaml": "framework",
     "shims.yaml": "framework",

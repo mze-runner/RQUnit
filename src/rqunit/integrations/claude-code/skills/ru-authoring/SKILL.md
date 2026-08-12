@@ -86,8 +86,9 @@ the linter is the law (spec §5.9, formats §13).
   it from `scope.owns`: a domain can span several services and one service can host
   several domains. L27 warns on a draft whose declaration contradicts its tier, in either
   direction. This is the last moment the choice is free — a permanent id can never acquire
-  or shed a segment, because renaming ids is not a thing this framework does. A store with
-  no segments file has no segments, and drafts omit the field entirely.
+  or shed a segment, because renaming ids is not a thing this framework does. An empty
+  registry — what `init` seeds — means the store has no segments, exactly as an absent file
+  does, and drafts omit the field entirely.
 - Non-obvious decisions get an ADR: `spec/rationale/ADR-<slug>.md` (headings per formats §10:
   Context, Decision, Alternatives, Consequences) linked via `rationale_ref: ADR-<slug>` — a
   dangling ref is an L7 error. ADRs are editable prose; once a stamped RU fingerprints one,
