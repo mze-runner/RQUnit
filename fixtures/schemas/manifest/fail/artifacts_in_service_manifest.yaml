@@ -1,0 +1,14 @@
+# Artifacts are shared by construction (formats §16). C5 resolves an
+# `artifact:` reference against the shared table and no other, so a
+# service-local table would validate, sit there, and be unreferenceable —
+# configured and doing nothing.
+service: service-orders
+version: "1.0"
+endpoints:
+  - { id: get_order, method: GET, path: "/api/v1/orders/{id}", access: protected,
+      ru: FEAT-order-cancellation }
+artifacts:
+  jwt-pending-verification:
+    access_tier: scoped
+    fields:
+      - { name: sub, where: claims, presence: always, type: string }

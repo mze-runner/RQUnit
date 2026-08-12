@@ -109,7 +109,7 @@
   },
   "constants": {
     "shared": {
-      "manifest_hash": "sha256:277e80d1c2d187da40bf7df676239e2ec8656a4f699c35a12138d5ad94fab4de",
+      "manifest_hash": "sha256:51056c3b93821ef978ac432517ccf7d433fa6160647184f5e8ccad5187cc7ca3",
       "values": {
         "retention.audit_days": 90,
         "fulfilment.halt_seconds": 5

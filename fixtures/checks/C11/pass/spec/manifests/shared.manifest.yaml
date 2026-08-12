@@ -1,0 +1,15 @@
+service: shared
+version: "1.0"
+vocabularies:
+  access_tiers: [public, protected]
+credential_free_tiers: [public]
+artifacts:
+  jwt-access-token:
+    access_tier: protected
+    fields:
+      # `where` is legal HERE and nowhere else: placement inside an encoded
+      # structure. Presence is the outbound vocabulary, because a credential is
+      # minted rather than accepted.
+      - { name: sub, where: claims, presence: always, type: string }
+      - { name: sid, where: claims, presence: always, nullable: true }
+      - { name: scope, where: claims, presence: never }

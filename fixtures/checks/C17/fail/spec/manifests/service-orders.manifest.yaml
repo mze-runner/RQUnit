@@ -1,0 +1,9 @@
+service: service-orders
+version: "1.0"
+endpoints:
+  - { id: place_order, method: POST, path: "/api/v1/orders", access: public,
+      ru: FEAT-order-cancellation }
+  - { id: get_order, method: GET, path: "/api/v1/orders/{id}", access: protected,
+      ru: FEAT-order-cancellation }
+  - { id: refresh_session, method: POST, path: "/api/v1/orders/session", access: refresh,
+      ru: FEAT-order-cancellation }

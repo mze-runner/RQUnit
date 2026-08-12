@@ -88,6 +88,28 @@ def test_the_schema_report_locates_the_problem_and_teaches(tmp_path, verb):
     assert "is not valid under any of the given schemas" not in result.output
 
 
+def test_a_refused_table_is_named_rather_than_echoed(tmp_path):
+    """`artifacts` on a service manifest is refused because C5 resolves the
+    reference against the shared table only, so a local one is unreferenceable.
+    A boolean subschema would report "False schema does not allow {…}" with the
+    whole table echoed and nothing named — Hard Rule 6's failure mode — so the
+    refusal is spelled as a `not: required` the report can state."""
+    from rqunit.cli.lint import main as lint_main
+
+    root = _broken_store(
+        tmp_path,
+        'service: service-orders\nversion: "1.0"\nendpoints:\n'
+        '  - {id: get_order, method: GET, path: /x, access: public, ru: FEAT-x}\n'
+        'artifacts:\n  jwt-access-token:\n'
+        '    fields: [{name: sub, presence: always}]\n')
+    result = CliRunner().invoke(lint_main, ["--store", str(root), "--format", "text"])
+
+    assert "`artifacts`" in result.output
+    assert "does not carry" in result.output
+    assert "False schema" not in result.output
+    assert "jwt-access-token" not in result.output, "the table must not be echoed back"
+
+
 def test_a_leaf_failure_names_its_key_and_not_the_whole_document(tmp_path):
     """The defect this replaced: jsonschema reports a composite failure at the
     composite, echoing every key back and naming none of them."""

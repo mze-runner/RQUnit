@@ -80,6 +80,11 @@ the linter is the law (spec §5.9, formats §13).
 - Wire shapes are MANIFEST facts, not a separate artifact: a surface declares its census inline
   (`inbound`/`outbound`), and a structure hidden behind an encoding boundary — a JWT's claims
   inside `access_token: string` — is a shared `artifacts` entry the field names via `artifact:`.
+  Artifacts live in the SHARED manifest whoever consumes them; a credential is minted, so its
+  census takes the outbound presence vocabulary, and `fields: none` is the honest census for an
+  opaque token. Every access tier a surface uses must resolve to exactly one artifact carrying
+  that tier or be declared credential-free (C17) — the tier is the join, so never add an
+  `artifact:` key to an endpoint.
   RUs never restate a census; they ADDRESS it with a token
   (`{endpoint:get_order.outbound.cost_basis}`, `{artifact:jwt-access-token.iss}`) and prove it
   with a test. Memberships = C5; census well-formedness = C11; editing a manifest flips

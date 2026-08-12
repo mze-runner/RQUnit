@@ -381,8 +381,10 @@ def _lookup(manifest: dict, kind: str, key: str) -> object | None:
         artifact = (manifest.get("artifacts") or {}).get(artifact_id)
         if artifact is None or not field:
             return artifact
-        return next((f for f in artifact.get("fields") or []
-                     if f.get("name") == field), None)
+        fields = artifact.get("fields")
+        if not isinstance(fields, list):
+            return None          # `fields: none` — an opaque credential has no members
+        return next((f for f in fields if f.get("name") == field), None)
     if kind == "endpoint":
         return _lookup_endpoint(manifest, key)
     if kind in ("message", "channel"):

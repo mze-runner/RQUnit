@@ -122,10 +122,21 @@ def describe_violation(error: ValidationError) -> str:
     arbitrarily and say "'endpoints' is a required property", sending the reader
     to add the wrong thing.
 
+    A `not` over a bare `required` is the mirror image — "this key is not
+    allowed on this document" — and jsonschema reports it by echoing the whole
+    instance back with the subschema appended. The key is in the subschema, so
+    the rule can be stated instead.
+
     Everything else descends to the most specific sub-error jsonschema can
     rank, and is reported against its location in the document
     (`endpoints[0].id`), which is the part the reader has to go and edit."""
     while True:
+        refused = _refused_keys(error)
+        if refused:
+            where = _location(error)
+            subject = f"`{where}` declares" if where else "the document declares"
+            return (f"{subject} {', '.join(refused)}, which this kind of artifact "
+                    "does not carry")
         options = _required_disjunction(error)
         if options:
             where = _location(error)
@@ -150,6 +161,23 @@ _DETAIL_LIMIT = 200
 
 def _location(error: ValidationError) -> str:
     return error.json_path.removeprefix("$.").removeprefix("$")
+
+
+def _refused_keys(error: ValidationError) -> list[str]:
+    """The keys a `not: {required: [...]}` refuses.
+
+    Bare branches only, for the reason the disjunction below gives: a `not` over
+    anything richer than `required` denies a SHAPE, and naming its keys would
+    describe the wrong rule."""
+    if error.validator != "not":
+        return []
+    subschema = error.validator_value
+    if not isinstance(subschema, dict) or set(subschema) != {"required"}:
+        return []
+    keys = subschema["required"]
+    if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
+        return []
+    return [f"`{k}`" for k in keys]
 
 
 def _required_disjunction(error: ValidationError) -> list[str]:

@@ -68,7 +68,7 @@ at the repo root — the tools carry no consumer paths in code.
 | `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`, and the agent-runtime templates into `.claude/`. Reports the stack it detected; refuses a non-empty store; never overwrites a runtime file the consumer already has | once, at adoption |
 | `rqunit init --refresh-integrations` | rewrite the agent-runtime templates and touch nothing else. They teach the current vocabulary, so a store on a newer tool with older templates is being taught the wrong one | after upgrading the tool |
 | `rqunit lint [--only L3]` | lints L1–L27 + the M dialect family, and `rqunit.toml` itself — a config the loader rejects is a `CONFIG` error here, not a tool error somewhere else, and a retired key still sitting where core used to read it is a `CONFIG` warning naming its successor | after any spec/ edit |
-| `rqunit check [--only C4]` | consistency C1–C16 | same |
+| `rqunit check [--only C4]` | consistency C1–C17 | same |
 | `rqunit generate all` / `check` | (re)build / verify committed projections + generated conformance artifacts | after manifest/model/RU changes; `check` runs in every gate |
 | `rqunit trace [--against REF]` | RU↔test traceability + orphan reports; `--against` = the L14 diff gate | CI; before PRs |
 | `rqunit trace --strip [--all] [--apply]` | the off-ramp: remove trace annotations naming no active RU (`--all`: every annotation, `infrastructure` markers included). Dry unless `--apply` — it rewrites source you own. Needs the stack's `stripper` role; a stack without one is reported un-strippable, never swept silently | off-boarding; before re-adopting onto a fresh corpus |
@@ -389,12 +389,13 @@ with `--strict`) · **finding** (report-only, never affects exit).
 | C8 | error | every model vocabulary binding resolves to a manifest entry — manifests own vocabulary, models own dynamics |
 | C9 | error | message topology: each inbound subject has exactly one in-store outbound declarer with an identical payload type, unless `external: true`; multiple declarers, payload disagreement, and external-with-in-store-declarer are all errors |
 | C10 | error | every endpoint declares `inbound` and `outbound` (§5.9). `none` is a declaration; an absent slot is unfinished work; `planned` is no exemption |
-| C11 | error | shape well-formedness: presence vocabulary matches the direction (`always\|never` out, `required\|optional\|forbidden` in), inbound resolves an unknown-field policy, `in` is inbound-only, `nullable` is meaningless on a never/forbidden field, arrays name `items`, objects declare members, bound keys suit the type, dotted children imply declared parents |
+| C11 | error | shape well-formedness, over every census: an endpoint's two directions, an audit record's fields, and a shared artifact's. Presence vocabulary matches the direction (`always\|never` out, `required\|optional\|forbidden` in — an audit record and a credential are MINTED, so both take the outbound set), inbound resolves an unknown-field policy, `in` is inbound-only, `where` is artifact-only, `nullable` is meaningless on a never/forbidden field, arrays name `items`, objects declare members, bound keys suit the type, dotted children imply declared parents |
 | C12 | error | path placeholders and `in: path` fields reconcile both ways; placeholder names unique within a path |
 | C13 | error | wire-visible names follow the `conventions` declared in the shared manifest (absent table = unenforced) |
 | C14 | finding | a state-changing route declares no audit event (constitutional RU-0002 made checkable; the method is a heuristic, so it reports rather than blocks) |
 | C15 | error | every shim registration names a model the store carries, once each |
 | C16 | error (`warning` for a missing `domain` — nothing reads it) | the segment registry is well formed and every segment an id uses is declared. A segment name is permanent — add and close, never rename or merge — so a name that stops being declared while ids still carry it is unrepairable |
+| C17 | error | every access tier a declared surface uses resolves to exactly one artifact carrying that `access_tier`, or is listed in `credential_free_tiers`. C5 checks both memberships and never relates them, so a protected surface with nothing describing what protects it passed. The tier is the join — no `artifact:` key on the endpoint, because a second path makes the same fact expressible twice |
 
 ⚠ **Naming collision:** consumers migrating from a pre-existing requirements
 system may carry an unrelated legacy control catalog reusing C-numbers. Legacy

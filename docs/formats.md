@@ -614,19 +614,42 @@ Credentials are the population; the test is whether a field census can reach
 the structure, and for anything base64'd or signed it cannot.
 
 ```yaml
+credential_free_tiers: [public, internal]   # these surfaces admit no credential (C17)
+
 artifacts:
   jwt-access-token:
-    access_tier: protected            # the tier whose surfaces consume it (C5)
+    access_tier: protected            # the tier whose surfaces consume it (C5, C17)
     fields:
       - { name: sub, where: claims, presence: always, type: string }
       - { name: kid, where: header, presence: always }
       - { name: iss, presence: never }
+  refresh-token:
+    access_tier: refresh
+    fields: none                      # opaque: no internals to describe, and it says so
 ```
 
-Fields use the same grammar as every surface census (§13), plus `where`
+**The tier binds a surface to its credential, and the binding is derived.**
+Every tier a declared surface uses resolves to exactly one artifact carrying that
+`access_tier`, or is listed in `credential_free_tiers` — C17. There is no
+`artifact:` key on an endpoint: the tier string is the join, and a second path
+would make one fact expressible twice and let `access: protected` sit beside a
+scoped credential. Exactly one artifact per tier, because a tier admitting two
+shapes cannot tell a test what to send; if both are genuinely accepted, they are
+two tiers.
+
+An artifact has two jobs — describing internals where they exist, and NAMING the
+credential in every case. `fields: none` is the honest census for an opaque token
+and satisfies the second job alone, which is what a total binding needs. Presence
+uses the outbound vocabulary (`always | never`): a credential is minted, never
+accepted, so an inbound value on one asserts nothing. C11 checks this census like
+every other.
+
+Fields use the same grammar as every surface census (§13) — one dialect, so
+`fields: none` means here what it means everywhere: a positive claim that there
+is nothing to describe, never an unfinished census. The one addition is `where`
 (`claims | header`) — JWS vocabulary, and correct for the population it
 describes. C11 rejects `where` on a surface census, where the position IS the
-field name.
+field name, and accepts it only here.
 
 A field declares that its value is one of these with `artifact:`:
 
@@ -638,9 +661,13 @@ That key sits beside `vocab:` and makes the same class of claim — one says whi
 values are legal, the other what structure the value has. A dangling reference
 is a C5 error.
 
-Promotion by demonstrated reuse applies (spec §5.5): an artifact used by one
-service stays in that service's manifest, and only reaches `shared` when a
-second needs it.
+**Shared by construction, so promotion-by-reuse (spec §5.5) does not apply
+here.** An artifact lives in the shared manifest whoever consumes it — one
+registry, one place to look for what a credential is. There is nothing to
+promote because nothing may begin anywhere else, and the schema refuses an
+`artifacts` table on a service manifest rather than letting one validate that
+C5 could never resolve a reference into. The cost is chosen rather than
+inherited: `shared` accumulates structures only one service consumes.
 
 ## 17. Audit records
 

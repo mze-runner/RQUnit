@@ -8,9 +8,24 @@ The load-bearing one is presence: `never` outbound means MUST NOT LEAK, while
 `forbidden` inbound means MUST BE REJECTED. Different assertions, different
 tests, different bug classes — so cross-wiring them is an error.
 
-One census grammar, one set of judgments: an endpoint's two directions and an
-audit record's field list are checked by the same function. An audit record is
-minted and never accepted, so it is judged as OUTBOUND.
+One census grammar, one set of judgments: an endpoint's two directions, an
+audit record's field list, and a shared artifact's are checked by the same
+function. An audit record is minted and never accepted, so it is judged as
+OUTBOUND.
+
+An ARTIFACT is minted too — a credential is issued, never accepted — so it takes
+the outbound presence vocabulary. It gets its own direction name rather than
+borrowing "outbound" for one reason: `where` (claims vs header) is meaningful
+here and nowhere else, so the rule that rejects it on a surface census must not
+reject it on this one. Everything else — nullable against a negative presence,
+bounds against the declared type, members without their parent — is the same
+judgment, because it is the same census.
+
+Artifacts went unvisited here until v0.17, which made them the only census in
+the manifest that was neither canonicalised nor checked, and the slot holding
+the security-relevant shapes. The demonstration was a credential field declared
+`presence: optional` — an inbound value on a minted structure, asserting nothing,
+passing every gate.
 """
 
 from ..lints.base import rel
@@ -19,8 +34,13 @@ from .base import check
 
 _PRESENCE = {
     "outbound": {"always", "never"},
+    "artifact": {"always", "never"},
     "inbound": {"required", "optional", "forbidden"},
 }
+# Directions describing something this system MINTS. A client supplies nothing
+# to either, so `in` is meaningless on both, and the opposite vocabulary's
+# presence values are the ones to name in the message.
+_MINTED = ("outbound", "artifact")
 _NEGATIVE = {"never", "forbidden"}
 _BOUNDS = {
     "max_chars": {"string"}, "min_chars": {"string"},
@@ -38,6 +58,10 @@ def run(store):
         for event in manifest.raw.get("audit_events") or []:
             out += _census(store, manifest, f"{service}:audit_events.{event['code']}",
                            "outbound", event, default_policy)
+
+        for artifact_id, artifact in (manifest.raw.get("artifacts") or {}).items():
+            out += _census(store, manifest, f"{service}:artifacts.{artifact_id}",
+                           "artifact", artifact, default_policy)
 
         for endpoint in manifest.raw.get("endpoints") or []:
             for direction in ("inbound", "outbound"):
@@ -77,15 +101,20 @@ def _census(store, manifest, where: str, direction: str, slot, default_policy) -
         name, presence = f.get("name"), f.get("presence")
         if presence not in _PRESENCE[direction]:
             other = "outbound" if direction == "inbound" else "inbound"
+            why = ("A credential is minted, never accepted, so its census is outbound: "
+                   "`always` means the claim is always there, `never` means it must not "
+                   "appear. An inbound value asserts nothing about a structure nobody "
+                   "sends you (§5.9)."
+                   if direction == "artifact" else
+                   "Outbound `never` means must-not-leak; inbound `forbidden` means "
+                   "must-be-rejected — different claims, different tests (§5.9).")
             bad(f"field '{name}' uses presence '{presence}', which belongs to {other} shapes.",
-                f"Use one of {sorted(_PRESENCE[direction])} here. Outbound `never` means "
-                "must-not-leak; inbound `forbidden` means must-be-rejected — different "
-                "claims, different tests (§5.9).")
-        if f.get("where"):
+                f"Use one of {sorted(_PRESENCE[direction])} here. {why}")
+        if f.get("where") and direction != "artifact":
             bad(f"field '{name}' declares `where: {f['where']}` on a surface census.",
                 "Drop it. `where` is placement inside an ENCODED artifact (JWS claims vs "
                 "header); on a payload the position IS the field name (§5.9).")
-        if direction == "outbound" and f.get("in"):
+        if direction in _MINTED and f.get("in"):
             bad(f"field '{name}' declares `in: {f['in']}`, which describes where a CLIENT "
                 "supplies a value.",
                 "Drop `in` — it is meaningful on inbound shapes only (§5.9).")

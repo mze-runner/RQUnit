@@ -11,6 +11,12 @@ vocabularies:
   access_tiers: [public, internal, protected]
   cancellation_reasons: [customer, fraud, out_of_stock]
 
+# Tiers whose surfaces admit a request carrying no credential. Every other tier
+# a surface uses must resolve to exactly one artifact below, or C17 reports a
+# door with no stated lock. This is the declared half of that rule: an open
+# surface is a claim, not an omission.
+credential_free_tiers: [public, internal]
+
 values:
   retention: { audit_days: 90 }
   fulfilment: { halt_seconds: 5 }
