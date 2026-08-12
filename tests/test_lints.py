@@ -141,6 +141,25 @@ def test_l24_is_finding_class_only():
     assert all("{value:" in v.suggestion for v in violations)
 
 
+def test_l24_asks_instead_of_choosing_when_several_values_match():
+    """The rule compares NUMBERS and cannot know which fact a literal meant. It
+    used to offer the alphabetically first match as an instruction — so a token's
+    length was told to reference an unrelated parameter that also equalled the
+    same number, with the right answer in the same sentence. In a framework built
+    for agent participation the suggestion is the half that gets applied."""
+    ambiguous = next(v for v in _run("L24", "fail") if v.artifact.endswith(".note"))
+    single = next(v for v in _run("L24", "fail") if v.artifact.endswith(".page_size"))
+
+    assert "order.max_note_chars" in ambiguous.message      # both candidates named
+    assert "retry.backoff_ms" in ambiguous.message
+    assert "{value:order.max_note_chars}" not in ambiguous.suggestion, "no arbitrary pick"
+    assert "{value:retry.backoff_ms}" not in ambiguous.suggestion
+    assert "the one this bound MEANS" in ambiguous.suggestion
+
+    # A single candidate is unambiguous, so it stays an instruction.
+    assert '{value:paging.max_limit}' in single.suggestion
+
+
 def test_l24_leaves_referenced_bounds_and_unregistered_literals_alone():
     assert _run("L24", "pass") == []
 

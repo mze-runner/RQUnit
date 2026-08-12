@@ -3,6 +3,10 @@ version: "1.0"
 values:
   order: { max_note_chars: 200 }
   paging: { max_limit: 100 }
+  # A second fact that happens to equal 200. Unrelated to a note's length, and
+  # exactly the shape that made the old suggestion instruct a binding to the
+  # wrong one: the rule compares numbers, so it must ask rather than choose.
+  retry: { backoff_ms: 200 }
 defaults: { unknown_fields: reject }
 endpoints:
   - id: update_order
