@@ -1,6 +1,6 @@
 ---
 name: framework-revision
-description: How to change the framework itself — the specification, the formats reference, a JSON schema, the reference-token grammar, or the canonical hash. These are schema-revision events with consumer-visible consequences, not edits. Load before modifying anything under docs/ or src/rqunit/pack/schemas/.
+description: How to change the framework itself — the specification, the formats reference, a store schema, an adapter interface contract, the reference-token grammar, or the canonical hash. These are schema-revision events with consumer-visible consequences, not edits. Load before modifying anything under docs/, src/rqunit/pack/schemas/, or src/rqunit/interfaces/.
 ---
 
 # Revising the framework
@@ -26,6 +26,17 @@ invalidates stores that were legal yesterday. Tightening is legitimate — that
 is how defect classes get closed — but it must be announced in the version
 line, and the error message must tell an affected consumer what to do.
 
+**Then: an adapter interface contract.** The schemas in
+`src/rqunit/interfaces/` are pinned in both directions — every adapter, in
+every language, produces or consumes them. Adding a REQUIRED field breaks
+every adapter at once, including the ones this repository does not ship;
+a consumer running artifact mode discovers it as a validation error against
+a file their pipeline already wrote. Additive-and-optional is the cheap
+change; anything else bumps `contract_version` and needs a stated migration.
+The compliance kit (`rqunit adapter verify`) is what tells an adapter author
+they are affected, so a contract change that leaves the kit fixtures
+untouched has not been tested.
+
 **Then: rule severity.** Promoting `warning` to `error` turns someone's
 tolerated burn-down into a red build. Do it when the debt is genuinely
 finished, not when it looks tidy.
@@ -40,6 +51,18 @@ finished, not when it looks tidy.
   still pass" has no evidence behind it.
 - **Fixtures move with the schema.** Every schema has pass and fail fixtures;
   a tightening that leaves fixtures untouched has not been tested.
+- **The id grammar has one source.** `ids.permanent_pattern` is what a
+  permanent id looks like; the shipped schema patterns are literal strings that
+  nothing generates, so agreement is enforced by a sweep in
+  `tests/test_pack_consistency.py` rather than by construction. It compares
+  VERDICTS over a corpus, not substrings — containment passes a pattern
+  hand-widened with an extra alternative, which is how this drifted once
+  already. Touch the grammar and the sweep reddens; that is the point.
+- **An id is never rewritten, so an id-shape change is additive or nothing.**
+  Ids live in filenames, gate stamps, Gate 2 review directory names, committed
+  packets, and `verifies:` annotations inside consumer source. A change that
+  requires renaming existing ids is a mass supersession wearing a migration's
+  name — find the widening that lets old ids keep their spelling instead.
 
 ## The sequence
 
@@ -47,10 +70,19 @@ finished, not when it looks tidy.
    what changed, and what a consumer must do if anything.
 2. Update the schema, the grammar, and the affected rule together.
 3. Update fixtures — including a regression fixture for the case that motivated
-   the change.
+   the change. A contract change also updates the adapter kit expectations.
 4. Update `HANDBOOK.md`: rule catalogue, and any recipe whose steps changed.
-5. Bump the pack version in `pyproject.toml`.
-6. Run the full suite plus the CLI against the fixture stores.
+   `docs/formats.md` pins the shapes, so a new artifact or key lands there too.
+5. Bump `SPEC_VERSION` in `src/rqunit/schemas.py` — the **specification**
+   version, which is what a store's `spec/framework/pack.yaml` pins and what
+   the status line must announce (a meta-test ties the two). This is NOT
+   `pyproject.toml`'s version: that names the TOOL, and the two move
+   independently on purpose — a tool fix changes no vocabulary, and forcing a
+   spec revision for one would make consumers re-read a document that did not
+   change. Conflating them once pinned stores to a vocabulary that was never
+   published.
+6. Run the full suite plus the CLI against the fixture stores, and
+   `rqunit adapter verify --stack rust` if a contract moved.
 
 ## Writing the documents
 

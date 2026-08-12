@@ -1,0 +1,11 @@
+# Domains this store allocates ids into. A name is permanent from the moment
+# its first id is minted: add and close, never rename or merge.
+segments:
+  - name: ORD
+    domain: order management — placement, amendment, cancellation
+  - name: AUTH
+    domain: authentication and session lifecycle
+  - name: BILL
+    domain: invoicing and settlement
+    closed: true
+    note: folded into order management; existing ids keep working

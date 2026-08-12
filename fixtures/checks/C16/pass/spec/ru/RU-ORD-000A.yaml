@@ -1,0 +1,19 @@
+id: RU-ORD-000A
+statement: 'If an order has shipped, then the system shall reject an amendment.
+
+  '
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: TODO(fixture)
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:1621a9beb13fc32fd0c7d0894dd2148226d16769897feed7d50dd8d33c45a635
+  by: fixture-op
+  at: '2026-01-15T09:30:00+00:00'

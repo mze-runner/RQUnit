@@ -1,6 +1,6 @@
-"""C1–C9 fixture harness (TASK-040…048 acceptance) + normalizer unit tests
-(the normalizer ships as its own tested module, donor C1 note) + the G3
-criterion: the real store runs error- and warning-free (C7 findings expected)."""
+"""The consistency-check fixture harness — every registered check has a pass
+store that is clean and a fail store that is red for its reason alone — plus
+normalizer unit tests, and the invariant that a valid store stays green."""
 
 import shutil
 from pathlib import Path
@@ -12,7 +12,7 @@ from rqunit.checks.normalize import content_words, lemma
 from rqunit.store import Store
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "checks"
-CHECKS = [f"C{i}" for i in range(1, 15)]
+CHECKS = [f"C{i}" for i in range(1, 17)]
 
 
 def _run(code: str, kind: str):
@@ -254,3 +254,128 @@ def test_c13_survives_a_none_census(tmp_path):
         "    outbound: { status: 204, fields: none }"))
     violations = [v for v in run_checks(Store.load(root), only="C13") if v.rule == "C13"]
     assert violations == []          # nothing to name, and nothing to crash on
+
+
+# ------------------------------------------------------------ C15 / shims
+
+def test_c15_names_every_defect_class():
+    violations = _run("C15", "fail")
+    assert any("not a model in this store" in v.message for v in violations)
+    assert any("registered more than once" in v.message for v in violations)
+    assert any("is not a table" in v.message for v in violations)
+    assert all("§6.3" in v.suggestion for v in violations)
+
+
+def test_a_malformed_registration_is_reported_never_dropped():
+    """A bare `- MDL-x` is the shape a hurried consumer writes. Filtering it
+    out would leave the model reading as unregistered and the consumer
+    chasing an L21 warning about a shim they believe they just registered."""
+    from rqunit.shims import load_shims, registered_models
+
+    root = FIXTURES / "C15" / "fail"
+    assert any(not isinstance(e, dict) for e in load_shims(root))   # kept
+    assert "payment-capture" not in registered_models(root)          # registers nothing
+    assert any("is not a table" in v.message for v in _run("C15", "fail"))
+
+
+def test_c15_accepts_the_mdl_prefix_either_way(tmp_path):
+    """`MDL-order-lifecycle` and `order-lifecycle` name one model; a store
+    that spells them differently in two entries has still registered it
+    twice."""
+    from rqunit.shims import registered_models
+
+    assert registered_models(FIXTURES / "C15" / "pass") == {"order-lifecycle",
+                                                            "payment-capture"}
+
+
+def test_an_unregistered_model_contributes_no_mechanical_depth():
+    """The last place declared depth could exceed provable depth: a suite
+    that cannot execute is not depth, and L21 must say so by name."""
+    from rqunit.lints.l21 import violation_reason
+
+    rule = {"require": {"min_mechanical": 2}}
+    entries = [{"type": "test", "ref": "svc::t::a"},
+               {"type": "model", "ref": "MDL-order-lifecycle"}]
+    assert violation_reason(rule, entries) is None            # shim registered
+    reason = violation_reason(rule, entries, unshimmed=frozenset({"order-lifecycle"}))
+    assert reason and "no registered shim" in reason and "shims.yaml" in reason
+
+
+def test_c16_catches_the_edit_that_cannot_be_undone():
+    """A rename and a removal look identical from the registry: the name stops
+    being declared while ids still carry it. That is the violation this check
+    exists for — everything else it reports is a declaration-time shape error
+    that is merely annoying, while this one is unrepairable, because ids are
+    never rewritten."""
+    orphaned = [v for v in _run("C16", "fail") if v.artifact == "SHIP"]
+    assert orphaned, "an id in an undeclared segment must be reported"
+    assert "permanently carry it" in orphaned[0].message
+    assert "closed: true" in orphaned[0].suggestion, (
+        "the reader must be told the supported way to retire a segment")
+
+
+def test_c16_says_why_a_legal_looking_name_is_refused():
+    """`CART` is refused because the sequence alphabet can spell it, which is
+    invisible unless the message says so — and the name can never be adopted
+    later, so a reader owed an explanation gets it once."""
+    refused = [v for v in _run("C16", "fail") if v.artifact == "CART"]
+    assert refused and "alphabet" in refused[0].suggestion
+    assert "AUTH" in refused[0].suggestion, "name a legal alternative, not just the rule"
+
+
+def test_c16_ignores_drafts_and_unsegmented_ids():
+    """Drafts carry ULIDs and constitutional RUs carry no segment: neither is a
+    missing declaration, and reporting either would make the unsegmented form —
+    which the design requires — look like an error. Assert the property on the
+    id populations, not the store's cleanliness: a clean store proves this only
+    by coincidence."""
+    from rqunit.checks.c16 import _in_use
+
+    store = Store.load(FIXTURES / "C16" / "pass")
+    populations = {ru.id for ru in store.rus()}
+    assert any(i.startswith("RU-draft-") for i in populations), "no draft to ignore"
+    assert "RU-0001" in populations, "no unsegmented id to ignore"
+
+    carried = _in_use(store)
+    assert all(segment and segment.isupper() for segment in carried), carried
+    assert not any(i.startswith("RU-draft-") or i == "RU-0001"
+                   for members in carried.values() for i in members)
+
+
+def test_c16_reports_the_unrepairable_violation_first():
+    """Everything else C16 says is a typo in a file being edited right now.
+    This one says ids exist naming a domain the store no longer declares, and
+    ids are never rewritten — under four shape errors, nobody reads it."""
+    violations = _run("C16", "fail")
+    assert "permanently carry it" in violations[0].message
+
+
+def test_c16_does_not_cry_permanence_over_a_mis_indented_entry(tmp_path):
+    """A bare `- SHIP` is the wrong shape, not a store that stopped declaring
+    SHIP. Reporting the mass-supersession violation on top of it would tell a
+    consumer who mis-indented one line that they had committed the one edit
+    that cannot be undone."""
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(FIXTURES / "C16" / "fail", root)
+    (root / "spec" / "framework" / "segments.yaml").write_text("segments:\n  - SHIP\n")
+    messages = [v.message for v in run_checks(Store.load(root), only="C16")]
+    assert any("not a table" in m for m in messages)
+    assert not any("permanently carry it" in m for m in messages)
+
+
+def test_c16_missing_domain_is_survivable():
+    """Nothing reads `domain`, and `domain: TBD` satisfies everything a machine
+    can check of it. An error here is a red build for a sentence of prose."""
+    domain = [v for v in _run("C16", "fail") if "domain" in v.message]
+    assert domain and all(v.severity == "warning" for v in domain)
+
+
+def test_c16_treats_a_closed_segment_as_declared():
+    """Closing is the retirement path; its ids keep working forever. If closing
+    read as removal the check would push consumers toward deleting the entry,
+    which is the one edit that cannot be undone."""
+    from rqunit.segments import declared, open_segments
+    root = FIXTURES / "C16" / "pass"
+    assert "BILL" in declared(root)
+    assert "BILL" not in open_segments(root)

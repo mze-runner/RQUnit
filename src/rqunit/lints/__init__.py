@@ -1,2 +1,2 @@
-"""Lints L1–L22 land here in Phase 1+ (one module per lint). This package
-exists in Phase 0 only to carry the L2 seed wordlist (vague_terms.yaml)."""
+"""One module per lint, registered through the family decorator, plus the
+seed wordlist L2 scans against (vague_terms.yaml) — data, not code."""

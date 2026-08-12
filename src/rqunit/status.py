@@ -28,7 +28,7 @@ class RuStatus:
 
 
 def gate2_records(store: Store, ru_id: str) -> list[dict]:
-    """Append-only Gate 2 verdicts under spec/reviews/RU-XXXX/ (formats §9)."""
+    """Append-only Gate 2 verdicts under spec/reviews/<RU id>/ (formats §9)."""
     out = []
     directory = Path(store.root) / "spec" / "reviews" / ru_id
     if directory.is_dir():

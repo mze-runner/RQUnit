@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rqunit/interfaces/check-evidence.schema.json",
+  "title": "CheckEvidence",
+  "description": "What one test run OBSERVED: each check that ran, and whether it passed or failed. Produced by a per-stack evidence probe reading its runner's output, consumed by `rqunit evidence record`, which folds the run into the store's ledger and owns every judgment — including which observation is a check's first failure. A probe reports outcomes; deciding that an outcome is a FIRST requires history, and history is the framework's business.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "generated_by",
+    "observations"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "generated_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Probe name and version — names the source for anyone reading the ledger or an error that quotes it."
+    },
+    "observations": {
+      "type": "array",
+      "description": "One entry per check the run executed. A check the run skipped is omitted: 'not run' is a distinct answer from 'passed', and only the framework may act on the difference.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "outcome"
+        ],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The stack-qualified check id the scanner reports for this test (contract: scanned-checks.schema.json). The two contracts share one identity space, which is what lets evidence attach to a check an RU verifies against."
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed"
+            ],
+            "description": "What the runner reported for this check in THIS run. Carries no timestamp: a probe's output must be a byte-deterministic function of its input, and core stamps the recording time."
+          }
+        }
+      }
+    }
+  }
+}

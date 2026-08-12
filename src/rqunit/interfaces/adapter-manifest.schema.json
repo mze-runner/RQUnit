@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rqunit/interfaces/adapter-manifest.schema.json",
+  "title": "AdapterManifest",
+  "description": "What an adapter package declares about itself, read by core and never by the adapter: which roles it implements and which rqunit.toml keys it reads. Role wiring is checked before an exec can fail, and passthrough config gets its typo detection. Keys grow by demand, never speculatively — per-run family coverage already lives in the artifact's own `covers`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "stack",
+    "roles"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "stack": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "The stack this adapter serves. Must match the [stacks.<name>] table that points at it — a manifest wired to the wrong stack would validate the wrong vocabulary."
+    },
+    "roles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "extractor",
+          "scanner",
+          "emitter",
+          "evidence",
+          "stripper"
+        ]
+      },
+      "description": "Roles this adapter implements. A role declared in rqunit.toml but absent here is a wiring error worth surfacing before the exec fails."
+    },
+    "config_keys": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "The [stacks.<name>] passthrough keys this adapter reads. Core validates consumer config against this list: a passthrough key in neither the core-interpreted set nor here is a typo, and a typo silently ignored would read as configured."
+    },
+    "kit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "commands"
+      ],
+      "description": "The adapter's compliance kit — what `rqunit adapter verify` runs. The kit is the executable definition of a correct adapter: a team can make it pass without reading the framework's source.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Kit directory, relative to this manifest: <path>/<role>/ holds each role's fixed input tree and expected output."
+        },
+        "commands": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Dev-time argv per role, relative to this manifest's directory — where the adapter's own build puts its binaries. Consumers never need these; they declare runtime commands in rqunit.toml.",
+          "properties": {
+            "extractor": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "scanner": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "emitter": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "evidence": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "stripper": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

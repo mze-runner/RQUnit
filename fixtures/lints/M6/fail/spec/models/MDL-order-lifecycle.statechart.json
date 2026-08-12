@@ -1,0 +1,35 @@
+{
+  "id": "order-lifecycle",
+  "kind": "statechart",
+  "initial": "pending",
+  "undeclared_event_policy": "ignore",
+  "vocabulary": {
+    "CANCEL": "internal",
+    "CANCEL_COMPLETE": "internal",
+    "PURGE": "internal"
+  },
+  "states": {
+    "pending": {
+      "invariant": "no_double_charge",
+      "on": {
+        "CANCEL": "cancelling"
+      }
+    },
+    "cancelling": {
+      "invariant": "no_double_charge",
+      "on": {
+        "CANCEL_COMPLETE": "cancelled"
+      }
+    },
+    "cancelled": {
+      "type": "final",
+      "invariant": "ledger_settled"
+    },
+    "archived_check": {
+      "invariant": "ledger_settled",
+      "on": {
+        "PURGE": "cancelled"
+      }
+    }
+  }
+}

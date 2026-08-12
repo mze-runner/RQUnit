@@ -1,0 +1,11 @@
+id: RU-0002
+statement: The system shall record a reason for every cancellation.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: svc::orders::records_reason
+scope:
+  owns: [service-orders/domain]
+tags: [orders]

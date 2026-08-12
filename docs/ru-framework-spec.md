@@ -1,46 +1,11 @@
 # Requirement Unit (RU) Framework — Specification Management for Agentic Development
 
-**Status:** v0.14.0-draft (v0.14.0: one vocabulary — the manifest IS the
-contract. `spec/contracts/` and the `contract` verification type retire; a shape
-is a manifest fact and an RU binds to one by addressing it in the statement.
-What the layer genuinely held — structure behind an ENCODING boundary, where a
-census cannot reach — becomes `artifacts` in the shared manifest, referenced by
-a field's `artifact:` and addressable as `{artifact:<id>[.<field>]}`; §6.1.
-Audit becomes a full surface family: a census in the shared field grammar,
-`retention` on the event, store-wide `audit_forbidden`, and `level` retired
-because logging severity is the vocabulary of the thing audit is not; §5.10.
-`emits` splits into `emits`/`audits`/`publishes` — three claims with three
-audiences, where one list was ambiguous the day two registries shared a name —
-and `publishes` closes an edge that never existed: an endpoint could not say
-which message it published. Audit emission is reconciled at last (CF10/CF11);
-C14 makes constitutional RU-0002 checkable as a finding; L25 checks the
-statement subject, which the parser had only ever validated by shape; the
-coverage policy gains `binds_shape`, which reads the STATEMENT so that
-retiring `contract` strengthens rather than weakens what the policy can
-require. **Consumers MUST act:** move every `CT-` file into shared `artifacts`,
-convert `verification: contract` entries to a statement token plus a test, move
-audit codes out of `emits` into `audits`, and drop `audit_events[].level`;
-v0.13.0: the HTTP surface becomes bidirectional —
-endpoints declare `inbound` and `outbound` field censuses inline, both
-mandatory with `none` as an explicit declaration (C10); `success_status`
-retires into `outbound.status`; presence is direction-keyed (`always|never`
-outbound, `required|optional|forbidden` inbound) and joined by
-`unknown_fields`, `nullable`, nesting via dotted field names, arrays, and a
-closed bound-key set whose values reference `values`; wire naming is declared
-once in the shared manifest under `conventions` and enforced by C13; the
-reference-token grammar gains `{endpoint:<id>.<direction>[.<field>]}`; §5.9,
-formats §2 and §13. **Consumers MUST act:** every endpoint declares both
-directions, and any `success_status` key moves into `outbound.status`;
-v0.12.0: the store carries a pack pin —
-`spec/framework/pack.yaml` records the pack version a store was authored
-against, and JSON Schemas move out of `spec/framework/` into the tool, so a
-store is validated by the schemas of the version enforcing it; §12.1, formats
-§8. Consumers scaffolded by an earlier version: nothing to do — an unpinned
-store reports the enforcing version; v0.11.1: TODO-resolution path — `resolve` converts TODO refs to real same-type refs at Gate 1 without supersession, §6.5; v0.11.0: the contracts (CT) declaration layer — `spec/contracts/CT-<slug>.yaml`, kind `claim-set`, `access_tier` binding, endpoint `scope` field with `token_scopes` vocabulary, L5 resolution, C5 membership, packet rendering, manifest-like governance via content fingerprints; v0.10.5: model evolution gets its lawful path — `reaffirm` re-stamps active dependents of an edited model under the reviewer's id; L6 scopes to active/draft RUs, superseded hashes read as provenance; v0.10.4: L2 scans authored prose only — reference-token spans are masked before vague-term scanning, closing the hyphenated-identifier false positive; v0.10.3: ADRs live in-store at `spec/rationale/ADR-<slug>.md` — dangling `rationale_ref` is an L7 error, packets inline ADR content, format in formats §10; v0.10.2: token key grammar admits hyphens — schema/grammar consistency; v0.10: cross-service reference qualifier; `success_status` on endpoints; `planned` surfaces with asymmetric conformance + L22 backlink lint; `external` message producers; C9 message-topology check — dispositions of the six Phase-2 adoption GAPs)
+**Status:** v0.16.0
+**What changed between revisions:** [CHANGELOG.md](../CHANGELOG.md) — including anything a consumer must do.
 **Canonical location:** `spec/framework/ru-framework-spec.md`
 **Normativity:** This document is normative for authoring and managing requirements. Where it conflicts with any prose story, epic, or feature description, this document wins. RFC-2119 keywords (MUST, MUST NOT, SHOULD, MAY) apply throughout.
 
-**Note to reviewers:** All examples use a generic **online order-management system** purely for illustration; the framework is domain-agnostic. Numeric bounds in examples (5 seconds, 30 seconds, 90 days, k=8, cap of 15) are placeholders demonstrating *that* bounds are mandatory, not proposals for *what* they should be — please direct review at the schema, gates, lifecycle, and enforcement rules, not at example values.
+**Scope:** the framework is domain-agnostic and language-agnostic. Examples use an order-management system.
 
 ---
 
@@ -64,7 +29,7 @@ The framework compiles human intent into machine-verifiable requirement units an
 
 **P8 — One fact, one place.** Every fact — an interface surface, a shared value, a vocabulary — is declared exactly once, in a manifest, and referenced everywhere else by id. Restatement is drift waiting to happen; duplication across the spec store is a lint error, not a style issue.
 
-**Doctrine — the clean-room criterion.** The spec store (RUs + manifests + models + their checks) MUST be sufficient for an agent team, given nothing else, to rebuild a system that passes every verification. Equivalence is bounded by the verification set: the rebuilt system is guaranteed to satisfy all declared contracts, tests, model conformance, and manifest conformance — not to reproduce unchecked characteristics (performance profiles, implementation idioms). Consequence used daily: **any question an implementing agent must ask outside the store is a spec defect** — file it as a GAP. The criterion is seeded as constitutional RU-0003 (§15).
+**Doctrine — the clean-room criterion.** The spec store (RUs + manifests + models + their checks) MUST be sufficient for an agent team, given nothing else, to rebuild a system that passes every verification. Equivalence is bounded by the verification set: the rebuilt system is guaranteed to satisfy every declared test, model conformance, and manifest conformance — not to reproduce unchecked characteristics (performance profiles, implementation idioms). Consequence used daily: **any question an implementing agent must ask outside the store is a spec defect** — file it as a GAP. The criterion is seeded as constitutional RU-0003 (§15).
 
 ---
 
@@ -72,7 +37,7 @@ The framework compiles human intent into machine-verifiable requirement units an
 
 | Type | Identity | Format | Mutability | Purpose |
 |---|---|---|---|---|
-| Intent | `INT-XXXX` | Any (MD, transcript) | Immutable | Raw human input, verbatim |
+| Intent | `INT-<ULID>` | Any (MD, transcript) | Immutable | Raw human input, verbatim |
 | Requirement Unit | `RU-XXXX` | YAML | Append-only + supersession | Atomic normative **behaviour** statement |
 | Manifest | `<service>.manifest.yaml` | YAML (schema-validated) | Gate-1-gated edits (§5.5) | Interface surfaces + shared **facts**, declared once |
 | Model | `MDL-*` | Statechart JSON / decision table | Versioned, content-hashed | Formal **structure/logic** (dynamics) |
@@ -140,10 +105,11 @@ link_fingerprints:              # §7.3 — suspect-link detection on every cros
 
 ### 3.1 Field rules
 
-- `id` — identity split by lifecycle stage (§7.1): drafts use `RU-draft-<ULID>` (collision-free, no coordination); permanent sequential `RU-XXXX` is assigned atomically at Gate 1 from the directory listing. Sequence is monotonic-unique, not gapless; IDs are never reused. Draft cross-references use ULIDs and are rewritten at activation.
+- `id` — identity split by lifecycle stage (§7.1): drafts use `RU-draft-<ULID>` (collision-free, no coordination); a permanent sequential id — `RU-<SEQUENCE>` or `RU-<SEGMENT>-<SEQUENCE>`, four base-32 characters (formats §1) — is assigned atomically at Gate 1 from the directory listing. Sequence is monotonic-unique, not gapless; IDs are never reused. Draft cross-references use ULIDs and are rewritten at activation.
 - `statement` — exactly one normative statement. Compound statements MUST be split. Quantities MUST be bounded: a bound is either a **literal** ("within 5 seconds") or a **resolvable manifest reference** (`{value:...}`) — never vague (L2). Statements MAY embed manifest references (§5.3); every reference must resolve (L15).
 - `syntax` — the statement MUST parse under the declared syntax. EARS templates: ubiquitous, event-driven (`When`), state-driven (`While`), unwanted-behaviour (`If ... then`), optional (`Where`).
-- `source_ref` — MUST resolve to an existing immutable INT artifact with a line/section anchor.
+- `source_ref` — MUST resolve to an existing immutable INT artifact with a LINE anchor, and the lines must fall inside the file (L4). Section anchors (`#S<slug>`) are retired: an intent is any capture format, so a pasted conversation has no headings to slugify, and the form could only ever be checked for the file existing — an anchor nothing can verify is a preference wearing a syntax. Intent ids are ULIDs: capture has no gate, and the framework allocates a sequence only where creation is already serialized (§7.1), so an id two captures could both pick would be a collision with nothing to serialize it. A store's earlier four-digit `INT-XXXX` ids remain legal permanently — an intent is immutable and every RU compiled from one cites it, so re-identifying it would rewrite reviewed provenance.
+- `segment` — DRAFTS ONLY: which id space Gate 1 allocates into (formats §1). Declared by the reviewer, never derived; consumed at activation, because the permanent id then carries it.
 - `supersedes` — target transitions to `superseded` automatically at activation. Chains MUST be acyclic.
 - `verification` — see §6. At least one entry at all times, including drafts.
 - `scope.owns` / `scope.must_not_touch` — repo-relative path globs; the negative scope is hook-enforced. Manifest references are NOT permitted in scope fields — hook enforcement must never depend on reference resolution.
@@ -219,7 +185,7 @@ One file per service at `spec/manifests/<service>.manifest.yaml`, validated agai
 - `artifacts` — structures minted somewhere, carried as a VALUE inside payloads, and validated elsewhere; shared manifest only (§5.5, §6.1). A field names one with `artifact:`.
 - `audit_forbidden` — field names no audit record may ever carry; shared manifest only (§5.10).
 - `conventions` — store-wide naming standards for **wire-visible** names (`field_names`, `path_segments`), declared in the shared manifest **only** and enforced by C13. Per-service tables would let a house standard diverge service by service, which is what the table exists to prevent. Spec identifiers are not governed here: the schema fixes those, so every id stays addressable by the token grammar. An absent table means unenforced.
-- `messages` — async surface: `{id, subject, direction, payload, ru, audits[], external?, planned?}`. `audits` is inbound-only — on an outbound entry you are producing the message, not handling one — and it closes the largest gap in the old model, where an async consumer that mutated state had nowhere to declare what it recorded. `payload` is a **type name only**, owned by the shared wire-contracts crate/package — the compiler owns the shape; the manifest never duplicates it. `external: true` marks an inbound subject produced outside the spec store (§5.8).
+- `messages` — async surface: `{id, subject, direction, payload, ru, audits[], external?, planned?}`. `audits` is inbound-only — on an outbound entry you are producing the message, not handling one — and it closes the largest gap in the old model, where an async consumer that mutated state had nowhere to declare what it recorded. `payload` is a **type name only**, owned by the shared wire-types crate/package — the compiler owns the shape; the manifest never duplicates it. `external: true` marks an inbound subject produced outside the spec store (§5.8).
 - `channels` — WebSocket surface: `{id, upgrade_path, access, ru, connection_close_codes[], frames[]}` with frames as `{id, direction, payload}` (type names only).
 
 Every surface entry carries an `ru:` link (the governing RU or FEAT id) — the manifest-side half of bidirectional traceability (§6.6). Conflicts discovered while building a manifest are NEVER recorded as inline comments; they compile to `GAP-` items with `severity: blocking` (§8.1), holding activation of every RU referencing the disputed fact.
@@ -236,9 +202,9 @@ Inside RU statements (and only there — not scope, not verification refs):
 {endpoint:<id>.<direction>}            {endpoint:<id>.<direction>.<field>}
 ```
 
-An endpoint reference may address one of the surface's two directions, and a field within that direction's declared census (§5.9); nesting is expressed by the field name (`…outbound.cancellation.at`). `direction` is `inbound` or `outbound` and closed by the grammar — a misspelling is malformed, not unresolved. This is how an RU binds to a shape: the statement names the field, and L23 reports a reference to a field the surface does not declare.
+An endpoint reference may address one of the surface's two directions, and a field within that direction's declared census (§5.9); nesting is expressed by the field name (`…outbound.cancellation.at`). `direction` is `inbound` or `outbound` and closed by the grammar — a misspelling is malformed, not unresolved. This is how an RU binds to a shape: the statement names the field, and L15 reports a reference to a field the surface does not declare.
 
-**Cross-service qualifier (v0.10).** A reference may name the owning service: `{endpoint:service-billing/charge}`, `{problem:service-billing/payment-failed}`. One slash, before the key; grammar in `formats.md` §2. Rules:
+**Cross-service qualifier.** A reference may name the owning service: `{endpoint:service-billing/charge}`, `{problem:service-billing/payment-failed}`. One slash, before the key; grammar in `formats.md` §2. Rules:
 
 - Resolution: a **qualified** reference resolves against the named service's manifest **only** — a miss there is a dangling reference (L15), never a fallback, which would silently bind the statement to a different fact than the one it names. An **unqualified** reference resolves own-scope service manifest → `shared.manifest.yaml`. Shadowing remains forbidden (L16).
 - Cross-service references are permitted to **surfaces, problem types, and audit events only — never a foreign service's `values`**. Needing another service's scalar is precisely the §5.5 promotion-to-shared trigger; qualified value refs would bypass that discipline and are an L15 error.
@@ -289,7 +255,7 @@ The manifest is normative; code that disagrees is wrong by definition (spec stor
 - Every event, frame, emission, or close code appearing in a model MUST resolve to a manifest entry (C8). A statechart may say *when* `CANCEL` fires; only the manifest says the cancel surface exists and what carries it.
 - A model that introduces its own vocabulary is duplicating facts — a P8 violation surfaced by C8, not a modelling choice.
 
-### 5.8 Planned surfaces and external producers (v0.10)
+### 5.8 Planned surfaces and external producers
 
 **Planned surfaces.** A designed-but-unbuilt surface carries `planned: true` — NOT a FEAT stub, which would discard the interface facts and leave draft RUs with unresolvable references. Semantics:
 
@@ -301,7 +267,7 @@ The manifest is normative; code that disagrees is wrong by definition (spec stor
 
 **External producers.** An inbound subject whose producer lives outside the spec store (e.g., a third-party gateway) carries `external: true`. It is exempt from C9's one-outbound-declarer rule — there is no in-store declarer to find. If an in-store outbound declarer for the subject DOES exist, the `external` marker is itself a C9 error: a wrong marker does not get to disable the check. `external` on an outbound message is a schema error (we always own what we emit). Like the model-vocabulary `internal` escape, `external` markers are reviewed at Gate 1: it is the bucket that will attract exactly the traffic it was built to exclude, and its growth is watched.
 
-### 5.9 Surface shapes (v0.13)
+### 5.9 Surface shapes
 
 An HTTP surface has two directions, and the manifest declares both. An endpoint carries `inbound` and `outbound`; C10 requires both, at error severity, with no exemption for `planned` — a surface whose shape cannot be stated has not been designed. Shape formats are in `formats.md` §13.
 
@@ -325,7 +291,7 @@ An audit event is an interface surface (§5.4) and always has been. What it was 
 
 **It carries a census, in the same grammar as every other surface** — presence, type, vocabulary, nesting. Presence is the OUTBOUND vocabulary (`always | never`): a record is minted, never accepted, so `forbidden` is the wrong claim to make about one, and C11 says so.
 
-**`retention` is declared on the event**, not restated in every RU that mentions it. Before this, one clause was repeated per event; now the fact has a home and a single constitutional RU can require it of every record.
+**`retention` is declared on the event**, not restated in every RU that mentions it. The fact has one home, so a single constitutional RU can require it of every record.
 
 **`audit_forbidden` is store-wide.** Credential material in an evidence trail is the audit equivalent of a mass-assignment hole, and it is not an event-by-event judgment — declaring it once in the shared manifest makes an omission visible instead of a per-event oversight. An audit census declaring a forbidden field as `always` is a C6 error.
 
@@ -341,7 +307,7 @@ An audit event is an interface surface (§5.4) and always has been. What it was 
 
 There is no `contract` verification type. A shape is a manifest fact — an endpoint's `inbound`/`outbound` census, an audit event's field list, a shared `artifacts` entry — and an RU binds to one by **addressing it in the statement** (`{endpoint:get_order.outbound.cost_basis}`, `{artifact:jwt-access-token.iss}`), then proving it with a `test`.
 
-Until v0.14 the same binding could be expressed two ways: a `verification: contract` entry *and*, from v0.13, a statement token. Two mechanisms for one relationship is the duplication this framework exists to remove, and the artifact layer it required could not be explained to a consumer — a manifest already *is* a contract, with callers, subscribers and error handlers. What that layer genuinely held was one thing: structure behind an **encoding boundary**, where a census cannot reach. A response declares `access_token: string`; the claims live inside that string. Those are `artifacts` in the shared manifest (§5.5), referenced from a field by `artifact:` and addressable as `{artifact:<id>[.<field>]}`.
+A manifest already *is* a contract: it has callers, subscribers and error handlers, so an RU binds to a shape by addressing it in the statement and there is no second mechanism for the same relationship. One case a census cannot reach is structure behind an **encoding boundary** — a response declares `access_token: string`, and the claims live inside that string. Those are `artifacts` in the shared manifest (§5.5), referenced from a field by `artifact:` and addressable as `{artifact:<id>[.<field>]}`.
 
 The coverage policy can still require shape binding: `binds_shape` (§6.7) reads the statement, so "a security RU must be bound to a declared shape" survives the change rather than degrading to "must have two mechanical checks".
 
@@ -359,11 +325,26 @@ verification:
     conformance: generated          # generated | manual (manual requires justification)
 ```
 
+**Shim registration (MANDATORY for depth).** A generated suite drives a hand-owned **shim** the APPLICATION provides. Until the store records that shim in `spec/framework/shims.yaml` — a human claim, checked by C15 — the suite is rendered unrunnable (ignored-with-reason), contributes **zero** depth to the coverage policy (§6.7, L21) — the mechanical minimum and the type clauses alike — and is reported apart from suites that execute. A suite that cannot execute is not depth: this is the last place declared depth could exceed provable depth.
+
 **Anti-drift rule (MANDATORY):** CI recomputes the hash every run; a mismatch makes the verification **stale** and the RU *failing* until conformance is regenerated. Green against a stale hash is red. The same hash discipline applies to manifests (§5.6).
 
-**Model evolution (v0.10.5):** editing a referenced model is lawful through **re-affirmation** — a Gate 1 act (`reaffirm`, reviewer-gated) that updates each active dependent's `model_hash` to the current model, re-stamps under the reviewer's id, and regenerates conformance. The reviewer's judgment is the gate: an RU whose *meaning* the model change alters is superseded instead of re-affirmed. Superseded and retired RUs keep their historical hashes untouched — provenance, never a currency claim — and re-stamping moves `gate1_stamp.at`, so prior Gate 2 records for re-affirmed RUs stop counting (the thing they judged was verified against a different model). Hand-editing a hash without the ceremony remains an L19 error.
+**Model evolution:** editing a referenced model is lawful through **re-affirmation** — a Gate 1 act (`reaffirm`, reviewer-gated) that updates each active dependent's `model_hash` to the current model, re-stamps under the reviewer's id, and regenerates conformance. The reviewer's judgment is the gate: an RU whose *meaning* the model change alters is superseded instead of re-affirmed. Superseded and retired RUs keep their historical hashes untouched — provenance, never a currency claim — and re-stamping moves `gate1_stamp.at`, so prior Gate 2 records for re-affirmed RUs stop counting (the thing they judged was verified against a different model). Hand-editing a hash without the ceremony remains an L19 error.
 
 **Applicability test:** every node/transition must have exactly one executable meaning with no prose annotation. If a node needs a paragraph, it is a drawing — use `test` + statement instead. Model classes: decision graphs/tables (*diagram-as-source*: executed directly, zero drift possible), statecharts (*diagram-as-oracle*: code hand-owned, tests generated), dataflow topologies (wiring + property checks generated). All model vocabulary resolves to manifests (§5.7).
+
+**Statechart dialect (M1–M6).** Graph facts a JSON Schema cannot express, enforced as their own lint family — one implementation, two surfaces: reported at `lint`, and generation refuses a model whose violation would make the rendered suite wrong.
+
+| Code | Severity | Rule | Why |
+|---|---|---|---|
+| M1 | error | `initial` names a declared state | the machine must start somewhere real |
+| M2 | error | every transition target is a declared state | a generated test would otherwise assert a transition to nowhere and fail only at shim runtime |
+| M3 | error | final states declare no `on` | a state cannot be both an end and a waypoint |
+| M4 | warning | at least one final state is reachable from `initial` | a machine that cannot finish models a process nobody completes — but a genuinely cyclic lifecycle legitimately declares no final state, so this is visible debt, never a block |
+| M5 | error | every event resolves to a manifest entry via `vocabulary` | delivered as C8: it needs manifests, which makes it cross-artifact |
+| M6 | error | invariant names are unique within a model | each generates a probe named after it, and duplicates collapse check identity |
+
+M4 is skipped when M1 already fired: a reachability walk with no lawful start would report one defect under two numbers. Generation refuses on M2, M3 and M6 — the rules the plan's rendering actually depends on; M1 and M4 are judgments the plan never consults, so they are reported without blocking.
 
 ### 6.4 `human`
 Explicitly deferred judgment. Allowed, but: human-only verification is a standing lint warning (visible debt); surfaced as Gate 2 review items with recorded pass/fail + note; agent self-certification FORBIDDEN. Store-wide metric `% human-only` reviewed monthly — a rising trend means the framework is degrading into prose with extra steps.
@@ -371,7 +352,7 @@ Explicitly deferred judgment. Allowed, but: human-only verification is a standin
 ### 6.5 Missing checks
 Implied-but-absent checks get `ref: TODO(<description>)`, which auto-generates a work item. A TODO'd RU may be `active` but computes *blocked*, never *pass*.
 
-**Resolving a TODO (v0.11.1):** once the check exists, conversion is a Gate 1 act, not a supersession — `resolve` replaces the TODO entry with a real, resolvable ref (a scanned test id) and re-stamps under the reviewer's id. The path is strictly strengthening: statement/scope/tier untouched, entries never removed, real refs never replaced — anything else remains supersession-only. Multiple TODOs must be disambiguated by description substring, and indistinguishable duplicates refuse outright (an authoring bug, cleaned by supersession). Re-stamping moves `gate1_stamp.at`, so prior Gate 2 records stop counting; hand-editing a ref without the ceremony is an L19 error.
+**Resolving a TODO:** once the check exists, conversion is a Gate 1 act, not a supersession — `resolve` replaces the TODO entry with a real, resolvable ref (a scanned test id) and re-stamps under the reviewer's id. The path is strictly strengthening: statement/scope/tier untouched, entries never removed, real refs never replaced — anything else remains supersession-only. Multiple TODOs must be disambiguated by description substring, and indistinguishable duplicates refuse outright (an authoring bug, cleaned by supersession). Re-stamping moves `gate1_stamp.at`, so prior Gate 2 records stop counting; hand-editing a ref without the ceremony is an L19 error.
 
 ### 6.6 Bidirectional traceability
 
@@ -381,7 +362,9 @@ Every test declares which RU(s) it verifies (`verifies(RU-XXXX)` annotation, or 
 - **Untraced checks** — behaviour no requirement governs: compile the missing RU (via new INT acknowledgment), delete the check and its behaviour, or mark `trace: infrastructure` (audited — a growing infrastructure bucket is the escape hatch rotting).
 - **Orphan manifest facts** (C7) — a surface or shared value no active RU references: dead interface or missing requirement; a finding either way.
 
-L14 blocks new untraced checks; pre-existing ones burn down. A requirement without behaviour, a behaviour without a requirement, and a fact without a governor are all equally detectable.
+**Adoption is reversible.** A trace annotation lives in the consumer's own source because the framework asked for it, so the framework MUST be able to take it back: `rqunit trace --strip` removes annotations naming no active RU, and `--all` removes every annotation including the `infrastructure` markers. The judgment is core's — which tokens are stale is a store question, and an adapter is never asked it — while the rewriting is the **stripper** role's, because only a stack knows what its own annotation looks like. A partially-stale annotation keeps its live tokens: a check proving three RUs, one retired, keeps the other two. Nothing is written without an explicit apply, a stripper answer naming a check core did not ask about is refused rather than written, and a stack declaring no stripper is REPORTED as un-strippable rather than reported clean — a stack that can be adopted but not un-adopted is a one-way door, and the operator has to see it. Artifact transport cannot serve this role: the answer depends on a request computed from today's store, so a committed file would be an earlier run's edits applied to current source.
+
+L14 blocks new untraced checks; pre-existing ones burn down. "New" is set difference — the check ids the scanner observes at head minus those it observed at the base ref — never diff-line inspection, which would put language knowledge in the framework. The base observation is governed by the base tree's own configuration: widening a scan makes previously unobserved checks new, deliberately, because a check nothing had ever observed has never been judged; a renamed untraced check is one deletion plus one addition, and the addition still blocks. A requirement without behaviour, a behaviour without a requirement, and a fact without a governor are all equally detectable.
 
 ### 6.7 Coverage policies — verification depth by criticality
 
@@ -406,6 +389,20 @@ Rules:
 - Policy violations are blocking at activation (a draft cannot activate under-covered) and warnings on already-active RUs after a policy tightening — tightening generates a burn-down list, never a mass red build.
 - The policy file itself is Gate-1-governed (it changes what "adequately verified" means store-wide — that is a human decision with an impact report, same discipline as a shared-manifest edit).
 
+### 6.8 Check evidence — whether a check discriminates
+
+Depth counts checks. It cannot tell whether a check *distinguishes* anything. An agent that has read the implementation and then writes a test asserting that implementation's shape produces a check that is green on its first run, stays green through every change preserving the shape, and is indistinguishable at rest from a check that earns its green. Coverage rises; nothing is proved.
+
+What separates them is history. A check that has **ever** been observed failing has demonstrated it can fail; one that has only ever been green has demonstrated nothing. So the framework keeps an append-only ledger of firsts at `spec/check-evidence/check-evidence.jsonl`: one line per check per *first* pass and *first* failure.
+
+> **Vocabulary.** This is the framework's evidence about its own checks. It is not the AUDIT record — the consumer system's evidence to its operators (§5.10). The two never share a file, a key, or a rule.
+
+A per-stack **evidence probe** reads its runner's output and reports which checks passed and which failed (contract: `interfaces/check-evidence.schema.json`); `rqunit evidence record` folds a run into the ledger. The split is the adapter rule applied unchanged: a probe reports outcomes, and deciding that an outcome is a *first* requires history, which is a judgment. Probes emit no timestamps — their output must be a byte-deterministic function of their input, so the recording time is core's to stamp.
+
+Only firsts are recorded. A second red proves nothing a first red did not, and recording it would make an append-only file grow with every CI run while saying the same thing.
+
+**L26** reports a `test`-type verification whose check has been observed green and never red. It is `finding`-class and must never be promoted to `error`: a check may legitimately never have been observed failing — it was written before the code, and the ledger only begins when recording begins — and blocking that case rewards theatrical failure (break it once, record the red, restore it). A check with no evidence at all is never reported: absence of evidence is not evidence of absence. The rule is scoped to `test` refs, because a `model` suite is generated from the statechart and cannot be shaped by the implementation it checks.
+
 ---
 
 ## 7. Lifecycle
@@ -420,7 +417,13 @@ draft ──(activation gate, §8.2)──▶ active ──(superseded by new RU
 
 ### 7.1 Identity assignment
 
-Permanent IDs are assigned at Gate 1 — the one already-serialized point — by the activation tool in a single commit: list `spec/ru/`, take max, bump; rename `RU-draft-<ULID>.yaml` → `RU-XXXX.yaml` (ULID kept as `draft_id`); rewrite draft cross-references; set `active` and flip any `supersedes` target. Parallel drafting never contends on IDs; splitting the rename and reference-rewrite across commits is FORBIDDEN (it creates a window of dangling ULIDs).
+Permanent IDs are assigned at Gate 1 — the one already-serialized point — by the activation tool in a single commit: list `spec/ru/`, take max **within the target segment**, bump; rename `RU-draft-<ULID>.yaml` → the permanent filename (ULID kept as `draft_id`); rewrite draft cross-references; set `active` and flip any `supersedes` target. Parallel drafting never contends on IDs; splitting the rename and reference-rewrite across commits is FORBIDDEN (it creates a window of dangling ULIDs).
+
+The **segment** a draft is allocated into is declared on the draft (`segment`, formats §1) and consumed by activation — once the id carries it, a second copy of the same fact could disagree with the id. It is never derived from `scope.owns`: segments and services are many-to-many, so derivation would silently impose the physical axis and be wrong on a monolith hosting several domains and on a domain spanning several services alike. A draft that declares no segment is allocated into the unsegmented space, where a requirement governing the whole store belongs.
+
+Activation refuses to allocate into a segment the store does not declare, or into one declared `closed` — a segment name is permanent once its first id is minted (§10.2, C16), so it is registered before the sitting rather than invented by it. Each segment is an independent sequence: the ceiling is per space, and the nearest answer to exhausting one is usually another segment rather than a width migration.
+
+**Reading the listing is what makes allocation safe.** `max + 1` over what exists cannot mint an id that already exists; a `NEXT_ID` counter file is FORBIDDEN because it races across branches. This is also why a store must be read in ONE base: decimal-spelled ids are legal base-32 ids whose reinterpretation preserves order, so a store that started decimal continues in base-32 with nothing rewritten — but a store read as decimal in one place and base-32 in another has two allocators disagreeing about what is taken.
 
 ### 7.2 Gate stamps — reviewed is computed
 
@@ -432,12 +435,12 @@ P4 applies to review status too: "reviewed" MUST be a computed fact, not a check
 
 ### 7.3 Suspect links — every cross-artifact edge is fingerprinted
 
-Models and manifests are already hash-guarded; v0.9 closes the remaining unhashed edges. At activation, the tool records a **fingerprint for every cross-artifact reference** the RU carries — `rationale_ref` ADRs (file content hash) and `supersedes`/related RU links (normative-field hash) — in the tool-owned `link_fingerprints` map.
+Models and manifests are hash-guarded, and so is every cross-artifact edge. At activation, the tool records a **fingerprint for every cross-artifact reference** the RU carries — `rationale_ref` ADRs (file content hash) and `supersedes`/related RU links (normative-field hash) — in the tool-owned `link_fingerprints` map.
 
 - L20 recomputes fingerprints continuously. A mismatch marks the link **suspect**: the target changed after this RU relied on it. Suspect ≠ failing — the RU's checks may still pass — but the RU surfaces in the **suspect queue** presented at the next Gate 1 sitting.
 - Resolution is binary: **re-affirm** (human confirms the changed target still supports the RU; tool refreshes the fingerprint under the reviewer's id) or **supersede** (the change invalidated the RU's rationale; compile a successor).
 - Packets already snapshot resolved content and hashes (§9.1), so committed packets are never retroactively suspect — the mechanism governs the *live* store only.
-- Consequence worth stating: an ADR is no longer freely editable prose. Rewriting one flips every dependent RU suspect — which is exactly right, because the rationale those RUs were reviewed against no longer exists.
+- Consequence worth stating: an ADR is not freely editable prose. Rewriting one flips every dependent RU suspect, which is correct — the rationale those RUs were reviewed against is gone.
 
 ---
 
@@ -487,12 +490,13 @@ Every assembly is written to `spec/packets/TASK-XXXX.packet.md`, committed with 
 
 - The packet is the complete and exact store-derived context the agent received; nothing bypasses it.
 - Manifest references are recorded **resolved** — the actual values and surface entries the agent saw — together with the **manifest and model hashes** at assembly time. The flight recorder is therefore immune to later manifest edits: "why did the agent do that?" is answered by the packet, deterministically.
-- Packet generation is a pure function of `(task refs, store state)`; byte-identical modulo a generated-at header, regression-testable.
+- Packet generation is a pure function of `(task refs, store state, mode)`; byte-identical modulo a generated-at header, regression-testable.
 - Hand-editing FORBIDDEN; immutable once the task completes; re-runs produce new versions.
+- A packet declares its **mode**, recorded in the header. `implementation` is the default. `check-authoring` appends one section: write the checks from the statements, do not read the files the task owns, run them expecting red, and record that run (§6.8). An agent authoring checks with the implementation in context writes assertions shaped by it — not disobedience, salience — and instructions do not counteract salience. So the framework states the discipline and does not pretend to enforce it: no hook gates reads, any out-of-band retrieval would defeat one, and a guardrail that reads as a guarantee is worse than a stated rule. What makes the discipline checkable is evidence, not policing — a check authored before its implementation is observed red first, and one that was only ever green is reported by L26 whatever the packet instructed.
 
 ---
 
-## 10. Enforcement Layer (the actual framework)
+## 10. Enforcement Layer
 
 This section is the framework. Without it, the rest of this document is prose.
 
@@ -519,7 +523,10 @@ This section is the framework. Without it, the rest of this document is prose.
 - L20: every `link_fingerprints` entry matches the current fingerprint of its target (§7.3); mismatch → link suspect, RU enters the suspect queue (finding-class, surfaced at Gate 1, not a red build).
 - L21: every RU satisfies the first matching rule in `coverage.policy.yaml` (§6.7); blocking at activation, warning + burn-down for actives after policy tightening.
 - L22: every `planned: true` surface entry's `ru:` link is not-done — for an RU link, computed status ≠ done; for a FEAT link, no member RU computes done (§5.8). Violation → blocking: either the surface shipped without its Gate 1 flip, or verifications pass against a surface that supposedly does not exist.
-- L25: the shall-clause subject resolves to a declared service manifest, and agrees with the service the RU's `scope` owns. `the system` claims no service and is exempt, which is what keeps store-wide and service-scoped behaviour distinguishable. Two claims about which service governs an RU — the subject and `scope.owns` — previously coexisted with nothing reconciling them, so a misfiled RU passed every gate; §5.3's rule that referencing is read coupling rather than governance had no enforcement until this.
+- L25: the shall-clause subject resolves to a declared service manifest, and agrees with the service the RU's `scope` owns. `the system` claims no service and is exempt, which is what keeps store-wide and service-scoped behaviour distinguishable. Two claims about which service governs an RU — the subject and `scope.owns` — must agree, or the RU is filed against a service it does not govern. §5.3: referencing is read coupling, not governance.
+- L26: a `test`-type verification whose check has been observed green and never red → finding. A check that has never failed has not demonstrated it can; never promoted to error, because a check written before its code legitimately has no red, and blocking that rewards theatrical failure (§6.8).
+- L27: a draft whose segment declaration contradicts its tier, in a store that has declared any segment → warning. The absence of a segment is a positive claim — this requirement governs the store rather than a domain — and the schema already makes that population the constitutional tier, which alone may omit `scope.owns`. So a standard draft naming no segment would be minted store-wide, and a constitutional draft naming one would mint a permanent segmented id for a store-wide invariant: a segment holding cross-cutting concerns is the unsegmented space under a nicer name. Scoped to DRAFTS because a permanent id can never acquire or shed a segment: the same warning about an active RU would be advice with no available fix, which is how a rule teaches consumers to ignore the tool. Silent in a store that has adopted no segments — a rule firing on a shape nobody opted into demands adoption rather than enforcing a decision (formats §1).
+- M1–M4, M6 (statechart dialect, §6.3): `initial` ∈ states; every transition target ∈ states; final states carry no `on`; at least one final state is reachable from `initial` (warning, and skipped when M1 fired — a walk with no lawful start would cascade one defect under two numbers); invariant names unique per model. One implementation, two surfaces: reported at lint, and generation refuses on M2/M3/M6 with the same messages. M5 (every event resolves to a manifest entry via `vocabulary`) is C8's cross-artifact question.
 
 ### 10.2 Consistency checks (CI, blocking)
 - C1: two active RUs on the same normalized trigger (actor–verb–object) that CONTRADICT each other → error; identical responses → duplicate warning. Sharing a trigger is not itself a conflict — §2.1 makes each acceptance criterion exactly one RU, so a dozen RUs may hang off one endpoint, and that is what a well-decomposed feature looks like. Two contradictions are mechanically visible: the same obligation carrying two different bounds, and one response asserting what another denies. A semantic contradiction with neither signal ("shall retry" against "shall abandon") is NOT caught, which extends the paraphrase miss this check already documents — analyst dedupe (§8.1) mitigates; supersession repairs the rest.
@@ -535,6 +542,9 @@ This section is the framework. Without it, the rest of this document is prose.
 - C11: declared shapes are well-formed → error. Presence vocabulary matches the slot's direction (`always|never` outbound, `required|optional|forbidden` inbound); an inbound shape resolves an unknown-field policy; `in` is inbound-only; `nullable` is meaningless on a field that never appears; `type: array` names its `items`; `type: object` declares at least one member; bound keys suit the declared type; a dotted child implies a declared parent, and a `never`/`forbidden` parent carries no children.
 - C12: path placeholders and `in: path` fields reconcile in both directions, and placeholder names are unique within a path → error.
 - C13: wire-visible names follow the `conventions` declared in the shared manifest → error where a convention is declared; absent table means unenforced.
+- C14: a state-changing route declaring no audit event → finding. Constitutional RU-0002 made checkable; the HTTP method is a heuristic rather than proof, so it reports rather than blocks.
+- C15: every shim registration names a model the store carries, once each → error. A registration is a depth claim (§6.3): one naming a model the store does not carry proves nothing, and a duplicate makes "is this registered" ambiguous the moment two entries disagree about who registered it and when.
+- C16: the segment registry is well formed, and every segment an id uses is declared → error, except a missing `domain`, which is a warning: nothing reads it, `domain: TBD` satisfies everything a machine can check of it, and a red build for a sentence of prose teaches consumers to bypass the gate. Segments partition ALLOCATION, never verification — every rule stays store-wide (§1). A segment name is the one vocabulary in this store that is PERMANENT: it lives in filenames, gate stamps, Gate 2 review directory names, packets and `verifies:` annotations in consumer source, and ids are never rewritten, so a rename or a removal is a mass supersession rather than an edit. Retirement is `closed: true`, which keeps existing ids working.
 
 ### 10.3 Hooks (runtime, blocking)
 - H1 (pre-write): writes matching in-context `must_not_touch` globs → blocked.
@@ -569,12 +579,15 @@ Dashboards render computed status only. No manual status field exists — includ
 
 ```
 spec/
-  framework/pack.yaml                  # pack version this store was authored against
+  framework/pack.yaml                  # SPEC version this store was authored against
   framework/coverage.policy.yaml       # verification-depth policy (L21, §6.7)
+  framework/conformance-exceptions.yaml # ratified divergences (§5.6; formats §14)
+  framework/shims.yaml                 # registered statechart shims (§6.3, C15)
+  framework/segments.yaml              # declared id segments (formats §1, C16)
   framework/tags.yaml                  # controlled tag vocabulary (L10)
   framework/actors.yaml                # controlled actor registry (L12)
-  intent/INT-XXXX.*                    # immutable, verbatim
-  ru/RU-XXXX.yaml                      # ONE FILE PER RU (§12.2)
+  intent/INT-<ULID>.*                  # immutable, verbatim
+  ru/RU-<id>.yaml                      # ONE FILE PER RU (§12.2)
   features/FEAT-*.yaml                 # one file per FEAT
   manifests/<service>.manifest.yaml    # one manifest per service
   manifests/shared.manifest.yaml       # cross-service facts (§5.5)
@@ -582,6 +595,7 @@ spec/
   gaps/GAP-XXXX.yaml                   # open ambiguities & conflicts
   rationale/ADR-<slug>.md              # decision records behind rationale_ref (§7.3; formats §10)
   reviews/RU-XXXX/*.yaml               # append-only Gate 2 records (§7.2)
+  check-evidence/check-evidence.jsonl  # append-only ledger of check firsts (§6.8)
   packets/TASK-XXXX.packet.md          # materialized assembly, immutable post-task
   projections/                         # generated only
 ```
@@ -721,7 +735,7 @@ tags: [screening, audit]
 
 What Example A demonstrates: timing lives in `test`, structure in `model`, facts in the manifest; the retention value is registered (≥2 RUs reference it) while the cancel bound stays literal; the audit event and endpoint are referenced by id; C8 binds the model's `CANCEL` to the manifest's surface; a later change of `decision_log_days` is a Gate-1 mutating edit whose impact report lists its dependents, and whose checks re-read the manifest rather than asserting a stale 90.
 
-Note what RU-0204 no longer says. Retention is declared on the audit event itself (§5.4), so the statement asserts only the obligation that is this RU's: the record happens, exactly once. Before v0.14 every audit RU carried its own "retrievable for … days" clause, and the same fact was restated once per event; now one constitutional RU covers retention for every record, and moving the fact to its proper home removed a clause rather than relocating it.
+Note what RU-0204 does not say. Retention is declared on the audit event itself (§5.4) and one constitutional RU covers it for every record, so this statement asserts only the obligation that is its own: the record happens, exactly once. A fact declared in its proper home does not need restating once per event.
 
 ### 13.2 Example B — Story → RU compilation (where ACs went)
 
@@ -768,13 +782,30 @@ Standing rule: scaling fixes MUST target human throughput or context economy —
 
 ## 15. Adoption Order
 
-1. Build lints L1–L5 + L18 (manifest schema validation), and the directory layout. Nothing else matters before this.
-2. Author the pilot manifests (one boundary service + shared) and one lifecycle-shaped model with 3–6 RUs (Example A pattern), references resolving end-to-end.
-3. Wire H1 into pre-write hooks.
-4. Add model + manifest conformance generation and L6 hashing — the drift guarantee is now standing. Extend `spec-activate` with gate stamps and link fingerprints (L19/L20) in the same step: it is the same hashing machinery, and stamps from day one mean no retro-stamping backlog.
-5. Add reverse traceability (L14, `ru:` links, orphan reports incl. C7) — blocking for new checks, burn-down for existing.
-6. Materialize task packets with resolved references and recorded hashes (§9.1), once the assembler exists.
-7. Stand up the analyst agent with the §8.1 contract (including registration duty) and an eval set scored on gap-surfacing rate.
-8. Coverage policy (L21) once real RU volume exists to calibrate against — seeding policy before content invites guessing at profiles; projections and dashboards last.
+Adopt in this order. Each step makes the next one cheap, and every one of them
+is useful on its own if you stop there.
 
-Constitutional seeds at pilot time: RU-0001 (default-deny), RU-0002 (audit-on-mutation), RU-0003 (clean-room criterion).
+1. **Scaffold.** `rqunit init` writes the store layout, the seed vocabularies, a
+   coverage policy, and `rqunit.toml`. Declare your stack in the same sitting;
+   an undeclared stack simply means the language-specific verbs observe nothing.
+2. **Register the vocabularies you will actually use** — `tags.yaml` and
+   `actors.yaml`. They start empty on purpose: a taxonomy chosen before there is
+   content to classify is a taxonomy nobody obeys.
+3. **Author one boundary.** A shared manifest, one service manifest, and a
+   handful of RUs compiled from a real captured intent. Stop when
+   `rqunit lint` and `rqunit check` are green and every reference resolves —
+   that is the smallest thing that proves the model fits your domain.
+4. **Wire the runtime hooks** so packet-scoped work is bounded (§10.3), and hold
+   the first Gate 1 sitting: `rqunit activate batch`.
+5. **Wire an adapter's extractor and scanner.** Conformance and traceability
+   begin observing your code at this point; before it they have nothing to read.
+   L14 blocks new untraced checks and existing ones burn down, so adoption never
+   starts with a wall of red.
+6. **Add models and generated conformance** once a lifecycle is worth pinning,
+   and register the shim that makes the generated suite executable (§6.3).
+7. **Set the coverage policy last** (§6.7), when there is enough RU volume to
+   calibrate against. A policy written before content is a guess at profiles.
+
+Three constitutional RUs are worth seeding early, because everything else is
+measured against them: default-deny access, audit-on-mutation, and whatever
+clean-room criterion your review process needs.

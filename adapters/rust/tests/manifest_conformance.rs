@@ -15,6 +15,16 @@ use rqunit_adapter_rust::{artifact_path, render, workspace_root};
 #[test]
 fn committed_actual_surface_matches_the_code() {
     let root = workspace_root().expect("workspace root");
+    if !root.join("rqunit.toml").exists() {
+        // The product repository is not a consumer: there is no [stacks.rust]
+        // composition here to extract against. This currency test is armed the
+        // moment the crate is vendored into a workspace that carries one.
+        eprintln!(
+            "skipped: no rqunit.toml at {} — not a consumer workspace",
+            root.display()
+        );
+        return;
+    }
     let path = artifact_path(&root);
     let committed = std::fs::read_to_string(&path).unwrap_or_else(|e| {
         panic!(

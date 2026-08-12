@@ -1,9 +1,9 @@
 """`rqunit doctor` — structural health. Invariants: a healthy store reports
-nothing; each detector fires on its own defect (lost RU leaves an id gap,
-unreferenced ADRs surface as notes, orphaned review records warn, a
-branch behind upstream warns); findings never fail the run unless --strict;
-and the activation pre-flight refuses a stale branch (the no-ceiling answer
-to parallel-allocation collisions)."""
+nothing; each detector fires on its own defect (a permanent RU git records as
+deleted and never restored, unreferenced ADRs surface as notes, orphaned review
+records warn, a branch behind upstream warns); findings never fail the run
+unless --strict; and the activation pre-flight refuses a stale branch (the
+no-ceiling answer to parallel-allocation collisions)."""
 
 import shutil
 import subprocess
@@ -32,26 +32,81 @@ def _kinds(root: Path) -> set[str]:
     return {f.kind for f in run_doctor(Store.load(root), root)}
 
 
-def test_consecutive_ids_and_intact_reviews_report_nothing(tmp_path):
+def test_a_sparse_id_sequence_is_not_a_finding(tmp_path):
+    """The fixture is deliberately sparse — RU-0001, RU-0002, RU-0142 — and
+    that is now a normal store rather than a suspicious one: under one base
+    every gap between consecutive allocations is an artefact of the alphabet,
+    not evidence of anything. Whatever replaces gap detection must stay quiet
+    here, or the replacement inherits the false alarm it was built to remove."""
     root = _copy(tmp_path)
-    # The fixture is deliberately sparse (RU-0001, 0002, 0142) to exercise
-    # unrelated features; drop the outlier so ids are consecutive.
-    (root / "spec" / "ru" / "RU-0142.yaml").unlink()
-    assert "id-gap" not in _kinds(root)
+    assert "lost-ru" not in _kinds(root)
     assert "dangling-review" not in _kinds(root)
 
 
-def test_id_gap_detects_a_lost_ru(tmp_path):
+def _git(root, *args):
+    import subprocess
+    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+
+
+def _repo(tmp_path):
     root = _copy(tmp_path)
-    ru_dir = root / "spec" / "ru"
-    template = yaml.safe_load((ru_dir / "RU-0002.yaml").read_text())
-    for number in (3, 5):                       # deliberately skip RU-0004
-        template["id"] = f"RU-{number:04d}"
-        (ru_dir / f"RU-{number:04d}.yaml").write_text(
-            yaml.safe_dump(template, sort_keys=False, allow_unicode=True))
-    findings = [f for f in run_doctor(Store.load(root), root) if f.kind == "id-gap"]
-    assert len(findings) == 1
-    assert "RU-0004" in findings[0].message and findings[0].severity == "warning"
+    _git(root, "init", "-q")
+    _git(root, "config", "user.email", "t@example.invalid")
+    _git(root, "config", "user.name", "t")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    return root
+
+
+def test_a_deleted_permanent_ru_is_reported_from_history(tmp_path):
+    """An activated RU is append-only history. The usual cause of one going
+    missing is an add/add merge resolved by keeping one side, and git is the
+    only witness — the store itself cannot know what it used to hold."""
+    root = _repo(tmp_path)
+    (root / "spec" / "ru" / "RU-0142.yaml").unlink()
+    _git(root, "commit", "-qam", "drop one")
+
+    findings = [f for f in run_doctor(Store.load(root), root) if f.kind == "lost-ru"]
+    assert findings and findings[0].severity == "warning"
+    assert "RU-0142" in findings[0].message
+
+
+def test_a_restored_ru_stops_being_reported(tmp_path):
+    """The finding is a difference between history and the store, not a scar in
+    history — restoring the file is a complete fix, and a warning that survives
+    its own remedy is one people learn to ignore."""
+    root = _repo(tmp_path)
+    kept = (root / "spec" / "ru" / "RU-0142.yaml").read_text()
+    (root / "spec" / "ru" / "RU-0142.yaml").unlink()
+    _git(root, "commit", "-qam", "drop one")
+    (root / "spec" / "ru" / "RU-0142.yaml").write_text(kept)
+    _git(root, "commit", "-qam", "restore")
+
+    assert [f for f in run_doctor(Store.load(root), root) if f.kind == "lost-ru"] == []
+
+
+def test_activation_renaming_a_draft_is_not_a_loss(tmp_path):
+    """Activation deletes the draft file and writes the permanent one. That is
+    the single most common deletion in any store's history, and reporting it
+    would make the finding pure noise from the first Gate 1 sitting."""
+    root = _repo(tmp_path)
+    draft = root / "spec" / "ru" / "RU-draft-01J3F8KQZ2ABCDEFGHJKMNPQRS.yaml"
+    template = yaml.safe_load((root / "spec" / "ru" / "RU-0002.yaml").read_text())
+    template["id"] = draft.stem
+    template["status"] = "draft"
+    draft.write_text(yaml.safe_dump(template, sort_keys=False, allow_unicode=True))
+    _git(root, "add", "-A"); _git(root, "commit", "-qm", "draft")
+    draft.unlink()
+    _git(root, "commit", "-qam", "activate")
+
+    assert [f for f in run_doctor(Store.load(root), root) if f.kind == "lost-ru"] == []
+
+
+def test_a_store_outside_git_gets_no_history_finding(tmp_path):
+    """Doctor is advisory; a store not under version control is a legitimate
+    state (a fixture, a scratch copy), not a defect to report."""
+    root = _copy(tmp_path)
+    assert [f for f in run_doctor(Store.load(root), root) if f.kind == "lost-ru"] == []
 
 
 def test_orphan_artifacts_surface_as_notes(tmp_path):
@@ -136,3 +191,32 @@ def test_findings_are_advisory_unless_strict(tmp_path):
     assert strict.exit_code == 1
     text = runner.invoke(doctor_main, ["--store", str(root), "--format", "text"])
     assert "warning/dangling-review" in text.output
+
+
+def test_history_check_survives_a_machine_without_git(tmp_path):
+    """A container that ships the store but not git is an ordinary CI shape.
+    Doctor is advisory: crashing there would exit 2 and take every other
+    finding down with it."""
+    from unittest import mock
+
+    root = _repo(tmp_path)
+    with mock.patch("rqunit.doctor.shutil.which", return_value=None):
+        assert [f for f in run_doctor(Store.load(root), root) if f.kind == "lost-ru"] == []
+
+
+def test_an_id_rewritten_in_place_is_not_hidden_by_rename_detection(tmp_path):
+    """Rewriting an id is the act the permanence rule forbids outright. Git
+    reads it as a rename by default, so the query has to be told not to follow
+    renames — otherwise doctor reports a healthy store precisely when the
+    unrepairable thing has happened."""
+    root = _repo(tmp_path)
+    ru_dir = root / "spec" / "ru"
+    data = yaml.safe_load((ru_dir / "RU-0142.yaml").read_text())
+    data["id"] = "RU-0143"
+    (ru_dir / "RU-0143.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+    (ru_dir / "RU-0142.yaml").unlink()
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "tidy an id")
+
+    findings = [f for f in run_doctor(Store.load(root), root) if f.kind == "lost-ru"]
+    assert findings and "RU-0142" in findings[0].message

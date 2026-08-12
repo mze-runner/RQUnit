@@ -1,7 +1,6 @@
 # Requirement Unit schema (JSON Schema draft 2020-12, expressed in YAML)
-# Normative source: ru-framework-spec.md v0.10 §3, §6, §7 (v0.9 adds gate1_stamp,
-# link_fingerprints — §7.2/§7.3).
-# Enforced by: L18-analogue for RUs (schema stage), plus semantic lints L1-L17.
+# Normative source: ru-framework-spec.md §3, §6, §7.
+# Enforced by: the schema stage for shape, plus the semantic lints.
 # NOTE: schema validates SHAPE only. Statement parseability (L1), reference
 # resolution (L15), actor membership (L12) etc. are semantic lints, not schema.
 
@@ -18,14 +17,24 @@ properties:
   id:
     type: string
     description: >
-      Draft stage: RU-draft-<ULID>. Active/superseded/retired: RU-XXXX.
+      Draft stage: RU-draft-<ULID>. Active/superseded/retired:
+      RU-<SEQUENCE> or RU-<SEGMENT>-<SEQUENCE> (formats §1).
       Cross-stage constraint enforced in allOf below.
-    pattern: "^RU-(draft-[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})$"
+    pattern: "^(RU-draft-[0-9A-HJKMNP-TV-Z]{26}|RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4}))$"
 
   draft_id:
     type: string
     description: The pre-activation ULID, recorded by spec-activate at Gate 1.
     pattern: "^RU-draft-[0-9A-HJKMNP-TV-Z]{26}$"
+
+  segment:
+    type: string
+    description: >
+      Which id space to allocate into at Gate 1 (formats §1). DRAFTS ONLY —
+      once activated the id carries the segment, and a second copy of the same
+      fact is a drift class. Declared by the reviewer, never derived from
+      scope.owns: segments and services are many-to-many.
+    pattern: "^(?![0-9A-HJKMNP-TV-Z]{4}$)[A-Z][A-Z0-9]{1,7}$"
 
   statement:
     type: string
@@ -34,7 +43,7 @@ properties:
       Exactly one normative EARS/Gherkin statement. May embed manifest
       references {value:x} {endpoint:x} {problem:x} {audit:x} {message:x}
       {channel:x} {frame:c.f} {vocab:x}. Parse + bound + compound rules are
-      lints L1-L3, not schema.
+      lints L1, L2 and L3, not schema.
 
   syntax:
     enum: [ears, gherkin]
@@ -52,12 +61,12 @@ properties:
 
   source_ref:
     type: string
-    description: "INT anchor: INT-XXXX#L<start>[-<end>] or INT-XXXX#S<section>."
-    pattern: "^INT-[0-9]{4}#(L[0-9]+(-[0-9]+)?|S[a-z0-9-]+)$"
+    description: "INT anchor: <INT id>#L<start>[-<end>]. Lines only — see spec §4."
+    pattern: "^INT-(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})#L[0-9]+(-[0-9]+)?$"
 
   supersedes:
     type: string
-    pattern: "^RU-[0-9]{4}$"
+    pattern: "^RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})$"
 
   rationale_ref:
     type: string
@@ -142,7 +151,7 @@ properties:
   link_fingerprints:
     type: object
     description: Cross-artifact reference fingerprints at activation (§7.3).
-    propertyNames: { pattern: "^(RU-[0-9]{4}|ADR-[A-Za-z0-9-]+)$" }
+    propertyNames: { pattern: "^(RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})|ADR-[A-Za-z0-9-]+)$" }
     additionalProperties: { type: string, pattern: "^sha256:[0-9a-f]{64}$" }
 
 allOf:
@@ -150,7 +159,13 @@ allOf:
   - if:
       properties: { status: { enum: [active, superseded, retired] } }
     then:
-      properties: { id: { pattern: "^RU-[0-9]{4}$" } }
+      properties: { id: { pattern: "^RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})$" } }
+  # `segment` is an allocation instruction, consumed at Gate 1. Once the id
+  # carries it, a second copy is free to disagree with the id.
+  - if:
+      properties: { status: { enum: [active, superseded, retired] } }
+    then:
+      not: { required: [segment] }
   # Draft status must use draft id.
   - if:
       properties: { status: { const: draft } }

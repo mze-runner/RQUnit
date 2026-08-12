@@ -94,24 +94,31 @@ def load_actual(path: Path) -> dict:
     if not path.is_file():
         raise BadConfig(str(path), "no actual-surface artifact — run the stack's extractor "
                                    "(Rust: `cargo run -p spec-conformance-tests --bin "
-                                   "extract-surface`) or point [stacks.*] actual_surface at it")
+                                   "extract-surface`) or point [stacks.<name>.adapter] "
+                                   "extractor = { artifact = \"...\" } at it")
     try:
         data = json.loads(path.read_text())
     except json.JSONDecodeError as e:
         raise BadConfig(str(path), f"not parseable JSON: {e}") from e
-    if "exceptions" in data:
-        raise BadConfig(
-            str(path),
-            "this artifact carries `exceptions`, which adapters may no longer author. A waiver "
-            "is a reviewed decision, not an observation: move each entry to "
-            "spec/framework/conformance-exceptions.yaml, where Gate 1 governs it (§5.6). An "
-            "extractor observes; it does not get to excuse what it observed.")
+    reject_exceptions(data, str(path))
     schema = json.loads(SCHEMA_PATH.read_text())
     try:
         Draft202012Validator(schema).validate(data)
     except ValidationError as e:
         raise BadConfig(str(path), f"does not match the actual-surface contract: {e.message}") from e
     return data
+
+
+def reject_exceptions(data: dict, where: str) -> None:
+    """Applies to every transport — a cmd-mode probe could smuggle waivers on
+    stdout just as easily as an artifact file could."""
+    if "exceptions" in data:
+        raise BadConfig(
+            where,
+            "this artifact carries `exceptions`, which adapters may no longer author. A waiver "
+            "is a reviewed decision, not an observation: move each entry to "
+            "spec/framework/conformance-exceptions.yaml, where Gate 1 governs it (§5.6). An "
+            "extractor observes; it does not get to excuse what it observed.")
 
 
 EXCEPTIONS_PATH = ("spec", "framework", "conformance-exceptions.yaml")
@@ -365,18 +372,23 @@ def _same_type_divergences(emit, service: str, declared: dict, served: dict) -> 
                  f"{', '.join(differing)}")
 
 
-def run(store: Store, root: Path, artifacts: list[Path]) -> list[Violation]:
+def run(store: Store, root: Path, artifacts: list) -> list[Violation]:
     """Assemble every probe's observation, then judge once (§5.6).
 
     Judging artifact-by-artifact was correct while one extractor spoke for a
     whole stack. With a probe per (language, framework) it is not: two probes
     describing one service would each report the other's surfaces as
-    undeclared."""
-    loaded = [load_actual(path) for path in artifacts]
+    undeclared.
+
+    Entries are artifact paths, or already-loaded dicts for probes core ran
+    itself (cmd mode) — same observations, different transport."""
+    loaded = [a if isinstance(a, dict) else load_actual(a) for a in artifacts]
     if not loaded:
         return []
     merged = merge(loaded)
-    where = Path(", ".join(str(p) for p in artifacts))
+    labels = [a.get("_source") if isinstance(a, dict) else str(a) for a in artifacts]
+    labels = [label for label in labels if label]
+    where = Path(", ".join(labels) if labels else merged["generated_by"])
     exceptions = load_exceptions(store.root)
     return (reconcile(store, merged, where, exceptions)
             + uncovered_families(store, merged))

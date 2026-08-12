@@ -1,0 +1,11 @@
+id: RU-0003
+statement: The system shall reject a cancellation lacking a reason.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: svc::orders::rejects_missing_reason
+scope:
+  owns: [service-orders/domain]
+tags: [orders]

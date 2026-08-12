@@ -1,14 +1,13 @@
 ---
 name: ru-authoring
-description: How to read, write, and MODIFY Requirement Units — EARS statement syntax, reference tokens, one-AC-one-RU compilation, GAP discipline, and the supersession rule (active RUs are frozen; L19 catches in-place edits). Load before authoring or changing ANYTHING under spec/ (RUs, FEATs, GAPs, manifests, models, contracts, ADRs, INT captures).
+description: How to read, write, and MODIFY Requirement Units — EARS statement syntax, reference tokens, one-AC-one-RU compilation, GAP discipline, and the supersession rule (active RUs are frozen; L19 catches in-place edits). Load before authoring or changing ANYTHING under spec/ (RUs, FEATs, GAPs, manifests, models, ADRs, INT captures).
 ---
 
 # Authoring Requirement Units
 
 Normative sources (this skill summarizes, they win):
 the framework specification and
-the formats reference. Applies only to areas the
-the area ledger (`spec/framework/MIGRATION.md`) marks `ru`.
+the formats reference. Applies to every artifact under `spec/`.
 
 ## Reading an RU
 
@@ -59,7 +58,7 @@ never leaves, or that a client may not set it, cites the field rather than descr
 direction set is closed: a misspelling is a malformed token, not an unresolved one. Summary only —
 the linter is the law (spec §5.9, formats §13).
 
-## Compiling requirements (the analyst contract, spec §8.1)
+## Compiling requirements (the analyst's remit, spec §8.1)
 
 - Input is an immutable INT capture under `spec/intent/` (verbatim human words — never authored
   prose). Every RU's `source_ref` anchors into it with real line numbers (L4 checks the range).
@@ -69,7 +68,7 @@ the linter is the law (spec §5.9, formats §13).
   (`spec/gaps/GAP-<ULID>.yaml`, severity `blocking` holds activation; `clarify-later` doesn't).
   Zero gaps from substantial intent is itself a red flag. Inline `# CONFLICT:` comments are
   BANNED — a conflict is a blocking GAP.
-- Never fabricate a `contract`/`test`/`model` ref — use `TODO(<description>)` (the RU honestly
+- Never fabricate a `test`/`model` ref — use `TODO(<description>)` (the RU honestly
   computes *blocked*). Real test refs use `<cargo-package>::<file-stem>::<fn>`.
 - Wire shapes are MANIFEST facts, not a separate artifact: a surface declares its census inline
   (`inbound`/`outbound`), and a structure hidden behind an encoding boundary — a JWT's claims
@@ -80,6 +79,15 @@ the linter is the law (spec §5.9, formats §13).
   dependents suspect (L20).
 - Drafts are `spec/ru/RU-draft-<ULID>.yaml` (Crockford ULID, alphabet excludes I L O U);
   permanent ids arrive only at activation.
+- If the store carries `spec/framework/segments.yaml`, a draft declares which domain it
+  belongs to: `segment: ORD`, one of the names that file lists. The permanent id becomes
+  `RU-ORD-01A2`, and NO segment means the requirement governs the whole store — which is
+  the constitutional tier, the only one allowed to own nothing. Declare it, never derive
+  it from `scope.owns`: a domain can span several services and one service can host
+  several domains. L27 warns on a draft whose declaration contradicts its tier, in either
+  direction. This is the last moment the choice is free — a permanent id can never acquire
+  or shed a segment, because renaming ids is not a thing this framework does. A store with
+  no segments file has no segments, and drafts omit the field entirely.
 - Non-obvious decisions get an ADR: `spec/rationale/ADR-<slug>.md` (headings per formats §10:
   Context, Decision, Alternatives, Consequences) linked via `rationale_ref: ADR-<slug>` — a
   dangling ref is an L7 error. ADRs are editable prose; once a stamped RU fingerprints one,
@@ -99,27 +107,41 @@ meaning:
    assigns the id, flips the target to `superseded`, stamps, and fingerprints atomically.
 
 Manifest facts change differently: a mutating manifest edit passes Gate 1 WITH its impact report
-(`spec-impact`), and every frozen RU referencing the fact keeps meaning through the reference.
+(`rqunit impact`), and every frozen RU referencing the fact keeps meaning through the reference.
 
 TODO refs resolve WITHOUT supersession: when the promised check exists, run
 `rqunit activate resolve --reviewer <handle> RU-XXXX=<test id>` — the target must exist in
 the trace scan, `--match <substring>` disambiguates multiple TODOs. Strictly strengthening;
 weakening stays supersession-only. Never hand-edit the ref (L19).
 
-Contracts change manifest-like: a CT edit is Gate-1-reviewed in place (no supersession
-machinery); referencing RUs keep meaning through the reference, and their content
-fingerprints flip suspect (L20) for re-affirm-or-supersede at the next sitting.
-
 Models change through re-affirmation: after editing a referenced statechart, run
 `rqunit activate reaffirm --model MDL-<id> --reviewer <handle>` — it re-stamps every active
 dependent whose meaning survives the change (supersede the ones whose meaning it alters).
 Never hand-edit a `model_hash` (L19); superseded RUs keep historical hashes (L6 ignores them).
+A model's generated suite drives a shim the APPLICATION provides. Until that shim is recorded in
+`spec/framework/shims.yaml` (checked by C15), the suite is rendered unrunnable and its
+verification counts as ZERO depth — so a `model` entry alone will not satisfy a mechanical
+minimum, and a draft relying on one cannot activate until the shim lands. A suite that cannot
+execute is not depth. The dialect itself is checked too (M1-M4/M6): `initial` must name a
+declared state, transition targets must exist, final states carry no `on`, and invariant names
+are unique — generation refuses a model whose violation would make the rendered suite wrong.
 
 ## Non-negotiables
 
 - Reviewer/operator ids are stable handles (`<your-handle>`), NEVER emails — schema + CLI reject `@`.
 - Tags must exist in `spec/framework/tags.yaml` first (L10); grow it in the same change.
-- Coverage policy (`coverage.policy.yaml`, L21): constitutional RUs need ≥2 mechanical
-  verifications; `security`-tagged need contract AND test. Under-covered drafts cannot activate.
+- Coverage policy (`coverage.policy.yaml`, L21) is DATA, and the shipped default is a starting
+  point the consumer tunes: constitutional RUs need ≥2 mechanical verifications; `security`-tagged
+  need 2 mechanical, all of type `test`, and `binds_shape`; `audit`-tagged need `binds_shape`.
+  `binds_shape` reads the STATEMENT — the RU must ADDRESS a declared shape by token
+  (`{endpoint:…}`, `{audit:…}`, `{artifact:…}`), since depth without relevance proves nothing
+  about the shape in question. Under-covered drafts cannot activate. A `model` entry whose shim
+  is unregistered counts as no depth at all (see above).
+- A `test` ref names a check that must EARN its green. A check written against an implementation
+  it has already read can assert that implementation's shape and never fail — it reads as
+  coverage and proves nothing. Author checks before the code where you can
+  (`rqunit assemble build … --mode check-authoring`), run them expecting red, and record that run
+  with `rqunit evidence record`. L26 reports, as a finding, any check observed green and never
+  red.
 - After ANY spec/ change run: `rqunit lint && rqunit check &&
   rqunit generate all` (projections are committed and currency-checked).

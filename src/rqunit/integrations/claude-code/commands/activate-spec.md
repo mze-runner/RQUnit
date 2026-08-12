@@ -20,6 +20,11 @@ Pre-flight (read-only, report before acting):
    --approve-impact consent).
 3. `rqunit lint --format text && rqunit check --format text` must
    show 0 errors — activation refuses on red anyway; surface it early.
+   Two refusals happen BEFORE anything is written, and both are worth
+   surfacing here rather than mid-activation: a model that violates the
+   statechart dialect (M2/M3/M6) will not render, and a store carrying models
+   with no declared emitter role cannot regenerate. Either one stops the run
+   with nothing mutated — but the operator should hear it at pre-flight.
 
 Activate (only after the operator confirms the pre-flight):
    rqunit activate batch --feature $ARGUMENTS \

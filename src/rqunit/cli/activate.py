@@ -29,8 +29,10 @@ from pathlib import Path
 import click
 import yaml
 
+from .. import ids
 from ..canonical import canonical_hash, expected_fingerprints
 from ..checks.base import run_checks
+from ..errors import StoreError
 from ..impact import build_report, diff_manifests, manifest_at_ref, render
 from ..lints.base import run_lints
 from ..lints.l21 import first_matching_rule, load_policy, violation_reason
@@ -41,6 +43,77 @@ from ..store import Store
 @click.group()
 def main() -> None:
     """Gate 1 activation tooling."""
+
+
+def _allocate(root, ru_dir: Path, members: list) -> dict[str, str]:
+    """Draft id → permanent id, allocated per segment from the directory listing.
+
+    Each segment is its own sequence: `RU-ORD-0001` and `RU-AUTH-0001` are
+    different ids in different spaces, and the unsegmented space is a space like
+    any other — the one constitutional requirements live in, because a
+    requirement that governs everything belongs to no domain (formats §1).
+
+    A draft names its space with a `segment` field. It is DECLARED, never
+    derived from `scope.owns`: segments and services are many-to-many — a
+    monolith legitimately hosts three domains and one domain legitimately spans
+    several services — so deriving would silently impose the physical axis and
+    be wrong on both shapes.
+
+    Ordering is why this reads the LISTING rather than a counter: `max + 1`
+    over what exists cannot mint an id that already exists, and a `NEXT_ID`
+    file races across branches (§7.1)."""
+    from ..segments import declared, open_segments
+
+    known, allocatable = declared(root), open_segments(root)
+    taken: dict[str | None, int] = {}
+    for path in ru_dir.glob("RU-*.yaml"):
+        try:
+            segment, number = ids.split(path.stem, "RU")
+        except ValueError:
+            continue                       # a draft: no sequence to reserve
+        taken[segment] = max(taken.get(segment, 0), number)
+
+    wanted: dict[str, list] = {}
+    for ru in members:
+        wanted.setdefault(str(ru.raw.get("segment") or ""), []).append(ru)
+
+    for name, batch_members in sorted(wanted.items()):
+        if not name:
+            continue                       # the unsegmented space needs no declaration
+        if name not in known:
+            _fail(f"{batch_members[0].id} asks for segment {name}, which this store does "
+                  f"not declare — nothing was written.\n"
+                  "    Add it to spec/framework/segments.yaml with the domain it "
+                  "governs. The name is permanent from the moment its first id is "
+                  "minted: it lives in filenames, gate stamps, review directory names, "
+                  "packets and `verifies:` annotations in your own source, and ids are "
+                  "never rewritten — so choose it for a domain that outlives teams and "
+                  "services (formats §1, C16).")
+        if name not in allocatable:
+            _fail(f"{batch_members[0].id} asks for segment {name}, which is closed — "
+                  "nothing was written.\n"
+                  "    A closed segment allocates nothing further; its existing ids keep "
+                  "working. Allocate into an open segment, or reopen this one by "
+                  "removing `closed: true` (formats §1).")
+
+    mapping: dict[str, str] = {}
+    for name, batch_members in sorted(wanted.items()):
+        segment = name or None
+        highest = taken.get(segment, 0)
+        room = ids.SEQ_CEILING - highest
+        if room < len(batch_members):
+            space = f"segment {name}" if name else "the unsegmented space"
+            _fail(f"permanent id ceiling reached in {space} — nothing was written. "
+                  f"The highest id it can allocate is {ids.format_id('RU', segment, ids.SEQ_CEILING)}; "
+                  f"it has room for {room} more, and this batch needs {len(batch_members)}.\n"
+                  "    The sequence width is compiled into every schema pattern, "
+                  "filename and cross-reference, so widening it is a store-wide "
+                  "migration in ONE commit — every id renamed, every reference "
+                  "rewritten, never mixed widths (formats §1). Split this batch to "
+                  "fit, allocate into another segment, or run that migration first.")
+        for offset, ru in enumerate(batch_members, start=1):
+            mapping[ru.id] = ids.format_id("RU", segment, highest + offset)
+    return mapping
 
 
 def _validate_reviewer(reviewer: str) -> None:
@@ -77,7 +150,8 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
             _fail(f"{finding.message} {finding.suggestion} "
                   "(--allow-stale-branch overrides.)")
 
-    red = [v for v in run_lints(store) + run_checks(store) if v.severity == "error"]
+    verdicts = run_lints(store) + run_checks(store)
+    red = [v for v in verdicts if v.severity == "error"]
     if red:
         for v in red[:10]:
             click.echo(f"  [{v.rule}] {v.artifact}: {v.message}", err=True)
@@ -97,6 +171,21 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
     if not members:
         _fail("empty batch — nothing to activate.")
     members.sort(key=lambda r: r.id)
+
+    # Non-blocking verdicts about THESE drafts, shown once, here. Several rules
+    # exist to be read at the moment a permanent id is minted — after which
+    # their advice is unfollowable — and a warning nobody renders is a warning
+    # that did not happen. Errors already stopped the run above; these are for
+    # the reviewer to weigh, which is what a Gate 1 sitting is.
+    batch_ids = {ru.id for ru in members}
+    advisory = [v for v in verdicts
+                if v.severity != "error" and v.artifact in batch_ids]
+    if advisory:
+        click.echo(f"{len(advisory)} advisory finding(s) about this batch — "
+                   "these do not block, and the ids are permanent afterwards:")
+        for v in advisory:
+            click.echo(f"  [{v.rule}/{v.severity}] {v.artifact}: {v.message}")
+            click.echo(f"      {v.suggestion}")
 
     policy = load_policy(store)
     if policy:
@@ -118,11 +207,9 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
         _fail("mutating manifest edit(s) present — re-run with --approve-impact after reviewing "
               "the report above (§5.5: a mutating edit without an impact report MUST NOT merge).")
 
-    # ---- allocate ids from the directory listing (§7.1)
+    # ---- allocate ids from the directory listing, per segment (§7.1)
     ru_dir = Path(root) / "spec" / "ru"
-    taken = [int(p.stem.split("-")[1]) for p in ru_dir.glob("RU-[0-9]*.yaml")]
-    next_id = (max(taken) + 1) if taken else 1
-    mapping = {ru.id: f"RU-{next_id + i:04d}" for i, ru in enumerate(members)}
+    mapping = _allocate(root, ru_dir, members)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     # ---- compute every mutation in memory first
@@ -137,6 +224,10 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
         raw["id"] = new_id
         raw["draft_id"] = ru.id
         raw["status"] = "active"
+        # The permanent id now carries the segment, so the field has done its
+        # job. Keeping it would be a second copy of one fact, free to disagree
+        # with the id — the drift class this framework exists to refuse.
+        raw.pop("segment", None)
         raw["gate1_stamp"] = {"hash": "", "by": reviewer, "at": now}
         fingerprints = expected_fingerprints(store, raw)
         if fingerprints:
@@ -173,6 +264,18 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
     finally:
         shutil.rmtree(sim_root, ignore_errors=True)
 
+    # Pre-flight the emitter BEFORE any mutation: targets() now execs a
+    # declared adapter, and an unbuilt binary or a stale artifact response
+    # must fail here — with nothing written — rather than inside the
+    # mutated-tree window. The census it validates is (model, check id),
+    # which activation's renames never change, so a clean pre-flight is a
+    # clean regeneration later.
+    from ..generate import targets, write_all
+    try:
+        targets(Store.load(root), Path(root))
+    except StoreError as e:
+        _fail(f"the emitter pre-flight failed — nothing was written: {e}")
+
     # ---- rename phase (real tree) — every mutated path is journaled so a
     # refused commit rolls the operation back instead of stranding it.
     journal: dict[Path, str | None] = {}
@@ -192,29 +295,33 @@ def batch(store_path, feature, drafts, reviewer, approve_impact, no_commit,
 
     # Regenerate projections/conformance artifacts BEFORE the commit: a
     # pre-commit `spec-generate check` gate must see them current, not stale
-    # against the just-renamed RUs.
-    from ..generate import targets, write_all
+    # against the just-renamed RUs. The emitter was pre-flighted above; if it
+    # still fails here, the journal restores every mutated file.
     post = Store.load(root)
-    for path in targets(post, Path(root)):
-        journal.setdefault(path, path.read_text() if path.exists() else None)
-    regenerated = write_all(post, Path(root))
+    try:
+        for path in targets(post, Path(root)):
+            journal.setdefault(path, path.read_text() if path.exists() else None)
+        regenerated = write_all(post, Path(root))
+    except StoreError as e:
+        _restore(journal)
+        _fail("regeneration failed after the rename phase — ALL written files were "
+              f"rolled back; the store is exactly as before this run: {e}")
 
     if not no_commit:
         try:
             subprocess.run(["git", "-C", str(root), "add", "spec"], check=True)
             for path in regenerated:
                 subprocess.run(["git", "-C", str(root), "add", str(path)], check=True)
-            ids = ", ".join(mapping.values())
+            # NOT `ids`: this module imports the module of that name, and a
+            # local assignment anywhere in a function makes the name local
+            # throughout it — a later `ids.encode` here would raise
+            # UnboundLocalError inside the mutation window.
+            minted = ", ".join(mapping.values())
             subprocess.run(["git", "-C", str(root), "commit", "-m",
-                            f"spec: activate {ids} (Gate 1, reviewer {reviewer})"],
+                            f"spec: activate {minted} (Gate 1, reviewer {reviewer})"],
                            check=True, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
-            for path, before in journal.items():
-                if before is None:
-                    path.unlink(missing_ok=True)
-                else:
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text(before)
+            _restore(journal)
             subprocess.run(["git", "-C", str(root), "reset", "-q", "HEAD", "--", "."],
                            check=False, capture_output=True)
             detail = ((e.stderr or "") + (e.stdout or "")).strip()
@@ -280,6 +387,11 @@ def reaffirm(store_path, model_ref, ru_ids, reviewer) -> None:
     model = store.models().get(bare)
     if model is None:
         _fail(f"MDL-{bare} does not exist in the store.")
+    # Pre-flight BEFORE any write: this verb runs immediately after a model
+    # edit, which is exactly when a dialect violation is most likely, and
+    # re-stamping RUs against a model that cannot render would leave the
+    # store half-mutated.
+    _require_renderable(store, bare)
     known = {ru.id for ru in store.rus()}
     unknown = [r for r in ru_ids if r not in known]
     if unknown:
@@ -335,6 +447,7 @@ def resolve(pairs, store_path, match_text, reviewer) -> None:
     _validate_reviewer(reviewer)
     root = store_path or repo_root()
     store = Store.load(root)
+    _require_renderable(store)     # regeneration is this verb's last act
     by_id = {ru.id: ru for ru in store.rus()}
 
     test_ids: set[str] | None = None  # scanned lazily, only if a test target appears
@@ -438,6 +551,28 @@ def _remap(value, mapping: dict[str, str]):
     if isinstance(value, dict):
         return {k: _remap(v, mapping) for k, v in value.items()}
     return value
+
+
+def _require_renderable(store: Store, model_id: str | None = None) -> None:
+    """Refuse before writing anything when a model cannot render. Every verb
+    here regenerates projections as its last act; discovering the refusal
+    then would strand a half-written store."""
+    from ..model_rules import require_sound
+    try:
+        for candidate in ([model_id] if model_id else store.models()):
+            require_sound(store, candidate)
+    except StoreError as e:
+        _fail(f"nothing was written — {e}")
+
+
+def _restore(journal: dict[Path, str | None]) -> None:
+    """Put every journaled file back exactly as it was before this run."""
+    for path, before in journal.items():
+        if before is None:
+            path.unlink(missing_ok=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(before)
 
 
 def _fail(message: str) -> None:

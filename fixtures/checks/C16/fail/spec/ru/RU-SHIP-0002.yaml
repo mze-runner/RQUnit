@@ -1,0 +1,19 @@
+id: RU-SHIP-0002
+statement: 'If an order is unpaid, then the system shall reject the handover.
+
+  '
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: TODO(fixture)
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:01dd4d3fa9b27aa3e6cb5724c600e61b52aae3ffac2a8cd88aca2a3a71e25272
+  by: fixture-op
+  at: '2026-01-15T09:30:00+00:00'

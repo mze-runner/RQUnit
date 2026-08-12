@@ -1,0 +1,11 @@
+{
+  "contract_version": 1,
+  "generated_by": "rqunit-adapter-rust scan-checks 0.1.0",
+  "checks": [
+    { "id": "service-x-application::sample_tests::traced_single", "path": "service-x/tests/sample_tests.rs", "fn": "traced_single", "verifies": ["RU-0001"] },
+    { "id": "service-x-application::sample_tests::traced_multi", "path": "service-x/tests/sample_tests.rs", "fn": "traced_multi", "verifies": ["RU-0001", "RU-0002"] },
+    { "id": "service-x-application::sample_tests::plumbing_probe", "path": "service-x/tests/sample_tests.rs", "fn": "plumbing_probe", "verifies": ["infrastructure"] },
+    { "id": "service-x-application::sample_tests::untraced_with_extra_attr", "path": "service-x/tests/sample_tests.rs", "fn": "untraced_with_extra_attr", "verifies": [] },
+    { "id": "service-x-application::sample_tests::traced_to_missing_ru", "path": "service-x/tests/sample_tests.rs", "fn": "traced_to_missing_ru", "verifies": ["RU-9999"] }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "payment-capture",
+  "kind": "statechart",
+  "initial": "nowhere",
+  "undeclared_event_policy": "ignore",
+  "vocabulary": {
+    "CAPTURE": "internal"
+  },
+  "states": {
+    "authorized": {
+      "on": {
+        "CAPTURE": "captured"
+      }
+    },
+    "captured": {
+      "type": "final"
+    }
+  }
+}

@@ -3,7 +3,7 @@ statement: The system shall record an audit event for every state-changing actio
 syntax: ears
 status: active
 tier: constitutional
-source_ref: INT-0057#L1-2
+source_ref: INT-01J3F8KQZ2ABCDEFGHJKMNPQRT#L3-3
 verification:
 - type: test
   ref: TODO(audit on mutation census not yet proved)

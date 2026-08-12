@@ -1,0 +1,14 @@
+segments:
+  # A bare string declares a name with no stated domain.
+  - ORD
+  # No domain: a segment nobody can describe is where undecided requirements go.
+  - name: AUTH
+  # 'CART' is a legal sequence spelling, so RU-CART would be ambiguous forever.
+  - name: CART
+    domain: shopping cart
+  # Declared twice: "is this closed" becomes ambiguous the moment they disagree.
+  - name: BILL
+    domain: invoicing and settlement
+  - name: BILL
+    domain: invoicing
+    closed: true

@@ -1,0 +1,9 @@
+# Core-owned seam fixture: a tree with a committed scanner observation. The
+# stand-in scanners in the seam tests read only scanned-checks.json; the
+# sources exist so identity-survives-reformatting cases have something to
+# touch. Deliberately NOT the rust adapter's kit tree — that one is
+# adapter-owned and free to grow without moving this suite.
+[stacks.rust]
+
+[stacks.rust.adapter]
+scanner = { artifact = "scanned-checks.json" }

@@ -1,0 +1,19 @@
+id: RU-0001
+statement: 'The system shall record an audit event for every state-changing action.
+
+  '
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: TODO(fixture)
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:5abfaa9ddcb9880e53420f8e4187f708318f96f14e066a378023e15f6cdb11db
+  by: fixture-op
+  at: '2026-01-15T09:30:00+00:00'

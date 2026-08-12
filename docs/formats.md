@@ -1,8 +1,8 @@
 # RU Framework — Formats & Conventions Reference
 
-Companion to `ru-framework-spec.md` v0.10 and the adoption plan v1.0 (incl. tasks 052–055, C9/TASK-048). This
-document pins every format the plan previously left implicit. It is normative
-for tooling; changes are schema-revision events, not edits.
+Companion to [`ru-framework-spec.md`](ru-framework-spec.md). This document pins
+every format the specification refers to — filenames, grammars, file shapes, and
+the exact bytes of anything generated. It is normative for tooling.
 
 ---
 
@@ -11,7 +11,8 @@ for tooling; changes are schema-revision events, not edits.
 | Artifact | Filename | Id form |
 |---|---|---|
 | RU (draft) | `spec/ru/RU-draft-<ULID>.yaml` | `RU-draft-<ULID>` (Crockford base32, 26 chars) |
-| RU (permanent) | `spec/ru/RU-XXXX.yaml` | `RU-` + zero-padded 4-digit monotonic |
+| RU (permanent) | `spec/ru/RU-<SEQ>.yaml` or `spec/ru/RU-<SEGMENT>-<SEQ>.yaml` | `RU-` + optional segment + 4-character base-32 sequence |
+| INT | `spec/intent/INT-<ULID>.<ext>` | `INT-<ULID>` (Crockford, 26 chars). An early store's four-digit `INT-XXXX` stays legal permanently — an intent is immutable and every RU compiled from it cites the id. Two SHAPES, told apart by length; not two bases — a ULID is never decoded to a number, so nothing reads intents in one ordering. Capturing as a ULID is a convention the loader deliberately does not enforce: nothing allocates an intent id, and a rule would redden every store legally carrying the older form |
 | FEAT | `spec/features/FEAT-<slug>.yaml` | `FEAT-<slug>` |
 | GAP | `spec/gaps/GAP-<ULID>.yaml` | `GAP-<ULID>` |
 | Manifest | `spec/manifests/<service>.manifest.yaml` | service slug; `shared` reserved |
@@ -19,8 +20,36 @@ for tooling; changes are schema-revision events, not edits.
 | ADR | `spec/rationale/ADR-<slug>.md` | `ADR-<slug>` (pattern `ADR-[A-Za-z0-9-]+`) |
 | Packet | `spec/packets/TASK-<id>.packet.md` (re-runs: `.v2`, `.v3` suffix before `.packet.md`) | task id from the operator's task system |
 
-Filename ↔ `id` field mismatch is an L9 error. IDs beyond 9999: widen padding
-store-wide in one commit (a tooling migration, documented, never mixed widths).
+Filename ↔ `id` field mismatch is an L9 error.
+
+**The sequence** is exactly four characters from the Crockford base-32 alphabet
+`0123456789ABCDEFGHJKMNPQRSTVWXYZ`, zero-padded. I, L, O and U are excluded so
+they cannot be read as 1 and 0; the alphabet ascends in ASCII order, so
+lexicographic sort is allocation order. Case is never folded and the excluded
+characters are never accepted: an id has exactly one legal spelling.
+
+A store carries ONE base. Decimal-spelled ids remain legal and are read as
+base-32 — `RU-0142` is 1346, not 142 — which is what lets a store that started
+decimal continue in base-32 without rewriting a single id: the reinterpretation
+preserves order, so every existing id keeps its spelling and its place, and the
+next allocation lands after all of them. Reading one store in two bases is the
+failure this rule exists to prevent.
+
+**The segment** is optional: 2–8 characters, uppercase, beginning with a letter,
+and never anything the sequence alphabet can spell — `CART` would make `RU-CART`
+ambiguous, while `AUTH` and `ORDS` are fine because U and O are not in the
+alphabet. Each segment is its own sequence, and the unsegmented space is a space
+like any other. A draft names the space it will be allocated into with a
+`segment` field; the field is consumed at Gate 1, because from then on the id
+carries the fact and a second copy could disagree with it. Segments are declared
+in `segments.yaml` (§14c) and must be declared before their first id is minted.
+
+The four-character width is a CEILING, not a default: it is compiled into every
+schema pattern, filename and cross-reference, so widening it is a store-wide
+migration in one commit — every id renamed, every reference rewritten, never
+mixed widths and never mixed bases. The ceiling is per segment, so allocating
+into another segment is usually the nearer answer. Activation refuses rather
+than crossing it, and `rqunit doctor` warns per space while there is runway.
 
 ## 2. Reference token grammar (EBNF)
 
@@ -28,7 +57,7 @@ store-wide in one commit (a tooling migration, documented, never mixed widths).
 token      = "{" kind ":" [ qualifier "/" ] key "}" ;
 kind       = "value" | "endpoint" | "problem" | "audit"
            | "message" | "channel" | "frame" | "vocab" ;
-qualifier  = ident ;                       (* owning service slug (v0.10);
+qualifier  = ident ;                       (* owning service slug;
                                                    FORBIDDEN for kind "value" —
                                                    foreign scalars promote to shared *)
 key        = dotted | frameref | surfaceref ;
@@ -39,10 +68,10 @@ surfaceref = ident [ "." direction [ { "." fieldname } ] ] ;
                                                 (* endpoint only *)
 direction  = "inbound" | "outbound" ;
 ident      = lowletter { lowletter | digit | "_" | "-" } ;
-                                                (* v0.10.2: "-" admitted so RFC 7807-style
-                                                   hyphenated keys (problem types, service
-                                                   slugs) are referenceable; the qualifier/key
-                                                   split stays unambiguous — "/" delimits *)
+                                                (* "-" admitted, so RFC 7807-style hyphenated
+                                                   keys (problem types, service slugs) are
+                                                   referenceable; "/" delimits the qualifier,
+                                                   so the split stays unambiguous *)
 fieldname  = letter { letter | digit | "_" | "-" } ;
                                                 (* mixed case admitted: `conventions.field_names`
                                                    decides which convention is legal in a store
@@ -67,7 +96,7 @@ Literal braces in statements are escaped `{{` `}}`.
 Unknown kind, empty key, nesting, or a qualified `value` ref → tokenizer error
 (feeds L15's "malformed" class, distinct from "unresolved").
 
-## 3. EARS grammar (normative for TASK-011)
+## 3. EARS grammar
 
 Statement = one template instance, terminated by a period. `<system>` is the
 literal phrase "the system" or a manifest service name. `<actor>` must resolve
@@ -89,8 +118,8 @@ Negative responses ("shall not …") are valid responses. A statement matching
 no template, or matching one with an unfillable slot, is an L1 error carrying
 the nearest-template diagnosis. Compound detection (L3) operates on the parsed
 `response`: two coordinated shall-clauses = compound; one shall-clause with a
-coordinated object = single. The TASK-011 golden suite is the executable
-definition of edge cases — extend the suite before extending the grammar.
+coordinated object = single. The parser's golden suite is the executable
+definition of the edge cases — extend the suite before extending the grammar.
 
 ## 4. Violation report format (all CLIs)
 
@@ -131,7 +160,7 @@ derived from the JSON, never a separate code path.
 | Generated conformance suites | no per-test annotations — a sidecar `spec/projections/trace-map.json` `{ "check_id": ["RU-…"] }` emitted by the generator from the model's RU links |
 | Infrastructure tests | `verifies: infrastructure` (audited bucket, §6.6) |
 
-`spec-trace` resolves all four sources; an id failing the `RU-XXXX` pattern or
+`spec-trace` resolves all four sources; an id failing the permanent-id pattern (§1) or
 resolving to no active RU is an L14 error.
 
 ## 6. Task packet layout
@@ -142,6 +171,7 @@ depend on it):
 ```
 ---                                  # YAML front matter
 task: TASK-0007
+mode: implementation                 # implementation | check-authoring
 generated_at: <iso8601>              # the only nondeterministic field
 store_commit: <sha>
 hashes:
@@ -159,7 +189,16 @@ hashes:
 #                                        then "Further: RU-…, RU-…" id list)
 # 5. Boundaries                         (owns / must_not_touch union, verbatim
 #                                        globs H1 will enforce)
+# 6. Authoring discipline               (check-authoring packets ONLY: write the
+#                                        checks before the implementation, do not
+#                                        read the owned files, record the first red)
 ```
+
+`mode` records which discipline produced the packet. `check-authoring` appends
+section 6 and nothing else: no hook gates reads, and the packet says so. What
+makes the discipline checkable afterwards is the evidence ledger (spec §6.8) —
+a check authored before its implementation is observed red first, and one that
+was only ever green is reported by L26 whatever the packet instructed.
 
 An RU render = id, statement (resolved), verification list with current
 computed status, tags. Resolution provenance format is fixed: `⟨{ref} = value⟩`.
@@ -170,13 +209,21 @@ computed status, tags. Resolution provenance format is fixed: `⟨{ref} = value�
 
 ```json
 { "generated_at": "…", "store_commit": "…",
-  "rus": [ { "id": "RU-0142", "status": "active", "tier": "standard",
+  "rus": [ { "id": "RU-ORD-0142", "segment": "ORD",
+             "status": "active", "tier": "standard",
              "computed": "done", "tags": ["orders","cancellation"],
              "feature": "FEAT-order-cancellation",
              "owns": ["orders/fulfilment"], "must_not_touch": ["payments/capture"],
              "verification_types": ["model","test"],
              "manifest_refs": ["endpoint:cancel_order"] } ] }
 ```
+
+`segment` is DERIVED from the id and is `null` for an id in the store-wide
+space. It is not stored on the RU: the id is the only copy of that fact after
+activation, and the draft's `segment` field is consumed there so a second copy
+cannot disagree with it (§1). The index is the query surface, so all three
+grouping axes are answerable here without reading `spec/ru/` — the domain from
+`segment`, the capability from `feature`/`tags`, the deployable from `owns`.
 
 ## 8. Seed data
 
@@ -203,15 +250,23 @@ vocabularies:
 scaffolded and thereafter edited only by a deliberate upgrade:
 
 ```yaml
-pack: "0.13.0"
+pack: "0.14.0"
 ```
+
+It records the **specification** version — the vocabulary the store's manifests
+and RUs are written in — not the tool version. The two move independently on
+purpose: a tool fix (a crash, a message) changes no vocabulary, and forcing a
+spec revision for one would make every consumer re-read a document that did not
+change. `rqunit` reports both, as `framework_version` (this pin) and
+`tool_version` (the package doing the enforcing), and they are expected to
+differ.
 
 It records the pack version the store was **authored against**, which is not
 necessarily the version enforcing it today; the pin is reported, never
 reconciled. A store without the pin is unpinned, not invalid — reporting
 falls back to the enforcing version.
 
-## 9. Gate stamps & fingerprints (v0.9)
+## 9. Gate stamps & fingerprints
 
 **Canonical hash** (gate stamps, RU-target fingerprints): JSON serialization of
 the object `{statement, scope, verification, tier}` with keys sorted
@@ -221,7 +276,7 @@ fingerprints: sha256 of the raw file bytes. One canonicalizer implementation,
 exported by the store loader — L19, L20, and `spec-activate` MUST share it
 (three implementations of "canonical" is how canonical dies).
 
-**Gate 2 record** — `spec/reviews/RU-XXXX/<iso8601-basic>-<slug>.yaml`,
+**Gate 2 record** — `spec/reviews/<RU id>/<iso8601-basic>-<slug>.yaml`,
 append-only (CI rejects modification/deletion of existing records):
 
 ```yaml
@@ -264,7 +319,7 @@ Rules that ARE enforced:
   `spec-activate restamp` records the missing fingerprint.
 - Task packets inline the full ADR content in section 3 (§6).
 
-**Operator identity (v0.10.1):** every reviewer/operator id in the store
+**Operator identity:** every reviewer/operator id in the store
 (`gate1_stamp.by`, Gate 2 `reviewer`, fingerprint re-affirmations) is a stable
 HANDLE (e.g. a VCS username), never contact information — the store is
 published with the repository. Emails are schema-rejected (`by` pattern) and
@@ -272,11 +327,10 @@ CLI-rejected (`--reviewer`); the handle→person mapping lives outside the repo.
 
 ## 11. (retired — the contract layer)
 
-`spec/contracts/CT-<slug>.yaml` and the `contract` verification type were
-retired in v0.14. A shape is a manifest fact: a surface declares its census
-inline (§13), and structure behind an encoding boundary is a shared `artifacts`
-entry (§16). The section number stays spent — references in the wild point
-here rather than at something else.
+There is no contract layer. A shape is a manifest fact: a surface declares its
+census inline (§13), and structure behind an encoding boundary is a shared
+`artifacts` entry (§16). This section number stays spent so that older
+references land here rather than on something else.
 
 ## 12. Open decisions ratified by this document (flag to operator, defaults active)
 
@@ -290,7 +344,7 @@ here rather than at something else.
    model as the service's own inbound `message` entry. Deliberate; revisit only
    with a concrete cross-service-model need.
 
-## 13. Surface shape format (v0.13)
+## 13. Surface shape format
 
 An endpoint declares both directions; spec §5.9 is normative for what they mean.
 Sections are numbered by arrival, so this one follows §12 rather than sitting
@@ -364,16 +418,116 @@ Adapters may not author these. An artifact carrying an `exceptions` key is
 rejected as a configuration error naming this file, because an extractor
 observes and does not get to excuse what it observed (spec §5.6).
 
-## 15. Adapter inputs (`rqunit.toml`)
+## 14a. Shim registrations
 
-Repo-specific facts an extractor needs. Composition is a property of one
-repository — not of a language, and not of a web framework — so it is
-configuration, and the adapter stays generic.
+`spec/framework/shims.yaml` — seeded empty by `rqunit init`. Records which
+models have an application-provided subject shim, so their generated suites
+can execute. An absent file means none registered.
+
+```yaml
+shims:
+  - model: MDL-order-lifecycle      # with or without the MDL- prefix
+    registered_by: jane             # stable handle, never an email
+    at: "2026-01-15T09:30:00Z"      # when the shim landed
+    note: subject("order-lifecycle") wired to the domain aggregate   # optional
+```
+
+A registration is a **depth claim**, checked by C15: one per model, naming a
+model the store carries, each entry a table. Until a model is registered its
+suite is rendered unrunnable, contributes zero depth to the coverage policy
+(L21) — including its `types_all`/`types_any` clauses — and is reported
+separately from suites that execute. Registering a shim that does not exist
+is the one way to make the framework overstate what it can prove, which is
+why the claim is a reviewed edit rather than an observation.
+
+## 14b. The check-evidence ledger
+
+`spec/check-evidence/check-evidence.jsonl` — append-only, written only by
+`rqunit evidence record`. One JSON object per line, one line per check per
+first:
+
+```json
+{"at": "2026-01-15T09:30:00+00:00", "check_id": "svc::orders::rejects_cancel_after_ship", "observation": "first_red", "source": "spec-conformance-tests/check-evidence.json"}
+```
+
+`observation` is `first_red` or `first_green`. Only firsts are recorded: a
+second red proves nothing a first red did not. `check_id` shares the scanner's
+identity space (`scanned-checks.schema.json`), which is what lets evidence
+attach to a check an RU verifies against. A check carrying `first_green` and no
+`first_red` is what L26 reports (spec §6.8) — the framework's evidence about
+its own checks, never the consumer's audit record (§5.10).
+
+## 14c. The segment registry
+
+`spec/framework/segments.yaml` — the domains this store allocates ids into.
+Consumer-owned and Gate-1-governed like the tag and actor vocabularies, but
+unlike them it is NOT scaffolded: `rqunit init` writes no segments file, because
+a taxonomy chosen at the moment a store knows least is the fastest way to a
+taxonomy nobody obeys. The file is created when a store adopts its first
+segment. An absent file means the store has none and its ids carry none, which
+is a complete state rather than an unfinished one.
+
+```yaml
+segments:
+  - name: ORD                       # the name its ids carry (§1)
+    domain: order management — placement, amendment, cancellation
+  - name: BILL
+    domain: invoicing and settlement
+    closed: true                    # allocates nothing further; its ids keep working
+    note: folded into order management            # optional
+```
+
+Checked by C16: each entry a table, each `name` legal under §1 and declared
+once, each with a stated `domain` (a warning — nothing reads it), and every
+segment an id uses declared here. Once this file exists, L27 reports a draft
+whose segment declaration contradicts its tier, in either direction.
+
+**Two edits are supported: add a segment, and close one.** Activation refuses to
+allocate into a segment this file does not declare, and refuses a closed one —
+so closure is a working retirement path rather than a note. A segment name is
+the only vocabulary in this store that cannot be corrected. It appears in
+filenames, in gate stamps, in Gate 2 review directory names, in committed
+packets, and in `verifies:` annotations inside the consumer's own source — and
+ids are never rewritten — so renaming or merging a segment is a mass
+supersession, not an edit. Removing an entry whose ids exist leaves them naming
+a domain the store no longer declares; `closed: true` is the retirement path
+that does not.
+
+Segments bound **allocation and ownership, never verification.** C1 compares
+RUs against each other, C9 spans services, and L13 caps constitutional RUs
+store-wide — a limit that is only meaningful because it is global. No rule
+partitions by segment, and none may.
+
+## 15. Stack declarations (`rqunit.toml`)
+
+Any `[stacks.<name>]` table declares a stack (`name` matches
+`[a-z][a-z0-9_-]*`); core carries no list of supported languages. A missing
+file means no stacks: store-only operations need zero configuration, and
+stack participation is always an explicit declaration.
+
+Per stack, core interprets a CLOSED key set; every other key is the adapter's
+own configuration, passed through opaquely and never read by core.
+
+**Core-interpreted keys:**
+
+| Key | Meaning |
+|---|---|
+| `adapter.extractor` / `adapter.scanner` / `adapter.emitter` | role declarations — each `{ cmd = ["..."] }` XOR `{ artifact = "path" }` |
+| `adapter.manifest` | path to the adapter's manifest |
+| `literal_scan` | globs naming the files the hardcoded-bound advisory sweeps, or the directories holding them (`**/tests/*.rs`, `**/__tests__`, `src/test/java`) — a match that is a directory is walked. Either way the glob carries the language-specific fact, so core stays a word-boundary numeric match. No default: a default would be a claim about repository layout, and absent means the sweep does not run |
+
+A role declares `cmd` (argv core execs, no shell) or `artifact` (a file an
+earlier pipeline step produced) — exactly one. An undeclared role means that
+capability is unavailable for the stack: reported as such, never silently
+skipped.
 
 ```toml
 [stacks.rust]
+literal_scan = ["**/tests/*.rs"]
+
+# ---- adapter-owned: core passes these through untouched --------------------
 service = "service-orders"          # manifest slug the artifact is keyed by; never guessed
-actual_surface = "conformance/actual-surface.json"
+trace_scan = ["**/Cargo.toml"]
 
 [[stacks.rust.routers]]             # one table per mounted router
 file = "http/src/routes/orders/mod.rs"
@@ -382,15 +536,72 @@ prefix = "/api/v1/orders"
 access = "protected"
 
 [stacks.rust.messages]
-subject_sources = ["wire-contracts/src"]    # where subject constants are declared
+subject_sources = ["wire/src"]              # where subject constants are declared
 publisher_sources = ["adapters/nats/src"]   # code that references them
+
+[stacks.rust.adapter]
+extractor = { artifact = "conformance/actual-surface.json" }
 ```
 
-`file` and `function` are required on a router — an extractor cannot find a
-router it cannot name. Unknown keys are errors: a typo silently ignored would
-read as configured. A missing `[stacks.rust]` table is an error for the
-extractor rather than a default, because a guessed composition produces a
-surface nobody declared and the reconciler would believe it.
+Malformed shapes among the core-interpreted keys are errors: a typo silently
+ignored would read as configured. Passthrough keys are validated by the
+adapter — the framework judging what `routers` means would be language
+knowledge — with key-name typo detection provided by the adapter manifest's
+`config_keys`. Composition facts like `routers` stay configuration because
+they are properties of one repository, not of a language: an extractor that
+guessed a composition would report a surface nobody declared, and the
+reconciler would believe it.
+
+**Scanned checks** (contract: `interfaces/scanned-checks.schema.json`) — the
+scanner role's output: the tests a tree carries and what each one's trace
+annotation claims (`verifies`: RU ids, `["infrastructure"]`, or `[]` for
+untraced). Check ids are stack-qualified so the union across stacks never
+collides. `rqunit trace` owns every judgment over these observations,
+including L14's set-difference definition of "new" (spec §6.6).
+
+**Emit request / emitted files** (contracts:
+`interfaces/emit-request.schema.json`, `interfaces/emitted-files.schema.json`)
+— the emitter role's stdin and stdout. The request carries the test plan
+(verbatim `test-plan.json` payload), each value-holding manifest's leaves and
+hash, and the stack's passthrough options as data — an emitter is a pure
+function of the request and never reads the store. The response returns files
+as data plus the plan-check → stack-qualified-check-id mapping; core validates
+that mapping against the plan's census (nothing dropped, invented, or
+double-mapped), rejects any path escaping the consumer root, and writes every
+file itself. An artifact-mode emitter owes a currency test in its own suite —
+regenerate the response from the current request and compare — exactly as an
+artifact-mode extractor does: the census catches a dropped or added check,
+but a semantic change that keeps every check id (a flipped
+`undeclared_event_policy`) only the currency test catches.
+
+**Check evidence** (contract: `interfaces/check-evidence.schema.json`) — the
+evidence probe's output: one entry per check the run executed, `passed` or
+`failed`. It carries no timestamp, because a probe's bytes must be a
+deterministic function of its input; core stamps the recording time.
+
+**Adapter manifest** (`adapter.yaml`, contract:
+`interfaces/adapter-manifest.schema.json`) — the adapter package's
+self-declaration, read by core and never by the adapter. Located at the
+declared `adapter.manifest` path, or `adapters/<name>/adapter.yaml` by
+convention; a stack may run without one, forfeiting passthrough typo
+detection.
+
+```yaml
+contract_version: 1
+stack: rust                      # must match the [stacks.<name>] wired to it
+roles: [extractor]               # a declared role the manifest lacks is surfaced before the exec fails
+config_keys: [service, routers]  # the passthrough keys this adapter reads
+kit:                             # what `rqunit adapter verify` runs (dev-time)
+  path: kit                      # <kit>/<role>/tree/ input, <kit>/<role>/expected.json expectation
+  commands:                      # argv relative to this manifest's directory
+    extractor: [target/debug/extract-surface]
+```
+
+The kit is the executable definition of a correct adapter: every declared
+role's fixed input must produce byte-deterministic, schema-valid output
+matching the committed expectation, under the stdio exit contract. The
+emitter's kit input ships with the tool (every emitter renders the same
+generic request); probe inputs are the adapter's own trees.
 
 ## 16. Shared artifacts
 

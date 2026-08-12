@@ -23,9 +23,18 @@ def _store() -> Store:
 
 
 def test_demo_store_is_clean_under_lints_and_checks():
-    blocking = [v for v in run_lints(_store()) + run_checks(_store())
-                if v.severity in ("error", "warning")]
-    assert blocking == [], [f"{v.rule}: {v.artifact}: {v.message}" for v in blocking]
+    """Nothing errors, and the only surviving warning is the one the demo
+    exists to demonstrate: it ships no application, so its generated
+    statechart suite cannot execute and contributes no mechanical depth.
+    That warning was invisible until shim registration landed — L21 counted
+    an unrunnable suite as depth — so its presence here is the framework
+    telling the truth about a store it has always been telling it about."""
+    violations = run_lints(_store()) + run_checks(_store())
+    assert [v for v in violations if v.severity == "error"] == [], [
+        f"{v.rule}: {v.artifact}: {v.message}" for v in violations if v.severity == "error"]
+    warnings = [v for v in violations if v.severity == "warning"]
+    assert all(v.rule == "L21" and "no registered shim" in v.message for v in warnings), [
+        f"{v.rule}: {v.artifact}: {v.message}" for v in warnings]
 
 
 def test_demo_reconciles_against_its_surface_artifact():

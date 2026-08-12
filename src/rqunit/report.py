@@ -58,11 +58,18 @@ def build_data(store: Store, root: Path, now: str | None = None) -> dict:
     computed = {ru.id: compute(store, ru) for ru in active}
 
     # --- verification depth + debt
+    # A model whose shim is unregistered is counted apart: its generated suite
+    # is rendered unrunnable, so showing it beside suites that execute would
+    # report depth nobody can prove.
+    from .shims import registered_models
+    unshimmed = set(store.models()) - registered_models(store.root)
     depth: Counter = Counter()
     todos: Counter = Counter()
     for ru in active:
         for entry in ru.raw.get("verification") or []:
             kind = entry.get("type")
+            if kind == "model" and str(entry.get("ref", "")).removeprefix("MDL-") in unshimmed:
+                kind = "model (pending shim)"
             depth[kind] += 1
             if str(entry.get("ref", "")).startswith("TODO("):
                 todos[kind] += 1
@@ -306,7 +313,8 @@ def render_html(data: dict) -> str:
     depth_rows = "".join(
         f'<tr><td>{_esc(k)}</td><td class="num">{depth.get(k, 0)}</td>'
         f'<td class="num">{todos.get(k, 0)}</td></tr>'
-        for k in ("test", "model", "human") if depth.get(k) or todos.get(k))
+        for k in ("test", "model", "model (pending shim)", "human")
+        if depth.get(k) or todos.get(k))
 
     sitting_bars = "".join(
         f'<div class="tick" title="{_esc(s["at"])} · {_esc(s["by"])} · {s["activated"]} RUs">'

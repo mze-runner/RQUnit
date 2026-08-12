@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rqunit/interfaces/strip-request.schema.json",
+  "title": "StripRequest",
+  "description": "The trace annotations to remove from a codebase, on stdin. The off-ramp: adoption asks a consumer to write `verifies` traces into their own test sources, so the framework owes them a way to take those marks back — after off-boarding, or before re-adopting onto a corpus whose ids no longer mean what the marks say. CORE decides WHICH tokens go: it alone knows which RUs are active, so an adapter is never asked to judge whether a trace is stale. The adapter rewrites its own sources, because only it knows what an annotation looks like in its idiom.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "checks"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "checks": {
+      "type": "array",
+      "description": "One entry per check whose annotation must change. A check absent from this list is left exactly as it is — the request is the complete instruction, so a stripper never sweeps on its own initiative.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "path",
+          "fn",
+          "remove"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The stack-qualified check id the scanner reported."
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Consumer-root-relative source file, as the scanner reported it."
+          },
+          "fn": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The test's own name, so a stripper can locate the annotation without re-deriving the id."
+          },
+          "remove": {
+            "type": "array",
+            "minItems": 1,
+            "description": "The exact trace tokens to drop from this check's annotation — RU ids, or the `infrastructure` token. Tokens the annotation carries but this list omits MUST survive: a test proving three requirements, one of them retired, keeps the other two. When nothing survives, the annotation itself goes, leaving no empty marker behind.",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

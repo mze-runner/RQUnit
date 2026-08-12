@@ -1,0 +1,17 @@
+id: RU-0001
+statement: The system shall reject a cancellation for an order already shipped.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: svc::orders::rejects_cancel_after_ship
+scope:
+  owns:
+  - service-orders/domain
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:23c5183aa5b1ee4977b2aacebb5e3a4a91ed61023e7229b3316e1c4cd7038ce1
+  by: fixture-op
+  at: '2026-01-15T09:30:00+00:00'

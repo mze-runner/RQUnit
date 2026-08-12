@@ -27,8 +27,10 @@ class UnknownArtifact(StoreError):
 
 
 class BadConfig(StoreError):
-    """rqunit.toml is unparseable or carries unknown tables/keys — a typo
-    silently ignored would read as configured, so strictness is the kindness."""
+    """A configuration file is unparseable or carries unknown tables/keys —
+    `rqunit.toml`, or one of the consumer-owned registries under
+    `spec/framework/`. A typo silently ignored would read as configured, so
+    strictness is the kindness."""
 
 
 class MalformedRef(StoreError):
@@ -41,3 +43,17 @@ class UnresolvedRef(StoreError):
     """Well-formed reference token that resolves to no manifest fact (L15).
     Qualified refs resolve only against the named manifest — never a
     fallback (spec §5.3 v0.10)."""
+
+
+class RoleUnavailable(StoreError):
+    """A caller needed an adapter role the stack does not declare. Absence is
+    a capability statement, not an error in itself — but whatever needed the
+    role reports it rather than silently skipping."""
+
+
+class DialectViolation(StoreError):
+    """A model breaks a statechart dialect rule the generated suite depends
+    on (M2/M3/M6). A distinct class because it is a SPEC-CONTENT violation,
+    not a tool failure: `lint` reports it as a violation and so must every
+    other surface, or CI reads the same fact as 'rqunit is broken' on one
+    command and 'your model is wrong' on another."""

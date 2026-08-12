@@ -1,0 +1,9 @@
+{
+  "contract_version": 1,
+  "generated_by": "rqunit-adapter-rust scan-checks 0.1.0",
+  "checks": [
+    { "id": "itest::orders::cancellation_latency_bound", "path": "itest/tests/orders.rs", "fn": "cancellation_latency_bound", "verifies": ["RU-0142"] },
+    { "id": "itest::orders::wiring_probe", "path": "itest/tests/orders.rs", "fn": "wiring_probe", "verifies": ["infrastructure"] },
+    { "id": "itest::orders::untraced_legacy_check", "path": "itest/tests/orders.rs", "fn": "untraced_legacy_check", "verifies": [] }
+  ]
+}

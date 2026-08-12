@@ -10,7 +10,7 @@ from click.testing import CliRunner
 from rqunit import config
 from rqunit.cli.init import main as init_main
 from rqunit.cli.rqunit import main as rqunit
-from rqunit.schemas import installed_version, store_pack_version
+from rqunit.schemas import SPEC_VERSION, installed_version, store_pack_version
 from rqunit.store import Store
 
 
@@ -36,15 +36,28 @@ def test_seeded_vocabularies_are_the_packs_own(tmp_path):
     assert (spec / "framework" / "tags.yaml").read_text() == (SEED_DIR / "tags.yaml").read_text()
 
 
-def test_pack_pin_records_the_enforcing_version(tmp_path):
+def test_pack_pin_records_the_spec_version_not_the_tool_version(tmp_path):
+    """The pin names the VOCABULARY a store was authored in. It recorded the
+    package version until v0.14, and the two had drifted a minor apart — so a
+    store was pinned to a specification version that was never published."""
     _init(tmp_path)
-    assert store_pack_version(tmp_path) == installed_version()
+    assert store_pack_version(tmp_path) == SPEC_VERSION
 
 
-def test_unpinned_store_falls_back_to_the_installed_version(tmp_path):
+def test_unpinned_store_falls_back_to_this_build_s_spec_version(tmp_path):
+    """A store predating the pin is unpinned, not broken: reporting the
+    enforcing vocabulary beats reporting nothing."""
     _init(tmp_path)
     (tmp_path / "spec" / "framework" / "pack.yaml").unlink()
-    assert store_pack_version(tmp_path) == installed_version()
+    assert store_pack_version(tmp_path) == SPEC_VERSION
+
+
+def test_the_two_versions_are_reported_separately(tmp_path):
+    """Not a discrepancy to reconcile — a tool fix changes no vocabulary, so
+    `tool_version` and `framework_version` are different questions."""
+    _init(tmp_path)
+    assert installed_version()                    # the package doing the enforcing
+    assert store_pack_version(tmp_path)           # the vocabulary being enforced
 
 
 def test_rust_detection_writes_config_the_strict_reader_accepts(tmp_path):
@@ -52,7 +65,8 @@ def test_rust_detection_writes_config_the_strict_reader_accepts(tmp_path):
     result = _init(tmp_path)
     assert result.exit_code == 0 and "rust" in result.output
     loaded = config.load(tmp_path)
-    assert loaded.rust.conformance_crate  # parsed, not defaulted past a bad file
+    # parsed, not defaulted past a bad file
+    assert loaded.stack("rust").options["conformance_crate"]
 
 
 def test_stackless_detection_writes_no_stacks_table(tmp_path):
@@ -70,7 +84,7 @@ def test_stack_override_beats_detection(tmp_path):
     (tmp_path / "pom.xml").write_text("<project/>")
     result = _init(tmp_path, "--stack", "rust")
     assert result.exit_code == 0
-    assert config.load(tmp_path).rust.trace_scan
+    assert config.load(tmp_path).stack("rust").options["trace_scan"]
 
 
 def test_refuses_a_non_empty_store_without_touching_it(tmp_path):
@@ -89,3 +103,138 @@ def test_existing_config_is_never_overwritten(tmp_path):
     (tmp_path / "rqunit.toml").write_text(original)
     assert _init(tmp_path).exit_code == 0
     assert (tmp_path / "rqunit.toml").read_text() == original
+
+
+def test_the_scaffold_mentions_every_key_the_toolchain_reads(tmp_path):
+    """`audit` was accepted by config.py, read by the Rust probe, and depended
+    on by CF10/CF11 — and absent from the scaffold, so a consumer had no way to
+    discover it existed. A key you cannot find in the file you configure is a
+    capability that silently does nothing. Core-read keys are DERIVED from
+    config.py so a new accepted key nobody documented fails this build; the
+    adapter-owned list genuinely cannot be derived until adapter manifests
+    exist (it becomes the manifest's config_keys then), so it is literal."""
+    from rqunit.config import ROLES, _CORE_KEYS
+
+    core_read = tuple(sorted((_CORE_KEYS - {"adapter"}) | set(ROLES) | {"manifest"}))
+    adapter_owned = ("trace_scan", "conformance_crate", "service",
+                     "routers", "messages", "audit")
+
+    (tmp_path / "Cargo.toml").write_text('[package]\nname = "app"\n')
+    _init(tmp_path)
+    scaffold = (tmp_path / "rqunit.toml").read_text()
+    # The TOML forms, not a bare substring: "audit" appears in the prose that
+    # explains the block, so a substring check passes with the key deleted —
+    # a test that looks like proof and is not.
+    missing = [name for name in (*core_read, *adapter_owned)
+               if f"{name} =" not in scaffold
+               and f"[stacks.rust.{name}]" not in scaffold]
+    assert missing == [], f"accepted but undiscoverable: {', '.join(missing)}"
+
+
+def test_the_scaffold_it_writes_is_one_the_strict_reader_accepts(tmp_path):
+    """Unknown keys are errors, so a scaffold with a typo would make `init`
+    produce a store its own loader rejects."""
+    (tmp_path / "Cargo.toml").write_text('[package]\nname = "app"\n')
+    _init(tmp_path)
+    stack = config.load(tmp_path).stack("rust")
+    assert stack.options["trace_scan"] and stack.options["conformance_crate"]
+    assert stack.adapter.extractor.artifact     # the extractor role is declared
+
+
+def test_emitted_guidance_names_only_directories_the_store_has():
+    """The skills and agents `init` writes into a consumer repository are read
+    by agents BEFORE they touch the store, so a directory named there that the
+    layout does not have is an instruction to create one — which the loader
+    then rejects. This is how the retired contract kind survived its own
+    removal: the schema, the rules and the docs dropped `spec/contracts/`, and
+    the emitted authoring skill went on telling every new consumer to write
+    there. Assert against STORE_DIRS, the layout's single source."""
+    import re
+
+    from rqunit.cli.init import STORE_DIRS
+
+    root = Path(__file__).parent.parent / "src" / "rqunit" / "integrations"
+    named = re.compile(r"spec/(?:\{([a-z,_.-]+)\}|([a-z_-]+))/")
+
+    stray = []
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix not in {".md", ".sh", ".json", ".yaml"}:
+            continue
+        for lineno, line in enumerate(path.read_text().splitlines(), 1):
+            for m in named.finditer(line):
+                group = m.group(1) or m.group(2)
+                for name in group.split(","):
+                    if name.strip() and name.strip() not in STORE_DIRS:
+                        stray.append(f"{path.name}:{lineno} names spec/{name.strip()}/")
+    assert not stray, (
+        "emitted guidance names directories the scaffold never creates:\n  "
+        + "\n  ".join(stray)
+    )
+
+
+def test_agent_templates_land_in_the_consumer_runtime(tmp_path):
+    """Guidance the tool ships but never installs is guidance that drifts: the
+    retired contract kind survived its own removal for exactly as long as these
+    files were hand-copied. Emission is what makes them the tool's problem."""
+    from rqunit.cli.init import INTEGRATION_DIR
+
+    assert _init(tmp_path).exit_code == 0
+    shipped = {p.relative_to(INTEGRATION_DIR / "claude-code")
+               for p in (INTEGRATION_DIR / "claude-code").rglob("*") if p.is_file()}
+    assert shipped, "no templates ship — this test would pass vacuously"
+    for relative in shipped:
+        assert (tmp_path / ".claude" / relative).is_file(), f"{relative} was not emitted"
+
+
+def test_emitted_hooks_stay_executable(tmp_path):
+    """A hook that arrives without its executable bit fails in the one way that
+    looks like the guard passing."""
+    _init(tmp_path)
+    hooks = list((tmp_path / ".claude" / "hooks").glob("*.sh"))
+    assert hooks
+    for hook in hooks:
+        assert hook.stat().st_mode & 0o111, f"{hook.name} is not executable"
+
+
+def test_adoption_never_overwrites_the_consumers_own_runtime_files(tmp_path):
+    """`.claude/` is a directory the consumer also authors in. A scaffold that
+    replaces someone's edited agent is a scaffold nobody runs twice."""
+    mine = tmp_path / ".claude" / "agents" / "requirements-analyst.md"
+    mine.parent.mkdir(parents=True)
+    mine.write_text("my own agent\n")
+
+    result = _init(tmp_path)
+    assert result.exit_code == 0
+    assert mine.read_text() == "my own agent\n"
+    assert "left untouched" in result.output
+    assert (tmp_path / ".claude" / "skills" / "spec-store" / "SKILL.md").is_file()
+
+
+def test_refresh_rewrites_templates_and_touches_nothing_else(tmp_path):
+    """The upgrade path. It must work on a store that already exists — which is
+    the whole point, since `init` refuses to scaffold over one."""
+    _init(tmp_path)
+    skill = tmp_path / ".claude" / "skills" / "spec-store" / "SKILL.md"
+    shipped = skill.read_text()
+    skill.write_text("stale copy\n")
+    pack = tmp_path / "spec" / "framework" / "pack.yaml"
+    before = pack.read_text()
+
+    result = _init(tmp_path, "--refresh-integrations")
+    assert result.exit_code == 0
+    assert skill.read_text() == shipped
+    assert pack.read_text() == before
+
+
+def test_a_freshly_scaffolded_store_passes_the_currency_gate(tmp_path):
+    """A scaffold whose very next gate is red teaches people the gate is noise.
+    Projections are committed and currency-checked, so a store that has never
+    generated is reported as out of date — which made `rqunit generate check`
+    fail on a store the operator had done nothing to but create."""
+    from rqunit.cli.generate import main as generate_main
+
+    assert _init(tmp_path).exit_code == 0
+    result = CliRunner().invoke(generate_main, ["check", "--store", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert list((tmp_path / "spec" / "projections").glob("*.json")), \
+        "nothing was generated — the gate passed vacuously"
