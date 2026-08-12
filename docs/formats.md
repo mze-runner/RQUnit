@@ -128,7 +128,7 @@ stdout, JSON, one document per run:
 ```json
 {
   "tool": "spec-lint",
-  "tool_version": "0.1.0",
+  "tool_version": "<installed package version>",
   "store_commit": "<git sha or WORKTREE>",
   "generated_at": "<iso8601>",
   "summary": { "errors": 2, "warnings": 1, "checked_files": 41 },

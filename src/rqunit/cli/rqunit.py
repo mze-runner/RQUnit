@@ -23,6 +23,7 @@ Planned product verbs (not yet built — see the product backlog):
 
 import click
 
+from ..schemas import SPEC_VERSION, installed_version
 from .activate import main as _activate
 from .assemble import main as _assemble
 from .check import main as _check
@@ -42,7 +43,13 @@ from .evidence import main as _evidence
 from .trace import main as _trace
 
 
+# Both versions, because a report carries both and they are expected to differ:
+# the package doing the enforcing, and the specification vocabulary a store is
+# authored against. One of them answered alone is the question the other half
+# of `pack.yaml` exists to explain.
 @click.group()
+@click.version_option(installed_version(), prog_name="rqunit",
+                      message=f"%(prog)s %(version)s (specification {SPEC_VERSION})")
 def main() -> None:
     """RQUnit — Requirement Unit Framework: manage the requirements lifecycle
     (store verification, gates, packets, projections, enforcement)."""

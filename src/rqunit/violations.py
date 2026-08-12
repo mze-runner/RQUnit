@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-TOOL_VERSION = "0.1.0"
+from .schemas import installed_version
 
 SEVERITIES = ("error", "warning", "finding")
 
@@ -49,7 +49,7 @@ def _store_commit(root: Path) -> str:
 def build_report(tool: str, violations: list[Violation], checked_files: int, root: Path) -> dict:
     return {
         "tool": tool,
-        "tool_version": TOOL_VERSION,
+        "tool_version": installed_version(),
         "store_commit": _store_commit(root),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "summary": {
