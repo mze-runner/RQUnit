@@ -1,6 +1,6 @@
 # Requirement Unit (RU) Framework — Specification Management for Agentic Development
 
-**Status:** v0.16.0
+**Status:** v0.17.0
 **What changed between revisions:** [CHANGELOG.md](../CHANGELOG.md) — including anything a consumer must do.
 **Canonical location:** `spec/framework/ru-framework-spec.md`
 **Normativity:** This document is normative for authoring and managing requirements. Where it conflicts with any prose story, epic, or feature description, this document wins. RFC-2119 keywords (MUST, MUST NOT, SHOULD, MAY) apply throughout.

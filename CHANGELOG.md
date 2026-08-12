@@ -5,6 +5,128 @@ must do about it. The [specification](docs/ru-framework-spec.md) and
 [formats reference](docs/formats.md) describe the product as it is now;
 this file is the only place that describes how it got here.
 
+## v0.17.0
+
+The credential a surface requires becomes a checkable relation, and several
+things the tools claimed but did not do begin doing it. **C17** binds each access
+tier to the credential that admits it: every tier a declared surface uses
+resolves to exactly one `artifacts` entry carrying that `access_tier`, or is
+listed in the new shared `credential_free_tiers`. C5 validated membership on both
+sides and never related them, so a protected surface with nothing describing what
+protects it, two credentials claiming one tier, and a tier in use that nothing
+modelled all passed — a door with no stated lock read exactly like a door with
+one. The binding is DERIVED through the tier string and there is no `artifact:`
+key on an endpoint: a second path would make one fact expressible twice and let
+`access: protected` sit beside a scoped credential. Exactly one artifact per tier,
+because a tier admitting two shapes cannot tell a test what to send; if both are
+genuinely accepted they are two tiers. `artifacts.<id>.fields` now references the
+one census dialect the other three slots already used, so **`fields: none` is
+legal** — the honest census for an opaque token, and what makes the binding total:
+an artifact has two jobs, describing internals where they exist and naming the
+credential in every case. **C11 extends over the artifact census**, previously the
+only census in the manifest that was neither canonicalised nor checked, and the
+slot holding the security-relevant shapes: a credential is minted rather than
+accepted, so it takes the outbound presence vocabulary — `presence: optional` on a
+claim asserted nothing and passed every gate — while `where` (claims vs header)
+remains legal here and only here. **Artifacts are shared by construction:** the
+schema now refuses an `artifacts` table on a service manifest, because C5 resolves
+a field's `artifact:` reference against the shared table alone, so a service-local
+one validated, sat in the manifest, and could never be pointed at. The
+promotion-by-reuse sentence that suggested otherwise was already contradicted by
+§5.5 and by formats §16's own title; §5.5 now names artifacts as its exception.
+
+**L4 covers every artifact that declares a `source_ref`, not only RUs.** A FEAT
+carries one under the identical grammar and nothing resolved it for eleven
+revisions: the schema pattern enforced the anchor's SHAPE, so the link read as
+covered while pointing at nothing. It is load-bearing rather than cosmetic,
+because a manifest endpoint's required `ru` link admits `FEAT-<slug>` — the
+incremental adoption path — so a surface's whole traceability chain could
+terminate at a FEAT anchored into a file that no longer exists, and it bites
+migration hardest, where captures are re-cut and line ranges move under anchors
+nobody re-checks. **Reports name the version that produced them.** `tool_version`
+was a hardcoded constant for fifteen minor releases, so every committed report
+claimed `0.1.0` and no consumer holding one could tell what enforced it; it now
+comes from the installed package, and `rqunit --version` answers both versions a
+report carries, because answering one alone is the confusion `pack.yaml` exists to
+explain. **A first-party adapter's manifest ships inside the tool.** `doctor`'s
+only note on a fresh store instructed the reader to point `manifest = "…"` at a
+file that existed only inside this repository, and the default it resolved
+against — `<store>/adapters/<stack>/adapter.yaml` — asserted this repository's own
+layout onto every consumer. The vocabulary a stack's passthrough keys are
+validated against now ships in the pack, so a typo is named out of the box where
+it previously read as configured; the `manifest` key remains, for an adapter this
+build does not carry. Obtaining the adapter BINARIES is still your build's job.
+
+**Intent admits the documentation a consumer already had.** §4 read as though only
+transcripts and chat exports qualified, while the handbook and the shipped
+`spec-store` skill documented capturing an existing corpus verbatim — three
+statements, one of them wrong. Verbatim constrains FIDELITY, not genre: a capture
+asserts that these are its source's words unedited, never that the source was
+informal or spoken, and adopting over an existing corpus is the expected case
+rather than an exception to argue for. No lint can check that words are unedited,
+and §4 now says so. **`rqunit init` seeds `spec/framework/segments.yaml` empty**,
+beside the tag and actor vocabularies its own loader always said it belonged with.
+Declaring no segments stays a complete choice and an empty registry is
+byte-identical in effect to an absent one — but the default was previously reached
+by OMISSION, and an id's segment is the one decision in a store that cannot be
+revisited, so the seed discloses that a choice exists while it is still free.
+**CF8 stops misfiring on type-erased responses.** The Rust adapter reported
+`Response` — what every axum handler returns after `.into_response()` — as though
+it named a shape, so two endpoints serving entirely different bodies were reported
+as contradicting each other, worsening with every endpoint declared. An adapter
+now reports `type_name` only when the name identifies a shape; core already
+skipped the comparison when none arrives, so there is no core change and no
+contract change. The same walk also reported a handler's ERROR type as the shape
+served when its success type was erased.
+
+Reporting gets quieter about nothing and louder about what is true. **An empty
+store says so** — `lint`, `check` and `doctor` on a store with no requirements
+produced output indistinguishable from a mature healthy one, and "structurally
+sound" was true and useless; it is a `finding`, so no exit code moves, and it is
+keyed on having no RUs at all rather than on a count. **Output shape follows the
+destination:** text at a terminal, JSON when piped, one rule across `lint`,
+`check`, `conformance` and `doctor`, where previously `doctor` printed prose and
+the others JSON — `--format` still overrides in both directions, and piping
+`doctor` now yields JSON where it used to yield prose. **`lint` no longer crashes
+on a read-only store:** it owns one projection and refreshed it outside the error
+handling, so a read-only checkout or container mount ended the run with a
+traceback instead of one of the three documented exits; the refresh is now
+announced on stderr when it happens, and only when it happens. **Rule messages
+state their invariant instead of citing `RU-0002`** — an id that exists in no
+consumer store, since `init` seeds none, and the mirror image of the leakage rule
+this product enforces on itself. **L24 asks instead of choosing** when several
+registered values equal the same literal: it named both candidates and then
+suggested the alphabetically first, which in a framework built for agent
+participation is the half that gets applied. **Every schema refusal names its
+key** rather than echoing the offending table back — `endpoints` on a shared
+manifest was the worst case, being a plausible first mistake. **`init` names the
+runtime files it wrote**, since `.claude/` is commonly gitignored and a count left
+nothing to reconstruct from.
+
+Documentation closes six questions a real onboarding run had to answer by reading
+source: a surface may link a `FEAT-<slug>` and land before its requirement exists;
+facts land with the first surface, and a fact with no surface belongs in `shared`;
+one extracted surface per service, 1:1 with its manifest, because a stack table
+binds an adapter rather than a service; "artifact" means both a store artifact and
+a file a probe produced, now told apart in formats §1; `planned: true` versus a
+GAP is decided by whether the facts are settled; and a manifest deliberately
+carries no reference to prose.
+
+**Consumers MUST act:** re-anchor every FEAT the upgraded `rqunit lint` reports —
+the anchor was always broken and only now resolves; and for every access tier a
+declared surface uses, either declare the credential under shared `artifacts` with
+that `access_tier` (`fields: none` for an opaque token) or list the tier in
+`credential_free_tiers`, which is a claim worth having on the record rather than a
+waiver. Move any service-local `artifacts` table into the shared manifest — every
+reference into it was already an error — and fix any artifact census using an
+inbound presence value (`required | optional | forbidden`), which asserted nothing
+about a structure nobody sends you. **Nothing else requires action, with one shape to check:** the version
+reporting, the bundled adapter manifest, the seeded segment registry and the
+CF8 fix are all strictly better answers to the same questions, no store turns red
+for them, and an existing store's absent `segments.yaml` keeps meaning what it
+meant. The one thing to look at is any script that PIPES `rqunit doctor` and
+parses prose — it now receives JSON, and `--format text` restores the old shape.
+
 ## v0.16.0
 
 Adapters become pluggable processes. Any
