@@ -175,6 +175,30 @@ def test_the_json_report_stays_parseable_while_a_projection_is_announced(tmp_pat
     assert "refreshed" in result.stderr
 
 
+def test_every_refused_table_is_named_rather_than_echoed():
+    """One spelling for one idea. `<key>: false` reports "False schema does not
+    allow {…}" with the offending table echoed and nothing named — the first error
+    a consumer meets when hand-writing a manifest — so every refusal in the file
+    uses `not: {required: [<key>]}`, one key per entry, and the humanizer states
+    it. A single `not` over several keys would mean "not BOTH" and admit either."""
+    import yaml
+    from jsonschema.exceptions import best_match
+
+    from rqunit.schemas import describe_violation, validator
+
+    for name, key in (("shared_with_endpoint", "endpoints"),
+                      ("defaults_in_shared_manifest", "defaults"),
+                      ("conventions_in_service_manifest", "conventions"),
+                      ("artifacts_in_service_manifest", "artifacts"),
+                      ("credential_free_tiers_in_service_manifest", "credential_free_tiers")):
+        path = FIXTURES / "schemas" / "manifest" / "fail" / f"{name}.yaml"
+        error = best_match(validator("manifest").iter_errors(yaml.safe_load(path.read_text())))
+        message = describe_violation(error)
+
+        assert f"`{key}`" in message, name
+        assert "False schema" not in message, name
+
+
 def test_a_refused_table_is_named_rather_than_echoed(tmp_path):
     """`artifacts` on a service manifest is refused because C5 resolves the
     reference against the shared table only, so a local one is unreferenceable.

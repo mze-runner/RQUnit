@@ -478,17 +478,24 @@ properties:
               direction: { enum: [inbound, outbound] }
               payload:   { type: string, pattern: "^[A-Za-z0-9_:.-]+$" }
 
+# Every refusal below is spelled `not: { required: [<key>] }`, one key per entry,
+# and never `<key>: false`. A boolean subschema reports "False schema does not
+# allow {…}" with the whole offending table echoed back and nothing named as the
+# problem — Hard Rule 6's failure mode, and the first error a consumer meets when
+# they hand-write their first manifest. This form carries the key, and the report
+# humanizer turns it into a sentence naming it. One key per entry because a single
+# `not: { required: [a, b] }` means "not BOTH", which would admit either alone.
 allOf:
   # Shared manifest: facts only, no interface surfaces (§5.5). `defaults` is a
   # surface-shaping fact and belongs with the surfaces it shapes.
   - if:
       properties: { service: { const: shared } }
     then:
-      properties:
-        endpoints: false
-        messages:  false
-        channels:  false
-        defaults:  false
+      allOf:
+        - not: { required: [endpoints] }
+        - not: { required: [messages] }
+        - not: { required: [channels] }
+        - not: { required: [defaults] }
   # `conventions` is store-wide by definition: per-service tables would let the
   # house standard diverge service by service, which is the thing it exists to
   # prevent. Declared once, in the shared manifest, or not at all.
@@ -496,9 +503,9 @@ allOf:
       not:
         properties: { service: { const: shared } }
     then:
-      properties:
-        conventions: false
-        audit_forbidden: false
+      allOf:
+        - not: { required: [conventions] }
+        - not: { required: [audit_forbidden] }
   # C5 resolves a field's `artifact:` reference against the shared table and no
   # other, so a service-local artifact validated, sat in the manifest, and could
   # never be pointed at — configured and doing nothing, which is the failure this
@@ -520,6 +527,8 @@ allOf:
         # vocabulary, so a per-service copy could contradict the store it is a
         # policy for. Same locality argument as `conventions`.
         - not: { required: [credential_free_tiers] }
+        # A `not` over a bare `required` is spelled the same way for every key
+        # in this file; see the note above `allOf`.
   # Non-shared boundary manifests: at least one surface. Pure-internal
   # services with no surface set service kind via absence — the anyOf below
   # is enforced only when any surface key is expected; operator may relax by

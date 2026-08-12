@@ -1,0 +1,8 @@
+# Red for one reason: `defaults` shapes surfaces, and the shared manifest carries
+# facts only — so it belongs with the surfaces it shapes. One key per refusal in
+# the schema, which is why this is named rather than echoed back.
+service: shared
+version: "1.0"
+vocabularies:
+  access_tiers: [public, protected]
+defaults: { unknown_fields: reject }
