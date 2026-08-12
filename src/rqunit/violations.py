@@ -5,6 +5,7 @@ CLI; human-readable text is derived from the JSON, never a separate code path.
 from __future__ import annotations
 
 import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -61,6 +62,22 @@ def build_report(tool: str, violations: list[Violation], checked_files: int, roo
             {k: v for k, v in asdict(x).items() if v is not None} for x in violations
         ],
     }
+
+
+def resolve_format(fmt: str | None) -> str:
+    """`--format` when given, otherwise the shape the destination wants.
+
+    Text for a human at a terminal, JSON when stdout is redirected. The four
+    reporting verbs used to disagree about this — `doctor` defaulted to prose and
+    `lint`/`check`/`conformance` to JSON — so a consumer running them together got
+    two shapes and reached for `--format text` on every command, which is what
+    this product's own gate script does on every line. An explicit flag still
+    wins, so a script that pins the shape keeps working whatever it is attached
+    to.
+    """
+    if fmt is not None:
+        return fmt
+    return "text" if sys.stdout.isatty() else "json"
 
 
 def render_text(report: dict) -> str:

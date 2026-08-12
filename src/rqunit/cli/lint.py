@@ -14,16 +14,18 @@ from ..lints.base import run_lints
 from ..schemas import repo_root
 from ..store import Store
 from ..violations import (Violation, build_report, empty_store_findings, exit_code,
-                          render_text, schema_violation)
+                          render_text, resolve_format, schema_violation)
 
 
 @click.command()
 @click.option("--store", "store_path", type=click.Path(path_type=Path), default=None,
               help="Store root (directory containing spec/). Defaults to the repo root.")
 @click.option("--only", default=None, help="Run a single lint, e.g. --only L3.")
-@click.option("--format", "fmt", type=click.Choice(["json", "text"]), default="json")
+@click.option("--format", "fmt", type=click.Choice(["json", "text"]), default=None,
+              help="Output shape. Default: text on a terminal, JSON when piped.")
 @click.option("--strict", is_flag=True, help="Warnings also fail the run.")
-def main(store_path: Path | None, only: str | None, fmt: str, strict: bool) -> None:
+def main(store_path: Path | None, only: str | None, fmt: str | None, strict: bool) -> None:
+    fmt = resolve_format(fmt)
     try:
         root = store_path or repo_root()
     except FileNotFoundError as e:

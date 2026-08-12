@@ -63,6 +63,11 @@ Run `rqunit <verb>` from anywhere at or below the store root. Repo-specific
 inputs (trace scan globs, conformance-crate location) come from `rqunit.toml`
 at the repo root — the tools carry no consumer paths in code.
 
+Every reporting verb answers in the shape its destination wants: **text at a
+terminal, JSON when piped.** `--format` overrides it either way, so a script that
+pins the shape keeps working. Exit codes are the same in both: `0` pass, `1`
+violations, `2` tool error, and `finding` severity never moves them.
+
 | Command | Purpose | Typical moment |
 |---|---|---|
 | `rqunit init [--stack S]` | scaffold a store: directories, seed vocabularies, coverage policy, shared manifest, pack pin, `rqunit.toml`, and the agent-runtime templates into `.claude/`. Reports the stack it detected; refuses a non-empty store; never overwrites a runtime file the consumer already has | once, at adoption |

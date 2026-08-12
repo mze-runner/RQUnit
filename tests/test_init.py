@@ -105,7 +105,7 @@ def test_a_scaffolded_store_says_it_holds_no_requirements(tmp_path):
         assert "holds no requirements" in result.output, verb
         assert "STORE/finding" in result.output, verb
 
-    doctor = CliRunner().invoke(rqunit, ["doctor", "--store", str(tmp_path)])
+    doctor = CliRunner().invoke(rqunit, ["doctor", "--store", str(tmp_path), "--format", "text"])
     assert doctor.exit_code == 0
     assert "holds no requirements" in doctor.output
     assert "structurally sound" not in doctor.output

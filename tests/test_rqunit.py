@@ -89,6 +89,31 @@ def test_the_schema_report_locates_the_problem_and_teaches(tmp_path, verb):
     assert "is not valid under any of the given schemas" not in result.output
 
 
+def test_the_output_shape_follows_the_destination(monkeypatch):
+    """`doctor` printed prose and `lint`/`check`/`conformance` printed JSON, so a
+    consumer running them together got two shapes and reached for `--format text`
+    on every command — which is what this product's own gate script does on every
+    line. Text for a human, JSON for a pipe, and an explicit flag still wins."""
+    from rqunit.violations import resolve_format
+
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True, raising=False)
+    assert resolve_format(None) == "text"
+    assert resolve_format("json") == "json", "an explicit flag wins over the terminal"
+
+    monkeypatch.setattr("sys.stdout.isatty", lambda: False, raising=False)
+    assert resolve_format(None) == "json"
+    assert resolve_format("text") == "text", "an explicit flag wins over the pipe"
+
+
+def test_every_reporting_verb_answers_a_pipe_with_json():
+    """One shape for one destination, across the verbs a consumer runs together.
+    CliRunner is not a terminal, so this is the piped case by construction."""
+    for verb in ("lint", "check", "doctor"):
+        result = CliRunner().invoke(rqunit, [verb, "--store", str(FIXTURES / "store" / "valid")])
+        assert result.exit_code == 0, result.output
+        json.loads(result.stdout)          # raises unless the default resolved to JSON
+
+
 def test_lint_reports_an_unwritable_projection_as_a_tool_error(tmp_path):
     """`lint` owns one projection and refreshes it in place, so it is the one
     command in the product that writes while promising to read. Unguarded that
