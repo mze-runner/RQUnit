@@ -35,6 +35,16 @@ exists. It does not decide whether a missing route is acceptable, whether a
 tier difference is tolerable, or whether something counts as planned. Every one
 of those is the framework's, so that all languages answer them identically.
 
+Observing accurately includes saying nothing where there is nothing to say.
+`type_name` is optional in `actual-surface.json` precisely so a shape can be
+reported without a name, and an adapter reports one only when the name
+IDENTIFIES a shape: a type-erased response wrapper (axum's `Response`, and every
+stack has one) is a real type carrying no shape, so naming it is the
+inaccuracy — it made CF8 conclude that two routes serving different bodies
+served one type. Which names are erased is language knowledge and belongs here;
+what an absent name MEANS stays core's judgment, and core already skips the
+comparison.
+
 **The core never invokes a language toolchain.** It may exec a *declared,
 prebuilt* adapter command as an opaque black box behind a pinned schema — but
 it never runs a compiler, build tool, or test runner. Building the adapter is

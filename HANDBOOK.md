@@ -421,7 +421,7 @@ the stack's currency test proves the artifact still matches the code.
 | CF5 | error | a declared outbound message the code never publishes (`external: true` exempts) |
 | CF6 | error | the code publishes a message no manifest declares |
 | CF7 | error | the route matches but its declared shape and the code's disagree — a field declared and not carried, or carried and not declared. Silent where the adapter reports no shape: omission means *not observed*, never *empty* |
-| CF8 | error | two routes serve the same request/response type while their manifests declare different censuses. The code's type is the shape identity the store deliberately does not carry |
+| CF8 | error | two routes serve the same request/response type while their manifests declare different censuses. The code's type is the shape identity the store deliberately does not carry — so an adapter reports `type_name` only when the name identifies a shape. A type-erased response wrapper names nothing, and an extractor that reported one would make every pair of routes in a service contradict each other |
 | CF9 | error | a covered service declares a surface family no probe examined. `covers` stops an unexamined family reading as an absent one; this stops it reading as a passing one |
 | CF10 | error | a declared audit event the code never records. A probe proves the emitting call site EXISTS — not that it runs; dead code and never-taken branches pass, which the proof classes report |
 | CF11 | error | an audit code the code records that no manifest declares — evidence with no retention rule and no forbidden-field check |

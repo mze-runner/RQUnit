@@ -248,6 +248,37 @@ def test_cf8_uses_the_code_type_as_the_shape_identity(store, tmp_path):
     assert cf8 and "CancelView" in cf8[0].message and "cancelled_at" in cf8[0].message
 
 
+def test_cf8_groups_nothing_when_the_shape_has_no_name(store, tmp_path):
+    """The other side of the same rule, and the half a whole stack depended on.
+    CF8's premise is that the code's TYPE is the shared identity; a return type
+    that carries no shape has no identity to share. An adapter reporting an
+    erased wrapper (axum's `Response`) as a type name made every pair of
+    endpoints in a service look like it served one type and disagreed about it —
+    so core must group on a name it was given, never on its absence."""
+    shutil.copytree(VALID, tmp_path / "s")
+    manifest = tmp_path / "s" / "spec" / "manifests" / "service-orders.manifest.yaml"
+    raw = yaml.safe_load(manifest.read_text())
+    original = raw["endpoints"][0]
+    twin = dict(original)
+    twin["id"] = "cancel_order_v2"
+    twin["path"] = "/api/v2/orders/{id}"
+    twin["outbound"] = {"status": 200, "fields": [{"name": "order_id", "presence": "always"}]}
+    original["outbound"] = {"status": 200,
+                            "fields": [{"name": "order_id", "presence": "always"},
+                                       {"name": "cancelled_at", "presence": "always"}]}
+    raw["endpoints"] = [original, twin]
+    manifest.write_text(yaml.safe_dump(raw, sort_keys=False))
+
+    # Two surfaces, different declared censuses, and an extractor that reports no
+    # type name for either — which is what "this return type carries no shape"
+    # looks like on the wire.
+    artifact = _artifact(endpoints=[
+        _endpoint(outbound={"fields": ["order_id"]}),
+        _endpoint(path="/api/v2/orders/{id}", outbound={"fields": ["order_id"]})])
+
+    assert "CF8" not in _rules(reconcile(Store.load(tmp_path / "s"), artifact))
+
+
 def test_shape_divergence_is_ratifiable_like_any_other(store):
     """A serializer that suppresses a field at runtime is a real, defensible
     difference — but it has to be written down and stays reported."""
