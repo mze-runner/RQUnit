@@ -1,0 +1,5 @@
+segments:
+  - name: ORD
+    domain: order management — placement, amendment, cancellation
+  - name: AUTH
+    domain: authentication and session lifecycle

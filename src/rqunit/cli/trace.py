@@ -9,9 +9,58 @@ from pathlib import Path
 
 import click
 
+from ..errors import BadConfig
 from ..schemas import repo_root
 from ..store import Store
-from ..trace import build_report, l14_gate, render_markdown
+from ..strip import apply as apply_strip, plan as plan_strip
+from ..trace import build_report, l14_gate, render_markdown, scan_tests
+
+
+def _strip(store_path: Path | None, everything: bool, write: bool) -> None:
+    """The off-ramp. Dry by default: this rewrites source the consumer owns,
+    and a destructive default is how a tool gets run once and then distrusted."""
+    try:
+        root = store_path or repo_root()
+        decided = plan_strip(Store.load(root), root, everything=everything)
+        result = apply_strip(root, decided, write=write) if decided.total else None
+    except BadConfig as e:
+        click.echo(f"ERROR CONFIG {e}", err=True)
+        click.echo("    Fix rqunit.toml, then re-run. `rqunit lint` reports this "
+                   "with the full rule reference.", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"rqunit trace --strip: tool error: {e}", err=True)
+        sys.exit(2)
+
+    for name in decided.unobserved:
+        click.echo(f"note: stack '{name}' declares no scanner role — nothing observed its "
+                   f"tests, so nothing could be judged stale ([stacks.{name}.adapter] "
+                   "scanner in rqunit.toml). This run was blind, not clean.", err=True)
+    for name in decided.unavailable:
+        click.echo(f"note: stack '{name}' declares no stripper role — its annotations "
+                   f"were NOT removed ([stacks.{name}.adapter] stripper in rqunit.toml). "
+                   "A stack that can be adopted but not un-adopted is a one-way door.",
+                   err=True)
+
+    scope = "every annotation" if everything else "annotations naming no active RU"
+    if not decided.total:
+        # "Nothing to remove" from a run that observed nothing reads exactly
+        # like a clean tree, which is the report this tool exists to not give.
+        blind = decided.unobserved or decided.unavailable
+        click.echo(f"trace --strip: nothing removed — no stack was both observed and "
+                   f"strippable ({scope})" if blind
+                   else f"trace --strip: nothing to remove ({scope})")
+        sys.exit(0)
+
+    for path in result.written:
+        click.echo(f"  {'rewrote' if write else 'would rewrite'} {path}")
+    click.echo(f"trace --strip: {len(result.stripped)} annotation(s) in "
+               f"{len(result.written)} file(s) — {scope}")
+    if not write:
+        click.echo("\nNothing was written. Re-run with --apply to rewrite the sources; "
+                   "commit them separately from any store change, so the off-ramp is "
+                   "one reviewable diff.")
+    sys.exit(0)
 
 
 @click.command()
@@ -19,12 +68,38 @@ from ..trace import build_report, l14_gate, render_markdown
 @click.option("--against", default=None,
               help="L14 diff gate: new untraced tests relative to this git ref are blocking.")
 @click.option("--no-write", is_flag=True, help="Skip writing the orphan projections.")
-def main(store_path: Path | None, against: str | None, no_write: bool) -> None:
+@click.option("--strip", is_flag=True,
+              help="The off-ramp: remove trace annotations naming no active RU. Reports "
+                   "what it would remove; pass --apply to rewrite the sources.")
+@click.option("--all", "everything", is_flag=True,
+              help="With --strip: remove EVERY annotation, `infrastructure` markers "
+                   "included. Off-boarding, not migration.")
+@click.option("--apply", is_flag=True,
+              help="With --strip: actually rewrite the sources. Without it nothing on "
+                   "disk changes — this edits code the consumer owns.")
+def main(store_path: Path | None, against: str | None, no_write: bool,
+         strip: bool, everything: bool, apply: bool) -> None:
+    if (everything or apply) and not strip:
+        click.echo("rqunit trace: --all and --apply mean nothing without --strip", err=True)
+        sys.exit(2)
+    if strip:
+        _strip(store_path, everything, apply)
+        return
     try:
         root = store_path or repo_root()
         store = Store.load(root)
-        report = build_report(store, root)
-        gate = l14_gate(store, root, against) if against else []
+        checks = scan_tests(root)         # one observation feeds both consumers
+        report = build_report(store, root, checks=checks)
+        gate = l14_gate(store, root, against, head=checks) if against else []
+    except BadConfig as e:
+        # A rejected config is a VIOLATION, not a tool error. It reads as
+        # "your store is wrong" from `lint` and must read the same here — CI
+        # treats exit 2 as "rqunit is broken", which sends the operator
+        # looking in the wrong place for a one-line fix in their own file.
+        click.echo(f"ERROR CONFIG {e}", err=True)
+        click.echo("    Fix rqunit.toml, then re-run. `rqunit lint` reports this "
+                   "with the full rule reference.", err=True)
+        sys.exit(1)
     except Exception as e:
         click.echo(f"spec-trace: tool error: {e}", err=True)
         sys.exit(2)
@@ -43,6 +118,10 @@ def main(store_path: Path | None, against: str | None, no_write: bool) -> None:
         click.echo(f"ERROR {line}", err=True)
     for line in gate:
         click.echo(f"ERROR {line}", err=True)
+    for name in report.unscanned_stacks:
+        click.echo(f"note: stack '{name}' declares no scanner role — its tests are "
+                   "not observed ([stacks."
+                   f"{name}.adapter] scanner in rqunit.toml)", err=True)
     click.echo(
         f"trace: {len(report.unverified_rus)} unverified RU(s), "
         f"{len(report.untraced_checks)} untraced check(s) (burn-down), "

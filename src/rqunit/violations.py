@@ -85,3 +85,32 @@ def exit_code(report: dict, strict: bool = False) -> int:
     if strict and report["summary"]["warnings"]:
         return 1
     return 0
+
+
+def schema_violation(error, root) -> "Violation":
+    """The one rendering of "this store will not load".
+
+    Every verb that loads a store hits this, and it used to be spelled once per
+    CLI — which is how the two copies came to differ in path handling and in
+    whether they carried a suggestion at all. A store that cannot load is a
+    finding, not a tool error, and it is the FIRST thing a new consumer meets,
+    so it gets the same teaching treatment as every other violation."""
+    from pathlib import Path
+    where = str(root)
+    if error.path:
+        try:
+            where = str(Path(error.path).relative_to(Path(root).resolve()))
+        except ValueError:
+            where = error.path
+    # StoreError prefixes its own path; the report already carries one, and an
+    # absolute path printed twice reads as two different files.
+    message = str(error).removeprefix(f"{error.path}: ") if error.path else str(error)
+    return Violation(
+        rule="SCHEMA", severity="error",
+        artifact=Path(error.path).name if error.path else "store",
+        path=where, message=message,
+        suggestion="Fix the artifact named above; the message locates the key. "
+                   "Shapes are pinned in formats.md — §1 for ids and filenames, "
+                   "§5.4 for manifests, §7 for RUs — and nothing else has run: "
+                   "a store that does not validate cannot be loaded to be judged.",
+    )

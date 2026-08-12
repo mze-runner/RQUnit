@@ -1,0 +1,32 @@
+{
+  "id": "order-lifecycle",
+  "kind": "statechart",
+  "initial": "pending",
+  "undeclared_event_policy": "ignore",
+  "vocabulary": {
+    "CANCEL": "internal",
+    "REOPEN": "internal",
+    "RETURN": "internal",
+    "SHIP": "internal"
+  },
+  "states": {
+    "pending": {
+      "on": {
+        "CANCEL": "cancelled",
+        "SHIP": "shipped"
+      }
+    },
+    "cancelled": {
+      "type": "final",
+      "on": {
+        "REOPEN": "pending"
+      }
+    },
+    "shipped": {
+      "type": "final",
+      "on": {
+        "RETURN": "pending"
+      }
+    }
+  }
+}

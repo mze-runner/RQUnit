@@ -27,6 +27,11 @@ def _store_with_edited_model(tmp_path: Path) -> Path:
     model = json.loads(model_path.read_text())
     next(iter(model["states"].values()))["invariant"] = "reaffirm_probe"
     model_path.write_text(json.dumps(model, indent=2) + "\n")
+    # The fixture's artifact-mode emit response cannot re-render an edited
+    # model (that staleness failing loudly is its own tested behavior); this
+    # test is about hash ceremony, so the store declares no emitter and the
+    # verbs' projection refresh runs the lenient path.
+    (root / "rqunit.toml").write_text("[stacks.rust]\n")
     return root
 
 
@@ -109,3 +114,25 @@ def test_hand_editing_the_hash_without_the_verb_still_reds_l19(tmp_path):
             entry["model_hash"] = model.content_hash
     path.write_text(yaml.safe_dump(raw, sort_keys=False, allow_unicode=True))
     assert any(v.artifact == "RU-0142" for v in _rule(root, "L19"))
+
+
+def test_reaffirm_refuses_a_model_that_cannot_render_before_writing(tmp_path):
+    """This verb runs immediately after a model edit — exactly when a dialect
+    violation is most likely. It used to re-stamp every affected RU and THEN
+    die inside regeneration, leaving RUs stamped against a model that never
+    generated."""
+    root = _store_with_edited_model(tmp_path)
+    model_path = root / "spec" / "models" / "MDL-order-lifecycle.statechart.json"
+    model = json.loads(model_path.read_text())
+    first = next(iter(model["states"]))
+    model["states"][first]["on"] = {"GHOST": "nowhere"}       # M2
+    model_path.write_text(json.dumps(model, indent=2) + "\n")
+
+    before = {p: p.read_text() for p in (root / "spec" / "ru").glob("*.yaml")}
+    result = CliRunner().invoke(activate_main, [
+        "reaffirm", "--model", "order-lifecycle",
+        "--reviewer", "fixture-op", "--store", str(root)])
+
+    assert result.exit_code == 1
+    assert "nothing was written" in result.output and "[M2]" in result.output
+    assert {p: p.read_text() for p in (root / "spec" / "ru").glob("*.yaml")} == before

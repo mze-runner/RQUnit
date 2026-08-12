@@ -12,6 +12,10 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub mod emit;
+pub mod scan;
+pub mod strip;
+
 /// Extraction reads and parses files, both of which can fail for ordinary
 /// reasons (a moved router, an unparseable source). Those are reported, never
 /// panicked: this runs as a build step whose error message IS its interface.
@@ -106,8 +110,13 @@ pub fn load_config(root: &Path) -> Result<StackConfig> {
         routers,
         subject_sources: strings(messages.and_then(|m| m.get("subject_sources"))),
         publisher_sources: strings(messages.and_then(|m| m.get("publisher_sources"))),
+        // The write target is the extractor role's declared artifact
+        // ([stacks.rust.adapter] extractor = { artifact = "..." }): core reads
+        // the file exactly where this adapter says it wrote it.
         actual_surface: rust
-            .get("actual_surface")
+            .get("adapter")
+            .and_then(|a| a.get("extractor"))
+            .and_then(|e| e.get("artifact"))
             .and_then(|v| v.as_str())
             .unwrap_or("spec-conformance-tests/actual-surface.json")
             .to_string(),
@@ -750,7 +759,9 @@ mod tests {
     const CONFIG: &str = r#"
         [stacks.rust]
         service = "service-orders"
-        actual_surface = "conformance/actual-surface.json"
+
+        [stacks.rust.adapter]
+        extractor = { artifact = "conformance/actual-surface.json" }
 
         [[stacks.rust.routers]]
         file = "http/src/routes/mod.rs"

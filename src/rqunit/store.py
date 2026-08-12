@@ -16,8 +16,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
-from jsonschema import ValidationError
+from jsonschema.exceptions import best_match
 
+from . import ids
 from .errors import (
     FilenameIdMismatch,
     MalformedRef,
@@ -27,16 +28,45 @@ from .errors import (
     UnresolvedRef,
 )
 from .parser.tokens import TokenError, parse_one
-from .schemas import validator
+from .schemas import describe_violation, validator
 
 _IGNORED = {"README.md", ".gitkeep", ".DS_Store"}
 
-_RU_FILE = re.compile(r"^RU-(draft-[0-9A-HJKMNP-TV-Z]{26}|[0-9]{4})\.yaml$")
+# The width of the DECIMAL intent ids an early store already carries. Intents
+# are captured as ULIDs now, so nothing new is bounded by this — but a store
+# sitting near INT-9999 still has a wall in front of its existing form, and
+# doctor warns about exactly that. NOT interchangeable with `ids.SEQ_WIDTH`
+# despite both being 4: one counts decimal digits, the other base-32
+# characters, so comparing an `ids.decode` result against ID_CEILING is
+# meaningless. Nothing may do that.
+ID_WIDTH = 4
+ID_CEILING = 10 ** ID_WIDTH - 1                 # RU-9999, INT-9999
+
+_RU_FILE = re.compile(
+    rf"^(RU-draft-{ids.ULID}|{ids.permanent_body('RU')})\.yaml$")
+
+def _ru_filename_problem(stem: str) -> str:
+    """Why this stem is not an RU filename, in the most specific terms available.
+
+    `ids.split` already produces the diagnosis the alphabet exists to deliver —
+    "contains O, which the alphabet excludes so it can never be confused with 0"
+    — and a reader who typed a letter for a digit needs exactly that, not a
+    restatement of the shape they thought they had followed."""
+    try:
+        ids.split(stem, "RU")
+    except ValueError as specific:
+        if "excludes" in str(specific):
+            return f"not an RU filename: {specific}"
+    return ("not an RU filename — RU-<SEQUENCE>.yaml, RU-<SEGMENT>-<SEQUENCE>.yaml, "
+            "or RU-draft-<ULID>.yaml, where the sequence is four base-32 "
+            "characters (the alphabet excludes I, L, O and U)")
+
+
 _FEAT_FILE = re.compile(r"^FEAT-[a-z0-9-]+\.yaml$")
-_GAP_FILE = re.compile(r"^GAP-[0-9A-HJKMNP-TV-Z]{26}\.yaml$")
+_GAP_FILE = re.compile(rf"^GAP-{ids.ULID}\.yaml$")
 _MANIFEST_FILE = re.compile(r"^[a-z][a-z0-9-]*\.manifest\.yaml$")
 _MODEL_FILE = re.compile(r"^MDL-[a-z][a-z0-9-]*\.statechart\.json$")
-_INT_FILE = re.compile(r"^INT-[0-9]{4}\.[a-z0-9]+$")
+_INT_FILE = re.compile(rf"^{ids.INTENT_BODY}\.[a-z0-9]+$")
 _ADR_FILE = re.compile(r"^ADR-[A-Za-z0-9-]+\.md$")
 
 # Reference token grammar (formats §2): parser.tokens owns it outright. This
@@ -122,10 +152,9 @@ def _validate(kind: str, data: dict, path: Path) -> None:
     # Schemas are framework-level: they always come from the repo's
     # spec/framework/, never from the store being loaded — a fixture store
     # carries content artifacts only.
-    try:
-        validator(kind).validate(data)
-    except ValidationError as e:
-        raise SchemaInvalid(str(path), e.message) from e
+    error = best_match(validator(kind).iter_errors(data))
+    if error is not None:
+        raise SchemaInvalid(str(path), describe_violation(error))
 
 
 @dataclass
@@ -183,7 +212,7 @@ class Store:
         name = path.name
         if kind == "ru":
             if not _RU_FILE.match(name):
-                raise UnknownArtifact(str(path), "not an RU filename (RU-XXXX.yaml or RU-draft-<ULID>.yaml)")
+                raise UnknownArtifact(str(path), _ru_filename_problem(path.stem))
             data = _load_yaml(path)
             _validate("ru", data, path)
             if data["id"] != path.stem:
@@ -232,7 +261,10 @@ class Store:
             )
         elif kind == "intent":
             if not _INT_FILE.match(name):
-                raise UnknownArtifact(str(path), "not an INT filename (INT-XXXX.<ext>)")
+                raise UnknownArtifact(
+                    str(path),
+                    "not an INT filename — INT-<ULID>.<ext> for a new capture, or "
+                    "the four-digit INT-XXXX.<ext> an early store already carries")
             self._intents.append(path.stem)
             self._intent_paths[path.stem] = path
         elif kind == "rationale":
@@ -374,7 +406,7 @@ def _lookup_endpoint(manifest: dict, key: str) -> object | None:
     declaration, or one declared field. A direction declared `none` resolves to
     the string `none` — "this surface carries nothing" is a POSITIVE claim, so
     it must resolve; an ABSENT direction does not, which is what lets C10 and
-    L23 tell an unfinished declaration from a deliberate empty one."""
+    L15 tell an unfinished declaration from a deliberate empty one."""
     endpoint_id, _, path = key.partition(".")
     entry = next((e for e in manifest.get("endpoints", []) if e.get("id") == endpoint_id), None)
     if entry is None or not path:

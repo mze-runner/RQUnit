@@ -99,9 +99,13 @@ equally.
 
 7. **Adapters never judge; the core never invokes a language toolchain.** An
    extractor reports what the code exposes; the framework decides what a difference
-   means. Extraction runs in the stack's own build system. Emitters are pure
-   functions of the plan — asserted, because that is what stops a second language
-   from silently asserting something different from the first.
+   means. The core may exec a *declared, prebuilt* adapter command as an opaque
+   black box behind a pinned schema — but it never runs a compiler, build tool, or
+   test runner: building the adapter is the stack's own build system's job, and a
+   missing binary is a config error naming both fixes (build it, or use artifact
+   mode). Emitters are pure functions of the emit request — asserted, because that
+   is what stops a second language from silently asserting something different
+   from the first.
 
 8. **Kinds grow by demand.** Contract kinds are a closed set; the model dialect is
    flat; there is no generic assertion DSL. Extend by schema PR when a real case
@@ -126,12 +130,14 @@ framework; everything language-specific lives in a per-stack adapter.
 | Contract | Direction | Stack provides | Framework decides |
 |---|---|---|---|
 | `actual-surface.json` | adapter → core | an **extractor**: what the code really exposes | what every difference means (CF-rules), including the planned-surface asymmetry |
-| `test-plan.json` | core → adapter | an **emitter**: renders the plan as idiomatic tests | which checks exist, what each asserts, their identity and order |
-| scanner registry | adapter → core | a **scanner**: finds tests and their `verifies` traces | traceability rules and the new-test gate |
+| `emit-request` → `emitted-files` | core → adapter → core | an **emitter**: renders the plan as idiomatic tests, returned as files-as-data | which checks exist, what each asserts, their identity and order; core validates the plan↔check mapping and writes every file |
+| `scanned-checks.json` | adapter → core | a **scanner**: finds tests and their `verifies` traces | traceability rules and the new-test gate (L14 = base-vs-head set difference over the observations) |
 
-The scanner registry is a registry of *functions*, not a parameterized generic
-scanner: test discovery differs structurally between stacks, and one algorithm bent
-to fit all of them would be false generality.
+Every role runs out of process behind its pinned schema — a declared command
+core execs as a black box, or an artifact the stack's pipeline produced. The
+contract pins the *output shape*, never the algorithm: test discovery differs
+structurally between stacks, and one algorithm bent to fit all of them would
+be false generality.
 
 ---
 
@@ -144,8 +150,9 @@ to fit all of them would be false generality.
   reference is a defect; a meta-test guards this. Extend both together.
 - **Adding a rule** = module + pass/fail fixtures + handbook catalogue entry + spec
   line. Rules are numbered within their family and never renumbered.
-- **Adding a language** = an extractor, an emitter, and a scanner. If it requires a
-  core change, the contracts are wrong — fix them rather than special-casing.
+- **Adding a language** = an extractor, a scanner, an emitter, and a manifest with
+  a passing compliance kit (`rqunit adapter verify`). If it requires a core change,
+  the contracts are wrong — fix them rather than special-casing.
 
 ---
 
@@ -160,8 +167,8 @@ to fit all of them would be false generality.
   assuming the tree is as you left it, and never reformat or "fix" a file you did not
   write — it is probably someone's work in progress.
 
-**Orientation for a fresh session:** read `docs/rqunit-product-paper.md` first (a
-dated snapshot: architecture, settled decisions with their reasons, current state,
-extraction plan, roadmap), then `HANDBOOK.md`, then the spec. Then run the tool
-against a fixture store — the output teaches the current state better than prose,
-which is the point of the design.
+**Orientation for a fresh session:** read `docs/rqunit-product-paper.md` first —
+what the product is, how it is built, and which decisions are settled and why —
+then `HANDBOOK.md`, then the spec. Then run the tool against a fixture store: the
+output teaches the current state better than prose, which is the point of the
+design.

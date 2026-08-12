@@ -56,14 +56,48 @@ Exit codes everywhere: `0` pass, `1` violations, `2` tool error.
 
 ## Language support
 
-The framework is language-neutral by construction: every *judgment* lives in the
-core, and everything language-specific lives in a small adapter behind three pinned
-JSON contracts — an extractor (what the code exposes), an emitter (rendering the
-framework's test plan as idiomatic tests), and a scanner (finding tests and their
-traceability annotations). Supporting a language costs an adapter, never a second
-copy of the rules.
+Every *judgment* lives in the core; everything language-specific lives in a
+per-stack **adapter**. An adapter fills up to five roles, each running out of
+process behind a pinned JSON contract:
 
-Adapters live under [`adapters/`](adapters).
+| Role | Answers |
+|---|---|
+| extractor | what does the code actually expose? |
+| scanner | which tests exist, and what do they claim to verify? |
+| emitter | render this test plan in the stack's own idiom |
+| evidence | which checks passed, and which have ever failed? |
+| stripper | remove the annotations adoption asked us to add |
+
+Declare a stack with any `[stacks.<name>]` table — the core carries no list of
+supported languages. Each role is either a command the core runs as an opaque
+black box, or a file your own pipeline produced. The core never invokes a
+compiler, build tool, or test runner.
+
+Adding a language costs an adapter: never a second copy of the rules, never a
+core change. `rqunit adapter verify` runs an adapter's compliance kit, which is
+the executable definition of a correct one.
+
+### Getting an adapter
+
+Adapters ship as source in [`adapters/`](adapters). Build the one for your stack
+with its own toolchain:
+
+```bash
+git clone https://github.com/your-org/rqunit && cd rqunit
+cargo build --release --manifest-path adapters/rust/Cargo.toml
+```
+
+Then point your `rqunit.toml` at the result — either on `PATH`, which is the
+form to commit because it is correct on every machine:
+
+```toml
+[stacks.rust.adapter]
+scanner  = { cmd = ["rqunit-scan-checks"] }
+stripper = { cmd = ["rqunit-strip-annotations"] }
+```
+
+or at a path under your own repository, if you vendor the binaries there.
+`rqunit doctor` reports a command that resolves to neither.
 
 ## Documentation
 
@@ -72,5 +106,8 @@ Adapters live under [`adapters/`](adapters).
 | [HANDBOOK.md](HANDBOOK.md) | daily use: recipes, the CLI, and the full rule catalogue |
 | [docs/ru-framework-spec.md](docs/ru-framework-spec.md) | the normative specification |
 | [docs/formats.md](docs/formats.md) | every pinned format and grammar |
+| [CHANGELOG.md](CHANGELOG.md) | what changed between revisions, and what to do about it |
 
-Where they disagree, the specification wins.
+Where they disagree, the specification wins. The three documents above describe
+the product as it is; the changelog is the only one that describes how it got
+here.

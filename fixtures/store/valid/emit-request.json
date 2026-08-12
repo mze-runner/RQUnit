@@ -1,0 +1,76 @@
+{
+  "contract_version": 1,
+  "plan": {
+    "contract_version": 1,
+    "models": [
+      {
+        "model": "order-lifecycle",
+        "model_hash": "sha256:e3e73f60006278893ab0bb5a1225707014de51b5953855387b2dca04217a2a16",
+        "undeclared_event_policy": "ignore",
+        "shim_registered": false,
+        "verified_by": [
+          "RU-0142"
+        ],
+        "checks": [
+          {
+            "kind": "transition",
+            "id": "transition_cancelling_on_cancel_complete_to_cancelled",
+            "from": "cancelling",
+            "event": "CANCEL_COMPLETE",
+            "to": "cancelled"
+          },
+          {
+            "kind": "transition",
+            "id": "transition_pending_on_cancel_to_cancelling",
+            "from": "pending",
+            "event": "CANCEL",
+            "to": "cancelling"
+          },
+          {
+            "kind": "rejection",
+            "id": "rejects_cancelled_on_cancel",
+            "state": "cancelled",
+            "event": "CANCEL",
+            "expect": "ignored"
+          },
+          {
+            "kind": "rejection",
+            "id": "rejects_cancelled_on_cancel_complete",
+            "state": "cancelled",
+            "event": "CANCEL_COMPLETE",
+            "expect": "ignored"
+          },
+          {
+            "kind": "rejection",
+            "id": "rejects_cancelling_on_cancel",
+            "state": "cancelling",
+            "event": "CANCEL",
+            "expect": "ignored"
+          },
+          {
+            "kind": "rejection",
+            "id": "rejects_pending_on_cancel_complete",
+            "state": "pending",
+            "event": "CANCEL_COMPLETE",
+            "expect": "ignored"
+          },
+          {
+            "kind": "invariant",
+            "id": "invariant_no_new_shipments_dispatched",
+            "state": "cancelling",
+            "name": "no_new_shipments_dispatched"
+          }
+        ]
+      }
+    ]
+  },
+  "constants": {
+    "service-orders": {
+      "manifest_hash": "sha256:f1d9a3f4391c1fa2015e170781ebea2724773ae0b55c3424683dcc6cb9002e56",
+      "values": {
+        "retention.decision_log_days": 90
+      }
+    }
+  },
+  "options": {}
+}

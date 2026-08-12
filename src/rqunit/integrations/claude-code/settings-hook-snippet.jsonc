@@ -1,29 +1,43 @@
-// ── Spec-consistency hook snippet ───────────────────────────────────────────
+// ── H1/H2 scope hooks ───────────────────────────────────────────────────────
 //
-// MERGE this into .claude/settings.json (don't paste the file wholesale — your
-// settings.json already has permissions/model/other hooks; only add the entry
-// under the "hooks" key). This makes the MECHANICAL spec controls fire
-// deterministically when Claude edits a spec file, rather than relying on the
-// agent remembering to run them.
+// MERGE this into .claude/settings.json — do not paste the file wholesale.
+// Your settings.json already carries permissions and other hooks; add only the
+// entries under the "hooks" key, beside whatever is there.
 //
-// The principle (confirmed in the Claude Code docs): CLAUDE.md and agents are
-// advisory; hooks are deterministic. The reviewer gates (C9-C11) stay with the
-// agent/skill because they need judgement; the mechanical checks (C1-C4, C8)
-// belong in a hook because they don't.
+// Why hooks rather than instructions: a boundary an agent is ASKED to respect
+// is advisory, and advisory boundaries are the ones that get crossed at 2am
+// under deadline. H1 blocks the write; H2 records the one it does not block.
+// Both are inert unless a task packet is armed (spec/packets/.active), so they
+// cost nothing during work that is not packet-scoped.
 //
-// PostToolUse fires AFTER an edit. The matcher restricts it to spec files so it
-// doesn't run on every code edit. Adjust the matcher path to your repo if your
-// specs live elsewhere than .claude/specs/.
+// H1 (PreToolUse) refuses a write inside the active packet's `must_not_touch`
+// globs and names the RU that imposed the boundary. Exit 2 blocks the call.
+// H2 (PostToolUse) appends writes outside the packet's `owns` globs to
+// spec/projections/scope-audit.jsonl. It never blocks: out-of-owns work is
+// accepted residual risk, and the audit trail is what makes it reviewable.
 
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/h1-scope-guard.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.claude/specs/*) out=$(bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-spec-consistency.sh\" 2>&1) || { echo \"$out\" >&2; exit 2; };; esac"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/h2-scope-audit.sh\"",
+            "timeout": 15
           }
         ]
       }
@@ -31,9 +45,9 @@
   }
 }
 
-// NOTE: the exact env var carrying the edited path (read from stdin JSON via jq) and
-// the PostToolUse schema can vary by Claude Code version. Verify against
-// `code.claude.com/docs` → Configure settings → hooks for your installed
-// version, and adjust the guard condition if the variable name differs. If in
-// doubt, drop the `if echo ... grep` guard and let it run on every edit — the
-// checker is fast and exits 0 when there are no service manifests yet.
+// NOTE: both scripts read the edited path from the hook's stdin JSON with `jq`,
+// and the PostToolUse/PreToolUse payload shape can vary by Claude Code version.
+// If a hook goes quiet, verify the payload against code.claude.com/docs →
+// Configure settings → hooks for your installed version. The scripts fail open
+// by design: a missing `jq`, a missing `rqunit`, or no armed packet all exit 0
+// rather than bricking every edit in the repository.

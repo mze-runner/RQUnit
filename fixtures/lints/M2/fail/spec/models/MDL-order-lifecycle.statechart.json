@@ -1,0 +1,23 @@
+{
+  "id": "order-lifecycle",
+  "kind": "statechart",
+  "initial": "pending",
+  "undeclared_event_policy": "ignore",
+  "vocabulary": {
+    "CANCEL": "internal",
+    "CLOSE": "internal",
+    "SHIP": "internal"
+  },
+  "states": {
+    "pending": {
+      "on": {
+        "CANCEL": "limbo",
+        "SHIP": "shipped_ghost",
+        "CLOSE": "closed"
+      }
+    },
+    "closed": {
+      "type": "final"
+    }
+  }
+}

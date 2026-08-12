@@ -1,0 +1,7 @@
+# The intent form capture writes now: a ULID, anchored to a single line. The
+# 26-character body has to survive the anchor grammar the same way the
+# four-digit one does — length is the only thing telling the two apart.
+id: FEAT-order-cancellation
+goal: Customers and support agents can cancel in-flight orders without stranding fulfilment.
+source_ref: INT-01J3F8KQZ2ABCDEFGHJKMNPQRS#L7
+status: active

@@ -32,7 +32,15 @@ def test_valid_store_loads_every_artifact_type(store):
     assert [g.id for g in store.gaps()] == ["GAP-01J3F8KQZ2ABCDEFGHJKMNPQRS"]
     assert sorted(store.manifests()) == ["service-billing", "service-orders", "shared"]
     assert list(store.models()) == ["order-lifecycle"]
-    assert store.intents() == ["INT-0057"]
+    # The invariant is that intents load and match their filenames — not a
+    # census. Both id forms are present on purpose: the store must carry a
+    # decimal intent and a ULID one side by side, because that is the permanent
+    # state of any store that adopted before the scheme changed.
+    loaded = store.intents()
+    assert loaded == sorted({p.stem for p in (VALID / "spec" / "intent").iterdir()
+                             if p.suffix == ".md"})
+    assert any(i.startswith("INT-0") and len(i) == 8 for i in loaded)     # decimal
+    assert any(len(i) == 30 for i in loaded)                              # ULID
 
 
 def test_constitutional_tier_surfaces_on_the_accessor(store):
@@ -123,3 +131,117 @@ def test_malformed_tokens_are_distinct_from_unresolved(store, token):
 def test_unresolved_reference_raises(store):
     with pytest.raises(UnresolvedRef):
         store.resolve_ref("{endpoint:launch_missiles}", "service-orders")
+
+
+# ------------------------------------------------- permanent id grammar
+
+def _clone_ru(root: Path, source_id: str, new_id: str) -> Path:
+    import yaml
+    data = yaml.safe_load((root / "spec" / "ru" / f"{source_id}.yaml").read_text())
+    data["id"] = new_id
+    path = root / "spec" / "ru" / f"{new_id}.yaml"
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    return path
+
+
+@pytest.mark.parametrize("new_id", [
+    "RU-ORD-01A2",          # segmented
+    "RU-01A2",              # unsegmented, base-32
+    "RU-ORDERMGT-ZZZZ",     # longest segment, highest sequence
+])
+def test_the_loader_accepts_every_permanent_id_shape(tmp_path, new_id):
+    """The grammar is one shape in one place; a store may carry segmented and
+    unsegmented ids at once, because a requirement that governs everything
+    belongs to no domain."""
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    _clone_ru(root, "RU-0142", new_id)
+    assert new_id in {ru.id for ru in Store.load(root).rus()}
+
+
+BAD_IDS = [
+    "RU-01O2",              # O is excluded so it cannot be read as 0
+    "RU-01a2",              # case is never folded
+    "RU-012",               # short of the sequence width
+    "RU-CART-0001",         # a segment the sequence alphabet can spell
+    "RU-ord-0001",          # segments are uppercase
+]
+
+
+@pytest.mark.parametrize("bad_id", BAD_IDS)
+def test_the_filename_layer_refuses_an_id_outside_the_grammar(tmp_path, bad_id):
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    _clone_ru(root, "RU-0142", bad_id)
+    with pytest.raises(UnknownArtifact):
+        Store.load(root)
+
+
+@pytest.mark.parametrize("bad_id", BAD_IDS)
+def test_the_schema_layer_refuses_the_same_ids_independently(tmp_path, bad_id):
+    """Filename and `id:` field are separate gates, and `_clone_ru` moves them
+    in lockstep — so every case above stops at the filename and the schema
+    pattern is never reached. Give the file a LEGAL name and a bad field, and
+    the widened pattern gets the fail coverage a rule is required to ship."""
+    import shutil
+
+    import yaml
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    path = _clone_ru(root, "RU-0142", "RU-0143")
+    data = yaml.safe_load(path.read_text())
+    data["id"] = bad_id
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    with pytest.raises(SchemaInvalid):
+        Store.load(root)
+
+
+def test_the_refusal_names_the_character_and_the_digit_it_was_meant_to_be(tmp_path):
+    """Hard rule: error messages are the teaching surface. Excluding O from the
+    alphabet earns nothing unless the reader who typed one is told which digit
+    they meant — a message merely mentioning base-32 does not do that."""
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    _clone_ru(root, "RU-0142", "RU-01O2")
+    with pytest.raises(UnknownArtifact) as caught:
+        Store.load(root)
+    message = str(caught.value)
+    assert "O" in message and "excludes" in message and "0" in message
+
+
+# --------------------------------------------------------- intent identity
+
+def test_both_intent_forms_load_side_by_side(tmp_path):
+    """Intents are captured, never allocated — capture has no gate, so the id is
+    a ULID, as it is for every other artifact created outside a serialization
+    point. The decimal form an early store carries stays legal permanently:
+    every RU compiled from an intent cites it in `source_ref`, so renaming one
+    would rewrite the provenance of requirements already stamped and reviewed."""
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    ulid = "INT-01J3F8KQZ2ABCDEFGHJKMNPQRS"
+    shutil.copy(root / "spec" / "intent" / "INT-0057.md",
+                root / "spec" / "intent" / f"{ulid}.md")
+
+    loaded = Store.load(root).intents()
+    assert "INT-0057" in loaded and ulid in loaded
+
+
+@pytest.mark.parametrize("bad", [
+    "INT-01O3F8KQZ2ABCDEFGHJKMNPQRS",   # O is excluded from the alphabet
+    "INT-057",                          # short of the decimal width
+    "INT-01J3F8KQZ2ABCDEFGHJKMNPQR",    # short of the ULID length
+])
+def test_an_intent_outside_the_grammar_is_refused(tmp_path, bad):
+    import shutil
+    root = tmp_path / "store"
+    shutil.copytree(VALID, root)
+    shutil.copy(root / "spec" / "intent" / "INT-0057.md",
+                root / "spec" / "intent" / f"{bad}.md")
+    with pytest.raises(UnknownArtifact) as caught:
+        Store.load(root)
+    assert "ULID" in str(caught.value), "the refusal must name the shape capture writes now"

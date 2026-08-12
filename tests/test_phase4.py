@@ -275,3 +275,101 @@ def test_refused_commit_rolls_back_every_written_file(repo):
     assert (repo / "spec" / "ru" / f"RU-draft-{ULID_A}.yaml").exists()  # drafts restored
     assert not list((repo / "spec" / "ru").glob("RU-0101*"))
     assert _git(repo, "status", "--porcelain").stdout == before      # byte-identical state
+
+
+def test_allocation_continues_a_base32_sequence_it_did_not_start(repo):
+    """A store may already hold base-32 ids — including ones no decimal listing
+    could see. `max + 1` over the DECODED sequence is what keeps allocation
+    monotonic; reading the listing as decimal would mint an id sorting below
+    one that exists, and ids are never rewritten."""
+    ru_dir = repo / "spec" / "ru"
+    source = next(ru_dir.glob("RU-0*.yaml"))
+    data = yaml.safe_load(source.read_text())
+    data["id"] = "RU-A1B2"
+    (ru_dir / "RU-A1B2.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+
+    before = {ru.id for ru in Store.load(repo).rus() if not ru.id.startswith("RU-draft-")}
+    result = CliRunner().invoke(activate_cli, [
+        "batch", "--store", str(repo), "--feature", "FEAT-pilot", "--reviewer", "test-op"])
+    assert result.exit_code == 0, result.output
+
+    after = {ru.id for ru in Store.load(repo).rus()}
+    minted = after - before
+    assert minted, "nothing was allocated — the assertion below would be vacuous"
+    assert min(minted) > max(before), sorted(minted)
+
+
+def _declare(repo, body: str) -> None:
+    (repo / "spec" / "framework").mkdir(exist_ok=True)
+    (repo / "spec" / "framework" / "segments.yaml").write_text(body)
+
+
+def _draft_into(repo, segment: str | None):
+    """Point every pilot draft at a segment (or none) and return the batch."""
+    for path in (repo / "spec" / "ru").glob("RU-draft-*.yaml"):
+        data = yaml.safe_load(path.read_text())
+        if segment:
+            data["segment"] = segment
+        else:
+            data.pop("segment", None)
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+    return CliRunner().invoke(activate_cli, [
+        "batch", "--store", str(repo), "--feature", "FEAT-pilot", "--reviewer", "test-op"])
+
+
+def test_a_draft_allocates_into_the_segment_it_declares(repo):
+    """The segment is DECLARED on the draft, never derived from scope.owns:
+    segments and services are many-to-many, so derivation would impose the
+    physical axis and be wrong on a monolith and on a spread domain alike."""
+    _declare(repo, "segments:\n  - name: ORD\n    domain: order management\n")
+    result = _draft_into(repo, "ORD")
+    assert result.exit_code == 0, result.output
+
+    minted = [ru for ru in Store.load(repo).rus() if ru.id.startswith("RU-ORD-")]
+    assert minted, [ru.id for ru in Store.load(repo).rus()]
+    for ru in minted:
+        assert "segment" not in ru.raw, (
+            "the id carries the segment; a second copy could disagree with it")
+
+
+def test_segments_are_separate_sequences(repo):
+    """`RU-ORD-0001` and an unsegmented `RU-0001` are different ids in different
+    spaces — that is what makes a segment an allocation boundary rather than a
+    label."""
+    _declare(repo, "segments:\n  - name: ORD\n    domain: order management\n")
+    assert _draft_into(repo, "ORD").exit_code == 0
+    segmented = sorted(ru.id for ru in Store.load(repo).rus()
+                       if ru.id.startswith("RU-ORD-"))
+    assert segmented[0].endswith("0001"), segmented
+
+
+def test_activation_refuses_an_undeclared_segment(repo):
+    """A segment name is permanent from the moment its first id is minted, so
+    the registry entry has to exist BEFORE the sitting, not be invented by it."""
+    result = _draft_into(repo, "ORD")
+    assert result.exit_code != 0
+    assert "does not declare" in result.output and "nothing was written" in result.output
+    assert not list((repo / "spec" / "ru").glob("RU-ORD-*.yaml"))
+
+
+def test_activation_refuses_a_closed_segment(repo):
+    """Closing is the retirement path: existing ids keep working, new ones are
+    not minted. If closure did not bind the allocator, the only supported way
+    to retire a segment would be the one edit that cannot be undone."""
+    _declare(repo, "segments:\n  - name: ORD\n    domain: order management\n    closed: true\n")
+    result = _draft_into(repo, "ORD")
+    assert result.exit_code != 0
+    assert "closed" in result.output and "nothing was written" in result.output
+
+
+def test_gate_one_shows_advisory_findings_about_the_batch(repo):
+    """Warnings never block activation, and until now they were never printed
+    either — so a rule whose whole purpose is to be read at the moment a
+    permanent id is minted was invisible at exactly that moment. Errors stop
+    the run; these are for the reviewer to weigh, which is what a sitting is."""
+    _declare(repo, "segments:\n  - name: ORD\n    domain: order management\n")
+    result = _draft_into(repo, None)          # drafts own things, declare no segment
+    assert result.exit_code == 0, result.output
+    assert "L27" in result.output
+    assert "do not block" in result.output
+    assert "ORD" in result.output, "the suggestion must reach the reviewer, not just the message"

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rqunit/interfaces/emitted-files.schema.json",
+  "title": "EmittedFiles",
+  "description": "An emitter's answer, on stdout: files as data, plus the identity mapping from plan checks to the stack-qualified check ids the rendered tests carry. CORE writes the files — that keeps `generate check` idempotency, write-path auditing, and the hand-edit ban in one place, and denies an adapter the ability to scribble outside its targets. Check identity comes from this mapping, never from parsing emitted source.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "generated_by",
+    "files",
+    "checks"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "generated_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Adapter name and version — names the emitter for anyone reading an error that quotes it."
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "content"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Consumer-root-relative, '/'-separated, normalized. Core rejects absolute paths and any '..' segment before writing."
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "description": "One entry per plan check: the stack-qualified id its rendered test carries. Core requires exactly the plan's census — an unmapped plan check or an invented one is a contract violation, because this mapping is what the trace map inherits RU links through.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model",
+          "plan_id",
+          "id"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "plan_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

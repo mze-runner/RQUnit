@@ -1,0 +1,19 @@
+id: RU-SHIP-0001
+statement: 'When a carrier collects a parcel, the system shall record the handover.
+
+  '
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: TODO(fixture)
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:a60e12d08a5d97a0c1e6d48d302d5b502ff403e50f3be3be947fab6bbaae3c35
+  by: fixture-op
+  at: '2026-01-15T09:30:00+00:00'

@@ -1,0 +1,19 @@
+id: RU-ORD-0001
+statement: 'When a user cancels an order, the system shall record the cancellation.
+
+  '
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: TODO(fixture)
+scope:
+  owns:
+  - service-orders/fulfilment
+tags:
+- orders
+gate1_stamp:
+  hash: sha256:7d45b0ea728faaa899807d96335221e44f56d7bfdd89c9772091f4c5a0d6a8d5
+  by: fixture-op
+  at: '2026-01-15T09:30:00+00:00'

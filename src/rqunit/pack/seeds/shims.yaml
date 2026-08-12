@@ -1,0 +1,22 @@
+# Statechart shim registrations (spec §6.3).
+#
+# A generated model suite asserts against a StatechartSubject the APPLICATION
+# provides. Until that shim exists the suite is `#[ignore]`d — it cannot run,
+# so it proves nothing — and this file is how the store learns which models
+# have one. Registering is a claim: the shim exists and the suite executes.
+#
+# The claim has consequences. An unregistered model's verification contributes
+# ZERO mechanical depth to the coverage policy (L21), because a suite that
+# cannot execute is not depth; and the report shows those suites as
+# `pending-shim` rather than counting them beside real ones. That is the last
+# place where declared depth could exceed provable depth.
+#
+# Seeded empty. Add an entry when the shim lands, not when it is planned.
+shims: []
+# Example — delete this comment block when you add a real entry:
+#
+# shims:
+#   - model: MDL-order-lifecycle
+#     registered_by: jane
+#     at: "2026-01-15T09:30:00Z"
+#     note: subject("order-lifecycle") wired to the domain aggregate

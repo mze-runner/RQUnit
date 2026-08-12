@@ -1,0 +1,11 @@
+id: RU-0001
+statement: The system shall reject a cancellation for an order already shipped.
+syntax: ears
+status: active
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: svc::orders::rejects_cancel_after_ship
+scope:
+  owns: [service-orders/domain]
+tags: [orders]

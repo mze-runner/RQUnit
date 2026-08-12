@@ -28,7 +28,7 @@ $defs:
   ru_link:
     type: string
     description: Governing RU or FEAT (bidirectional traceability, §6.6).
-    pattern: "^(RU-[0-9]{4}|FEAT-[a-z0-9-]+)$"
+    pattern: "^(RU-(?:((?![0-9A-HJKMNP-TV-Z]{4}-)[A-Z][A-Z0-9]{1,7})-)?([0-9A-HJKMNP-TV-Z]{4})|FEAT-[a-z0-9-]+)$"
   ident:
     type: string
     pattern: "^[a-z][a-z0-9_]*$"
@@ -389,7 +389,8 @@ properties:
         direction: { enum: [inbound, outbound] }
         payload:
           type: string
-          description: "Wire-contract TYPE NAME only, e.g. wire-contracts::OrderCancelled."
+          description: "Wire TYPE NAME only, e.g. wire::OrderCancelled — the shape lives
+            in the code the name points at, not here."
           pattern: "^[A-Za-z0-9_:.-]+$"
         ru:        { $ref: "#/$defs/ru_link" }
         external:

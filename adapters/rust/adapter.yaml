@@ -1,0 +1,22 @@
+# Adapter self-declaration (contract: rqunit interfaces/adapter-manifest.schema.json).
+# Read by core, never by this adapter.
+contract_version: 1
+stack: rust
+roles: [extractor, scanner, emitter, stripper]
+config_keys:
+  # Read by extract.rs.
+  - service
+  - routers
+  - messages
+  - audit
+  # Read by scan.rs.
+  - trace_scan
+  # Read by emit.rs (arrives as request data, not from disk).
+  - conformance_crate
+kit:
+  path: kit
+  commands:
+    extractor: [target/debug/extract-surface]
+    scanner: [target/debug/scan-checks]
+    emitter: [target/debug/emit-suite]
+    stripper: [target/debug/strip-annotations]

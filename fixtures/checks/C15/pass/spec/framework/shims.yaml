@@ -1,0 +1,9 @@
+# One registration per model the store carries.
+shims:
+  - model: MDL-order-lifecycle
+    registered_by: fixture-op
+    at: "2026-01-15T09:30:00Z"
+    note: subject("order-lifecycle") wired to the domain aggregate
+  - model: payment-capture
+    registered_by: fixture-op
+    at: "2026-01-16T11:00:00Z"

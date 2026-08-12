@@ -234,8 +234,11 @@ def _store_commit(root: Path) -> str:
     return "WORKTREE" if (proc.returncode != 0 or not sha or dirty) else sha
 
 
+MODES = ("implementation", "check-authoring")
+
+
 def render_packet(store: Store, root: Path, task: str, ru_ids: list[str],
-                  now: str | None = None) -> str:
+                  now: str | None = None, mode: str = "implementation") -> str:
     by_id = {ru.id: ru for ru in store.rus()}
     missing = [r for r in ru_ids if r not in by_id]
     if missing:
@@ -259,9 +262,13 @@ def render_packet(store: Store, root: Path, task: str, ru_ids: list[str],
         for glob in (ru.raw.get("scope") or {}).get("must_not_touch") or []:
             mnt.setdefault(glob, ru.id)
 
+    if mode not in MODES:
+        raise ValueError(f"unknown packet mode '{mode}' (modes: {', '.join(MODES)})")
+
     out = [
         "---",
         f"task: {task}",
+        f"mode: {mode}",
         f"generated_at: {now or datetime.now(timezone.utc).isoformat(timespec='seconds')}",
         f"store_commit: {_store_commit(root)}",
         "hashes:",
@@ -314,7 +321,37 @@ def render_packet(store: Store, root: Path, task: str, ru_ids: list[str],
     else:
         out.append("must_not_touch: []")
     out += ["```", ""]
+    if mode == "check-authoring":
+        out += _authoring_discipline(owns)
     return "\n".join(out)
+
+
+def _authoring_discipline(owns: list[str]) -> list[str]:
+    """The check-authoring packet's closing instruction.
+
+    Nothing enforces this — it is discipline, and it says so. The framework's
+    answer to whether it was followed is not a hook but the evidence ledger
+    (§6.8): a check authored before its implementation is observed RED first,
+    and that first red is recorded. A check that only ever went green is
+    reported by L26 whatever any instruction claimed.
+    """
+    out = ["# 6. Authoring discipline (check-authoring packet)", "",
+           "Author the checks for these requirements NOW, from the statements above,",
+           "BEFORE the implementation packet is assembled. Do not open the files this",
+           "task owns — a check written against an implementation it has already read",
+           "can assert that implementation's shape and never fail, which reads as",
+           "coverage and proves nothing (§6.8).", ""]
+    if owns:
+        out += ["Owned by this task, and therefore not to be read while authoring:", ""]
+        out += [f"- {glob}" for glob in owns]
+        out.append("")
+    out += ["Run the checks when you have written them. They should FAIL: the behaviour",
+            "does not exist yet, and a check that passes now is asserting something",
+            "other than the requirement. Record that run —", "",
+            "    rqunit evidence record", "",
+            "— so the first red is on the ledger. That recording is what makes this",
+            "discipline checkable afterwards; the instruction alone proves nothing.", ""]
+    return out
 
 
 def packet_path(root: Path, task: str) -> Path:

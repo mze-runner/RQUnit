@@ -1,36 +1,34 @@
 # RQUnit consumer configuration. Only repo-specific inputs belong here — the
 # store layout itself is fixed (spec/ at this root) and is never configured.
-# Missing keys fall back to conventional defaults; unknown keys are errors,
-# because a typo silently ignored would read as configured.
+#
+# Core interprets only the `adapter` role declarations and `literal_scan`;
+# every other key under a stack is the adapter's own configuration, passed
+# through untouched.
 
 [stacks.rust]
-# Cargo.toml of every crate whose tests/ participate in verifies-tracing.
+
+# Files swept by the hardcoded-bound advisory (core-read) — the glob names
+# the files, so core needs to know nothing about Rust.
+literal_scan = ["**/tests/*.rs"]
+
+# ---- adapter-owned configuration ---------------------------------------------
+# Core passes everything below through untouched; the Rust adapter reads it.
+
+# Cargo.toml of every crate whose tests/ the scanner walks.
 trace_scan = ["**/Cargo.toml"]
-# Git pathspecs for the L14 new-test diff gate.
-trace_diff = ["*/tests/*.rs"]
-# tests/ directories swept by the hardcoded-bound advisory.
-literal_scan = ["**/tests"]
 # Crate receiving generated constants and statechart conformance suites.
 conformance_crate = "spec-conformance-tests"
-# Where this stack's extractor writes actual-surface.json ("" disables
-# conformance reconciliation until an extractor is wired).
-actual_surface = "actual-surface.json"
 # Manifest service slug the extractor reports on. It does not guess this.
 service = "service-orders"
 
-# HTTP composition: which router function, in which file, mounts at what prefix
-# under which access tier. This is a fact about THIS repository — not about
-# Rust and not about a web framework — which is why it is configuration and not
-# adapter code. Add one table per mounted router.
-#
-# [[stacks.rust.routers]]
-# file = "http/src/routes/mod.rs"
-# function = "router"
-# prefix = "/api/v1/orders"
-# access = "protected"
+# ---- adapter roles -----------------------------------------------------------
+# Each role is either a command core execs (cmd = ["..."]) or an artifact an
+# earlier pipeline step produced (artifact = "path").
 
-# Async surface: where subject constants are declared, and which sources
-# publish them. Naming a subject is not the same as emitting one.
-# [stacks.rust.messages]
-# subject_sources = ["wire-contracts/src"]
-# publisher_sources = ["adapters/nats/src"]
+[stacks.rust.adapter]
+# Where this stack's extractor writes actual-surface.json — the artifact
+# `rqunit conformance` reconciles against the manifests.
+extractor = { artifact = "actual-surface.json" }
+# Artifact-mode emitter: the committed emit-response.json is this store's
+# rendered suite-set, regenerated whenever models or manifest values change.
+emitter = { artifact = "emit-response.json" }

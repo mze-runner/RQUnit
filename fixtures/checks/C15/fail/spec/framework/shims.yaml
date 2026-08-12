@@ -1,0 +1,17 @@
+shims:
+  # A model the store does not carry: a shim for nothing proves nothing.
+  - model: MDL-shipment-tracking
+    registered_by: fixture-op
+    at: "2026-01-15T09:30:00Z"
+  # Registered twice — "is this registered" becomes ambiguous the moment the
+  # two entries disagree about who registered it and when.
+  - model: MDL-order-lifecycle
+    registered_by: fixture-op
+    at: "2026-01-15T09:30:00Z"
+  - model: order-lifecycle
+    registered_by: someone-else
+    at: "2026-02-01T08:00:00Z"
+  # A bare string is not a registration: it must be reported, not dropped —
+  # silence would leave the consumer chasing a warning about a shim they
+  # believe they just registered.
+  - MDL-payment-capture

@@ -14,13 +14,23 @@ doctor never becomes a gate that teaches people to ignore it.
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .store import Store
+from . import ids
+from .config import ROLES
+from .store import ID_CEILING, ID_WIDTH, Store
 
-_PERMANENT = re.compile(r"^RU-([0-9]{4})$")
+# Only the DECIMAL form. A ULID intent has no ordinal and no ceiling, so
+# counting one into a headroom calculation would be a category error.
+_DECIMAL_INTENT = re.compile(rf"^INT-([0-9]{{{ID_WIDTH}}})$")
+
+# Ids left before the ceiling is worth warning about. Generous on purpose:
+# the fix is a store-wide migration, so the warning has to arrive with enough
+# runway to schedule one, and it must never fire on an ordinary store.
+_HEADROOM_WARN = 100
 
 
 @dataclass(frozen=True)
@@ -37,24 +47,123 @@ def _verification_refs(store: Store, entry_type: str) -> set[str]:
             if e.get("type") == entry_type}
 
 
-def id_gaps(store: Store) -> list[Finding]:
-    """A hole in the permanent-id sequence usually means an activated RU was
-    lost — most often an add/add merge conflict resolved by keeping one side."""
-    numbers = sorted(int(m.group(1)) for ru in store.rus()
-                     if (m := _PERMANENT.match(ru.id)))
-    if not numbers:
+def lost_rus(store: Store, root: Path) -> list[Finding]:
+    """Permanent RUs git says were deleted and that the store no longer carries.
+
+    This replaces gap-in-the-sequence detection, which base-32 makes unsound. A
+    hole was a good proxy for a lost RU only while allocation was dense, and a
+    decimal-spelled store read as base-32 is sparse BY CONSTRUCTION — `0009` is
+    9 and `0010` is 32, so a healthy store would be told it had thousands of
+    holes and sent to hunt merge losses. Nothing distinguishes the two regimes
+    per id, because `RU-0142` is a legal spelling under both.
+
+    So the check is re-founded on evidence instead of arithmetic. History
+    records the deletion; the store records what survived; the difference is
+    the answer, and it is exactly as true under any future id scheme.
+
+    A shallow clone sees no deletions and therefore reports nothing: silent
+    under-reporting, never a false alarm."""
+    if not shutil.which("git"):
         return []
-    missing = [n for n in range(numbers[0], numbers[-1] + 1) if n not in set(numbers)]
-    if not missing:
+    # `--no-renames` DELIBERATELY defeats git's default rename detection. Every
+    # benign rename subtracts out anyway — a store relocating `spec/ru/` keeps
+    # its ids, and activation's draft→permanent rename is excluded by name below
+    # — so following renames buys nothing here and hides the one event this
+    # framework says is impossible: an id rewritten in place. Under rename
+    # detection that reads as a move and doctor reports a healthy store, which
+    # is the query being told to look away.
+    proc = subprocess.run(
+        ["git", "-C", str(root), "log", "--no-renames", "--diff-filter=D",
+         "--name-only", "--format=", "--", "spec/ru/"],
+        capture_output=True, text=True)
+    if proc.returncode != 0:
+        return []                      # not a repository
+    deleted = {Path(line).stem for line in proc.stdout.split()
+               if line.endswith(".yaml") and not Path(line).stem.startswith("RU-draft-")}
+    gone = sorted(deleted - {ru.id for ru in store.rus()})
+    if not gone:
         return []
-    shown = ", ".join(f"RU-{n:04d}" for n in missing[:12])
-    more = f" (+{len(missing) - 12} more)" if len(missing) > 12 else ""
+    shown = ", ".join(gone[:12])
+    more = f" (+{len(gone) - 12} more)" if len(gone) > 12 else ""
     return [Finding(
-        kind="id-gap", severity="warning",
-        message=f"{len(missing)} gap(s) in the permanent id sequence: {shown}{more}.",
-        suggestion="Ids are allocated consecutively, so a gap usually means an activated RU "
-                   "was dropped — check `git log --diff-filter=D -- spec/ru/` around the "
-                   "missing ids. A deliberate deletion is fine; an unnoticed merge loss is not.")]
+        kind="lost-ru", severity="warning",
+        message=f"{len(gone)} permanent RU(s) were deleted and never restored: {shown}{more}.",
+        suggestion="An activated RU is append-only history — the usual cause is an add/add "
+                   "merge conflict resolved by keeping one side. Find it with "
+                   "`git log --diff-filter=D -- spec/ru/` and restore it, or record that the "
+                   "id was retired. A deliberate deletion is fine; an unnoticed loss is not.")]
+
+
+def id_headroom(store: Store) -> list[Finding]:
+    """Runway left before a sequential-id ceiling — for BOTH numbered families.
+
+    Widening the width is a store-wide migration in one commit, not a flag, so
+    the only useful moment to learn about it is well before the capture or
+    sitting that would need it. The threshold is deliberately generous for
+    that reason, and no ordinary store trips it.
+
+    The two families differ in two ways that matter to the reader.
+
+    RU is allocated PER SEGMENT, so each segment is its own wall and its own
+    runway — a store may be comfortable overall and out of room in one domain.
+    `activate` refuses at the ceiling rather than crossing it, so an RU store
+    runs out safely.
+
+    INT is not allocated at all — capture has no gate, so intents are ULIDs and
+    have no ceiling. Only the DECIMAL ids an early store already carries have a
+    wall, and it is much nearer. NOTHING refuses at it, because no verb owns an
+    intent id, so a capture past it simply makes the store unloadable. What has
+    changed is that the warning now has a fix to name: the next capture can be
+    a ULID, and the two forms coexist permanently."""
+    out = []
+
+    spaces: dict[str | None, int] = {}
+    for ru in store.rus():
+        try:
+            segment, number = ids.split(ru.id, "RU")
+        except ValueError:
+            continue                          # a draft: no sequence allocated
+        spaces[segment] = max(spaces.get(segment, 0), number)
+    for segment, highest in sorted(spaces.items(), key=lambda kv: kv[0] or ""):
+        remaining = ids.SEQ_CEILING - highest
+        if remaining > _HEADROOM_WARN:
+            continue
+        space = f"segment {segment}" if segment else "the unsegmented space"
+        out.append(Finding(
+            kind="id-headroom", severity="warning",
+            message=(f"{remaining} id(s) left in {space}: the highest is "
+                     f"{ids.format_id('RU', segment, highest)} and the "
+                     f"{ids.SEQ_WIDTH}-character ceiling is "
+                     f"{ids.format_id('RU', segment, ids.SEQ_CEILING)}."),
+            suggestion="Allocate into another segment, or plan the width migration "
+                       "before it is needed: the width is compiled into every schema "
+                       "pattern, filename and cross-reference, so it changes "
+                       "store-wide in ONE commit — every id renamed, every reference "
+                       "rewritten, never mixed widths (formats §1). `rqunit activate` "
+                       "refuses at the ceiling rather than crossing it, so this is "
+                       "runway, not breakage."))
+
+    # `max(decimal)` never decreases, so a store that TAKES this advice would
+    # otherwise be warned identically forever — and `--strict` exits 1 on any
+    # warning, making it a gate the documented remedy provably cannot clear.
+    # One ULID capture is proof the store can proceed indefinitely, which is
+    # the entire condition this warning exists to provoke.
+    intents = [int(m.group(1)) for i in store.intents() if (m := _DECIMAL_INTENT.match(i))]
+    escaped = any(_DECIMAL_INTENT.match(i) is None for i in store.intents())
+    if intents and not escaped and ID_CEILING - max(intents) <= _HEADROOM_WARN:
+        highest = max(intents)
+        out.append(Finding(
+            kind="id-headroom", severity="warning",
+            message=(f"{ID_CEILING - highest} decimal INT id(s) left: the highest is "
+                     f"INT-{highest:0{ID_WIDTH}d} and the {ID_WIDTH}-digit ceiling "
+                     f"is INT-{ID_CEILING}."),
+            suggestion="Capture the next intent as INT-<ULID>, which has no ceiling and "
+                       "needs no coordination — that is the shape intents take now, and "
+                       "the two forms coexist permanently, so nothing has to be renamed. "
+                       "It matters because NOTHING allocates an intent id: no verb owns "
+                       "them, so nothing refuses at this wall, and a capture past it "
+                       "makes the store unloadable."))
+    return out
 
 
 def orphan_artifacts(store: Store) -> list[Finding]:
@@ -131,6 +240,106 @@ def branch_staleness(root: Path) -> list[Finding]:
                    "branch already used (the collision surfaces as an add/add merge conflict).")]
 
 
+def stack_config_health(root: Path) -> list[Finding]:
+    """Passthrough config is opaque to the loader by design, so its health is
+    judged here, against the adapter's own manifest — the only party entitled
+    to say which keys it reads. No manifest, no judgment: that state is worth
+    one note, not silence, because an unvalidated typo reads as configured.
+    Doctor stays advisory, so a broken manifest is itself a finding rather
+    than a crash."""
+    from .config import load as load_config
+    from .errors import StoreError
+    from .invoke import load_adapter_manifest, stack_declaration_problems
+
+    out = []
+    try:
+        config = load_config(root)
+    except StoreError:
+        return []          # lint owns config errors; doctor does not repeat them
+    for stack in config.stacks:
+        try:
+            manifest = load_adapter_manifest(root, stack)
+        except StoreError as e:
+            out.append(Finding(
+                kind="stack-config", severity="warning", message=str(e),
+                suggestion="Fix the adapter manifest — it is the vocabulary "
+                           "authority for this stack's passthrough keys."))
+            continue
+        if manifest is None:
+            # No manifest, no judgment. This used to be silent too, on the
+            # grounds that no consumer could point at one — an adapter shipped
+            # only as source in this repository. That premise is gone: the
+            # adapter is obtainable, so `manifest = "…"` is a fix a reader can
+            # actually apply, and withholding the note now hides the fact that
+            # a whole table of their configuration is unchecked.
+            #
+            # Scoped to stacks that HAVE passthrough keys. A stack with none
+            # loses nothing by having no manifest, and a note whose subject is
+            # empty is the noise that teaches people to skim doctor.
+            if stack.options:
+                keys = ", ".join(sorted(stack.options)[:6])
+                out.append(Finding(
+                    kind="stack-config", severity="info",
+                    message=(f"[stacks.{stack.name}] declares {len(stack.options)} "
+                             f"adapter-owned key(s) that nothing validates ({keys}) — "
+                             "no adapter manifest is wired."),
+                    suggestion="Point `manifest = \"…\"` at the adapter's adapter.yaml. It "
+                               "is the vocabulary authority for this stack's passthrough "
+                               "keys, and core deliberately never interprets them — so "
+                               "until it is wired, a typo reads as configured and surfaces "
+                               "as the role that needed the key behaving oddly."))
+            continue
+        for problem in stack_declaration_problems(root, stack):
+            out.append(Finding(
+                kind="stack-config", severity="warning", message=problem,
+                suggestion="The adapter manifest is the vocabulary authority for "
+                           "passthrough keys — align rqunit.toml with it."))
+    return out
+
+
+def role_wiring(root: Path) -> list[Finding]:
+    """Declared roles whose command cannot be found.
+
+    `rqunit adapter verify` proves an ADAPTER is correct; nothing proved a
+    consumer wired one correctly, and the only way to find out was to run the
+    verb that needed the role and watch it fail. A committed `cmd` path that
+    resolves on its author's machine and nowhere else is the live case.
+
+    Resolvability, not execution: an evidence probe runs a test suite and a
+    stripper rewrites sources, so an advisory health check must not invoke
+    them. `artifact` roles are exempt — their file is produced by a pipeline
+    step that legitimately has not run yet, and the verb that needs it already
+    says so precisely."""
+    from .config import load as load_config
+    from .errors import StoreError
+    from .invoke import resolve_command
+
+    out = []
+    try:
+        config = load_config(root)
+    except StoreError:
+        return []          # lint owns config errors; doctor does not repeat them
+    for stack in config.stacks:
+        for role_name in ROLES:
+            role = getattr(stack.adapter, role_name)
+            if role is None or not role.cmd:
+                continue
+            resolved = resolve_command(Path(root), role.cmd[0])
+            if Path(resolved).exists() or shutil.which(resolved):
+                continue
+            out.append(Finding(
+                kind="role-wiring", severity="warning",
+                message=(f"[stacks.{stack.name}.adapter] {role_name} names "
+                         f"'{role.cmd[0]}', which is neither a file under the store "
+                         "root nor on PATH."),
+                suggestion="Build the adapter in its own toolchain, or fix the path. A "
+                           "path that resolves only on the machine that wrote it is "
+                           "committed breakage for everyone else — the role is "
+                           "unavailable until the verb that needs it fails."))
+    return out
+
+
 def run(store: Store, root: Path) -> list[Finding]:
-    return (id_gaps(store) + orphan_artifacts(store)
-            + dangling_reviews(store, root) + branch_staleness(root))
+    return (lost_rus(store, root) + id_headroom(store) + orphan_artifacts(store)
+            + dangling_reviews(store, root) + branch_staleness(root)
+            + stack_config_health(root) + role_wiring(root))

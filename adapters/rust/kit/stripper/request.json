@@ -1,0 +1,23 @@
+{
+  "contract_version": 1,
+  "checks": [
+    {
+      "id": "service-x-application::sample_tests::traced_multi",
+      "path": "service-x/tests/sample_tests.rs",
+      "fn": "traced_multi",
+      "remove": ["RU-0002"]
+    },
+    {
+      "id": "service-x-application::sample_tests::plumbing_probe",
+      "path": "service-x/tests/sample_tests.rs",
+      "fn": "plumbing_probe",
+      "remove": ["infrastructure"]
+    },
+    {
+      "id": "service-x-application::sample_tests::traced_to_missing_ru",
+      "path": "service-x/tests/sample_tests.rs",
+      "fn": "traced_to_missing_ru",
+      "remove": ["RU-9999"]
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rqunit/interfaces/scanned-checks.schema.json",
+  "title": "ScannedChecks",
+  "description": "The tests a codebase carries and what each claims to verify, as one stack's scanner observed them. Produced by a per-stack adapter (Rust: `#[test]` fns under tests/; JVM: @Test methods; Node: runner tables), consumed by `rqunit trace`, which owns every judgment: traceability rules, the untraced burn-down, and the L14 new-test gate (base-vs-head set difference over these observations). A scanner reports what is; it never decides what is new, wrong, or excusable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "generated_by",
+    "checks"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "generated_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Adapter name and version — names the scanner for anyone reading the artifact or an error that quotes it."
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "path",
+          "fn",
+          "verifies"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable, stack-qualified check id (Rust: `<package>::<file stem>::<fn>`), so the union across stacks never collides. Identity must survive a reformat — it is what RU verification refs resolve against."
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Repo-relative file the check lives in, '/'-separated."
+          },
+          "fn": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The test's own name in its stack's vocabulary (function, method, or case name)."
+          },
+          "verifies": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "What the check claims to verify: RU ids from its trace annotation; [\"infrastructure\"] for the audited plumbing bucket; [] for an untraced check. The scanner transcribes the annotation — whether an id resolves, or an untraced check blocks, is the framework's judgment."
+          }
+        }
+      }
+    }
+  }
+}

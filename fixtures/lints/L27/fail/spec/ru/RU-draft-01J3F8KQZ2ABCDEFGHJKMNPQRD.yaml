@@ -1,0 +1,11 @@
+id: RU-draft-01J3F8KQZ2ABCDEFGHJKMNPQRD
+statement: The system shall reject a cancellation for a shipped order.
+syntax: ears
+status: draft
+source_ref: INT-0001#L1-2
+verification:
+- type: test
+  ref: TODO(fixture)
+scope:
+  owns: [service-orders/domain]
+tags: [orders]

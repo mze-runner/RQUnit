@@ -1,50 +1,64 @@
 ---
 name: adapter-contract
-description: How language support works — the three pinned contracts (actual-surface, test-plan, scanner registry) and the rules an adapter must obey. Load before adding a language, changing an adapter, or touching anything in src/rqunit/interfaces/ or adapters/.
+description: How language support works — the pinned adapter contracts (actual-surface, scanned-checks, emit-request/emitted-files, strip-request/stripped-files, adapter-manifest) and the rules an adapter must obey. Load before adding a language, changing an adapter, or touching anything in src/rqunit/interfaces/ or adapters/.
 ---
 
 # Language adapters
 
 Supporting a language must cost an **adapter**, never a second copy of the
-rules. That is the whole architecture, and it holds only while three boundaries
-stay honest.
+rules. That is the whole architecture, and it holds only while these
+boundaries stay honest.
 
-## The three contracts
+## The pinned contracts
 
 | Contract | Direction | The adapter provides | The framework decides |
 |---|---|---|---|
 | `actual-surface.json` | adapter → core | an **extractor**: the routes and messages the code really exposes, in manifest vocabulary | what every difference means (CF-rules), including the planned-surface asymmetry |
-| `test-plan.json` | core → adapter | an **emitter**: the plan rendered as idiomatic tests | which checks exist, what each asserts, their identity and order |
-| scanner registry | adapter → core | a **scanner**: tests and their `verifies` annotations | traceability rules and the new-test gate |
+| `emit-request` → `emitted-files` | core → adapter → core | an **emitter**: the plan rendered as idiomatic tests, returned as files-as-data | which checks exist, what each asserts, their identity and order; core validates the plan↔check mapping and writes every file |
+| `scanned-checks.json` | adapter → core | a **scanner**: tests and their `verifies` annotations | traceability rules and the new-test gate (L14 = base-vs-head set difference) |
+| `strip-request` → `stripped-files` | core → adapter → core | a **stripper**: the named annotations removed from its own sources, returned as files-as-data | which tokens are stale (a store question), and writing every file — a stripper is told exactly what to remove and never sweeps on its own initiative |
 
 Schemas live in `src/rqunit/interfaces/`. They are pinned: changing one is a
 revision event affecting every adapter.
 
 ## The rules an adapter must obey
 
+**An adapter never parses an id.** `verifies` is typed as free strings in
+`scanned-checks.schema.json` on purpose: the scanner transcribes what the
+annotation says and `trace.py` decides whether it is a real, active RU. An
+adapter that "helpfully" validated `RU-[0-9]{4}` would silently drop every
+segmented id the moment a consumer adopted segments — a language adapter
+holding an opinion about the store's identity scheme is the boundary failing.
+
 **An adapter observes; it never judges.** An extractor reports that a route
 exists. It does not decide whether a missing route is acceptable, whether a
 tier difference is tolerable, or whether something counts as planned. Every one
 of those is the framework's, so that all languages answer them identically.
 
-**The core never invokes a language toolchain.** Extraction runs in the stack's
-own build system — `cargo test`, Gradle, npm — and that stack proves its own
-artifact is current with its own currency test. This is why the core needs no
-compiler, and it is not negotiable: the moment the core shells out to a build
-tool, it inherits every consumer's toolchain problems.
+**The core never invokes a language toolchain.** It may exec a *declared,
+prebuilt* adapter command as an opaque black box behind a pinned schema — but
+it never runs a compiler, build tool, or test runner. Building the adapter is
+the stack's own build system's job — `cargo`, Gradle, npm — and that stack
+proves an artifact-mode observation is current with its own currency test.
+This is not negotiable: the moment the core shells out to a build tool, it
+inherits every consumer's toolchain problems.
 
-**Emitters are pure functions of the plan.** No reaching past the plan into the
-store. A test asserts this, because purity is what stops a second language from
-silently asserting something different from the first.
+**Emitters are pure functions of the emit request.** No reaching past the
+request into the store or the tree — the compliance kit renders into a barren
+`--root` to prove it. Purity is what stops a second language from silently
+asserting something different from the first.
 
 **Check identity comes from the plan**, never from parsing emitted source. That
 mistake has already been made here once: deriving identity by regexing emitted
 code also matched a helper function and mapped a non-test into the trace map.
 
-**Exceptions are data in the artifact**, with a substantive justification, and
-the framework reports them as findings. An adapter never suppresses a
-divergence, and a justification nobody could defend in prose is a defect
-wearing a waiver.
+**Exceptions are never artifact data.** A waiver is a reviewed human decision,
+not an observation, and the two cannot share a channel once probes can be
+written by anyone: an artifact carrying `exceptions` is rejected outright.
+Ratified waivers live in the store at
+`spec/framework/conformance-exceptions.yaml`, where Gate 1 governs them, each
+with a substantive justification — reported as findings, never silenced. A
+justification nobody could defend in prose is a defect wearing a waiver.
 
 ## Adding a language
 
@@ -53,15 +67,30 @@ wearing a waiver.
    pretence of a universal AST.
 2. **Currency test** in the stack's own suite: regenerate, compare to the
    committed artifact, fail with the command that fixes it.
-3. **Emitter** → renders `test-plan.json` into the stack's test idiom.
-4. **Scanner** → register a `Scanner` in the trace registry: how tests are
-   found, and what an added test definition looks like for the diff gate.
-5. **Config** → a `[stacks.<name>]` block in the consumer's `rqunit.toml`.
+3. **Emitter** → an `emit-suite` command reading the emit request (plan +
+   constants + passthrough options) on stdin and answering with files-as-data
+   plus the plan-id → check-id mapping. Core writes the files.
+4. **Scanner** → a `scan-checks` command (or pipeline-produced artifact)
+   emitting `scanned-checks.json`: the tests a tree carries and what each
+   one's trace annotation claims. Core derives newness by set difference.
+5. **Stripper** → a `strip-annotations` command reading the strip request on
+   stdin and answering with the rewritten sources as files-as-data. The
+   off-ramp: adoption asks a consumer to mark their own tests, so a stack that
+   cannot un-mark them is a one-way door. Rewrite as TEXT, not by re-emitting a
+   parsed tree — reformatting every file it touches turns a two-token deletion
+   into an unreviewable diff. `cmd` only; artifact transport cannot answer a
+   request computed moments earlier.
+6. **Manifest + kit** → `adapter.yaml` declaring roles, `config_keys`, and a
+   compliance kit; `rqunit adapter verify --stack <name>` passing is the
+   definition of done — no Python read, no framework source read.
+7. **Config** → a `[stacks.<name>]` block in the consumer's `rqunit.toml`,
+   declaring each role `cmd` (core execs it) XOR `artifact` (the pipeline
+   produced it).
 
-The registry is a registry of **functions**, not a parameterized generic
-scanner. Discovery differs structurally between stacks; one algorithm bent to
-fit them all would be false generality, and the seam exists precisely so each
-language can be honest about its own shape.
+The contract pins the scanner's *output shape*, never its algorithm.
+Discovery differs structurally between stacks; one algorithm bent to fit them
+all would be false generality, and the seam exists precisely so each language
+can be honest about its own shape — out of process, in its own idiom.
 
 ## The acceptance test for a new language
 
