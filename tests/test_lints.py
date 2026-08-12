@@ -440,6 +440,28 @@ def test_l4_bounds_checks_the_line_anchor_it_now_always_gets():
         assert flagged and "outside" in flagged[0].message
 
 
+def test_l4_resolves_a_feats_anchor_and_not_only_an_rus():
+    """A FEAT's `source_ref` is schema-required under the identical grammar and
+    went unresolved for eleven revisions — the pattern checked the anchor's
+    SHAPE, so the link read as covered while pointing at nothing. It is
+    load-bearing because a manifest endpoint's `ru` link admits `FEAT-<slug>`:
+    an unresolved FEAT anchor lets a surface's whole chain terminate nowhere."""
+    flagged = {v.artifact: v.message for v in _run("L4", "fail")}
+
+    assert "FEAT-screening" in flagged and "does not exist" in flagged["FEAT-screening"]
+    assert "FEAT-retention" in flagged and "outside" in flagged["FEAT-retention"]
+    assert any(a.startswith("RU-") for a in flagged)   # the RU half is undisturbed
+
+
+def test_l4_attributes_a_feat_violation_to_the_feat_file():
+    """The message and suggestion were already correct for both kinds; what a
+    shared helper must not lose is WHERE to go and fix it."""
+    for violation in _run("L4", "fail"):
+        if violation.artifact.startswith("FEAT-"):
+            assert violation.path.endswith(f"{violation.artifact}.yaml"), violation.path
+            assert "spec/features/" in violation.path
+
+
 def test_the_retired_section_anchor_is_refused_by_the_grammar():
     """It parsed for as long as it existed and was never verified past the file
     existing. Retiring it is a TIGHTENING, so the refusal is the thing that
