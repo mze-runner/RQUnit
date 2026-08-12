@@ -1,6 +1,7 @@
 """The `rqunit` umbrella CLI: every lifecycle verb is mounted and delegates to
 the same implementation the spec-* aliases use."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -86,6 +87,67 @@ def test_the_schema_report_locates_the_problem_and_teaches(tmp_path, verb):
     assert "suggestion:" in result.output
     assert str(root) not in result.output, "absolute paths differ per machine"
     assert "is not valid under any of the given schemas" not in result.output
+
+
+def test_lint_reports_an_unwritable_projection_as_a_tool_error(tmp_path):
+    """`lint` owns one projection and refreshes it in place, so it is the one
+    command in the product that writes while promising to read. Unguarded that
+    ended a read-only checkout — an ordinary CI shape — with a traceback, which
+    is none of the three exits the CLI contract states."""
+    import shutil
+    from rqunit.cli.lint import main as lint_main
+
+    root = tmp_path / "store"
+    shutil.copytree(Path(__file__).parent.parent / "fixtures" / "store" / "valid", root)
+    queue = root / "spec" / "projections" / "suspect-queue.json"
+    queue.unlink(missing_ok=True)
+    queue.parent.chmod(0o500)
+    try:
+        result = CliRunner().invoke(lint_main, ["--store", str(root), "--format", "text"])
+    finally:
+        queue.parent.chmod(0o700)
+
+    assert result.exit_code == 2, result.output
+    assert "tool error" in result.output
+    assert "suspect-queue.json" in result.output
+    assert "writable" in result.output          # names what to do about it
+    assert not isinstance(result.exception, PermissionError)
+
+
+def test_lint_announces_a_projection_it_refreshed_and_stays_quiet_otherwise(tmp_path):
+    """A command that writes says so — but only when it wrote. The write is
+    conditional on the content changing, which is what keeps a lint run out of
+    `git status` and is why announcing unconditionally would be noise."""
+    import shutil
+    from rqunit.cli.lint import main as lint_main
+
+    root = tmp_path / "store"
+    shutil.copytree(Path(__file__).parent.parent / "fixtures" / "store" / "valid", root)
+    (root / "spec" / "projections" / "suspect-queue.json").unlink(missing_ok=True)
+
+    runner = CliRunner()
+    first = runner.invoke(lint_main, ["--store", str(root), "--format", "text"])
+    second = runner.invoke(lint_main, ["--store", str(root), "--format", "text"])
+
+    assert "refreshed" in first.output
+    assert "suspect-queue.json" in first.output
+    assert "refreshed" not in second.output, "an unchanged queue is written and said nothing"
+
+
+def test_the_json_report_stays_parseable_while_a_projection_is_announced(tmp_path):
+    """The announcement goes to stderr for this reason: stdout is the report, and
+    a consumer piping `--format json` into a parser must not receive prose."""
+    import shutil
+    from rqunit.cli.lint import main as lint_main
+
+    root = tmp_path / "store"
+    shutil.copytree(Path(__file__).parent.parent / "fixtures" / "store" / "valid", root)
+    (root / "spec" / "projections" / "suspect-queue.json").unlink(missing_ok=True)
+
+    result = CliRunner().invoke(lint_main, ["--store", str(root)])
+
+    json.loads(result.stdout)                    # raises if the line leaked into stdout
+    assert "refreshed" in result.stderr
 
 
 def test_a_refused_table_is_named_rather_than_echoed(tmp_path):
