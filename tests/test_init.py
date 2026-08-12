@@ -66,6 +66,38 @@ def test_deleting_the_seeded_registry_changes_no_report(tmp_path):
     assert (run_lints(Store.load(tmp_path)), run_checks(Store.load(tmp_path))) == seeded
 
 
+def test_a_scaffolded_store_says_it_holds_no_requirements(tmp_path):
+    """An empty store used to produce output byte-identical in spirit to a mature
+    healthy one, from every command in the product. Visible debt is by design and
+    status belongs in tool output — and an empty store is the largest debt there
+    is. Finding-class, so the exit code stays 0: nothing is WRONG on day one."""
+    _init(tmp_path)
+
+    for verb in ("lint", "check"):
+        result = CliRunner().invoke(rqunit, [verb, "--store", str(tmp_path), "--format", "text"])
+        assert result.exit_code == 0, result.output
+        assert "holds no requirements" in result.output, verb
+        assert "STORE/finding" in result.output, verb
+
+    doctor = CliRunner().invoke(rqunit, ["doctor", "--store", str(tmp_path)])
+    assert doctor.exit_code == 0
+    assert "holds no requirements" in doctor.output
+    assert "structurally sound" not in doctor.output
+
+
+def test_the_empty_store_finding_stops_once_a_requirement_exists():
+    """It must be resolvable, or it is the kind of note that teaches people to
+    skim the tool. Keyed on "no RUs at all" and not on any count, because a
+    threshold would pin point-in-time state."""
+    from rqunit.doctor import empty_store
+    from rqunit.violations import empty_store_findings
+
+    populated = Store.load(Path(__file__).parent.parent / "fixtures" / "store" / "valid")
+
+    assert empty_store_findings(populated) == []
+    assert empty_store(populated) == []
+
+
 def test_pack_pin_records_the_spec_version_not_the_tool_version(tmp_path):
     """The pin names the VOCABULARY a store was authored in. It recorded the
     package version until v0.14, and the two had drifted a minor apart — so a

@@ -87,6 +87,37 @@ def exit_code(report: dict, strict: bool = False) -> int:
     return 0
 
 
+def empty_store_findings(store) -> list["Violation"]:
+    """"This store holds no requirements" — said out loud, in both reports.
+
+    An empty store used to produce output byte-identical in spirit to a mature,
+    healthy one: zero errors, zero warnings, empty violation list. The framework's
+    stated position is that visible debt is by design and status belongs in tool
+    output, and an empty store is the largest debt there is — so the two commands
+    a consumer runs most often said nothing about the only thing that was true.
+
+    `finding`, so it never touches an exit code: nothing is WRONG with a store on
+    its first day. It is keyed on "no RUs at all", never on a count — a rule that
+    fired below some threshold would be a state-pinned assertion wearing a lint,
+    and ordinary growth would have to keep re-tuning it. It disappears the moment
+    the first requirement lands.
+
+    Not a numbered rule, for the reason `SCHEMA` and `CONFIG` are not: those
+    number-free labels exist for facts about the store as a whole rather than
+    about an artifact a rule can point at, and a numbered rule here would have to
+    be issued twice — once in the lint family and once in the check family — to
+    reach both reports. One fact, one label, both commands."""
+    if store.rus():
+        return []
+    return [Violation(
+        rule="STORE", severity="finding", artifact="store", path="spec/ru",
+        message="this store holds no requirements — nothing was checked.",
+        suggestion="Capture intent under spec/intent/, register the tags and actors your "
+                   "requirements will use, then compile drafts with one acceptance "
+                   "criterion each (§8.1). Until then every gate here is green because "
+                   "there is nothing to judge, which is not the same as healthy.")]
+
+
 def schema_violation(error, root) -> "Violation":
     """The one rendering of "this store will not load".
 

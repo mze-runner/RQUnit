@@ -12,7 +12,8 @@ from ..checks.base import run_checks
 from ..errors import StoreError
 from ..schemas import repo_root
 from ..store import Store
-from ..violations import build_report, exit_code, render_text, schema_violation
+from ..violations import (build_report, empty_store_findings, exit_code,
+                          render_text, schema_violation)
 
 
 @click.command()
@@ -30,6 +31,7 @@ def main(store_path: Path | None, only: str | None, fmt: str, strict: bool) -> N
     try:
         store = Store.load(root)
         violations = run_checks(store, only=only)
+        violations += empty_store_findings(store)
         checked = (len(store.rus()) + len(store.features()) + len(store.gaps())
                    + len(store.manifests()) + len(store.models()) + len(store.intents()))
     except StoreError as e:

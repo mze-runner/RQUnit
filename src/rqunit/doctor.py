@@ -166,6 +166,30 @@ def id_headroom(store: Store) -> list[Finding]:
     return out
 
 
+def empty_store(store: Store) -> list[Finding]:
+    """A store with no requirements, said out loud.
+
+    `doctor` reported "store is structurally sound" on a freshly scaffolded
+    store, which is true and useless: nothing is unsound because nothing is
+    there. This is the wiring report, and having no requirements yet is the most
+    load-bearing fact about a store on its first day.
+
+    Keyed on "no RUs at all", never on a count — a note that fired below a
+    threshold would pin point-in-time state and need re-tuning as the store
+    grows. It stops the moment the first requirement lands, so it is a note a
+    consumer can actually resolve, which is the test every doctor note has to
+    pass."""
+    if store.rus():
+        return []
+    return [Finding(
+        kind="empty-store", severity="info",
+        message="this store holds no requirements — every gate here is green "
+                "because there is nothing to judge.",
+        suggestion="Capture intent under spec/intent/, register the tags and actors your "
+                   "requirements will use, then compile one draft per acceptance criterion "
+                   "(§8.1). Structural soundness is not health while the store is empty.")]
+
+
 def orphan_artifacts(store: Store) -> list[Finding]:
     """Artifacts nothing references. Legitimate while authoring ahead of the
     RUs that will cite them — a standing entry means dead weight or a missing link."""
@@ -351,6 +375,6 @@ def role_wiring(root: Path) -> list[Finding]:
 
 
 def run(store: Store, root: Path) -> list[Finding]:
-    return (lost_rus(store, root) + id_headroom(store) + orphan_artifacts(store)
-            + dangling_reviews(store, root) + branch_staleness(root)
-            + stack_config_health(root) + role_wiring(root))
+    return (empty_store(store) + lost_rus(store, root) + id_headroom(store)
+            + orphan_artifacts(store) + dangling_reviews(store, root)
+            + branch_staleness(root) + stack_config_health(root) + role_wiring(root))

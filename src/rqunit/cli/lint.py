@@ -13,7 +13,8 @@ from ..errors import BadConfig, StoreError
 from ..lints.base import run_lints
 from ..schemas import repo_root
 from ..store import Store
-from ..violations import Violation, build_report, exit_code, render_text, schema_violation
+from ..violations import (Violation, build_report, empty_store_findings, exit_code,
+                          render_text, schema_violation)
 
 
 @click.command()
@@ -53,6 +54,7 @@ def main(store_path: Path | None, only: str | None, fmt: str, strict: bool) -> N
                            "the tool does not have.")
             for stack, key, instruction in retired_key_uses(config)
         ]
+        violations += empty_store_findings(store)
         checked = (len(store.rus()) + len(store.features()) + len(store.gaps())
                    + len(store.manifests()) + len(store.models()) + len(store.intents()))
     except BadConfig as e:
