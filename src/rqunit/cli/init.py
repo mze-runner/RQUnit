@@ -326,6 +326,13 @@ def main(store_path: Path | None, stack_override: str | None,
         click.echo(f"  agent templates: {len(emitted)} written under .claude/ "
                    "(skills, agents, hooks). The hooks are inert until a packet is armed; "
                    "wire them with .claude/settings-hook-snippet.jsonc.")
+        # Named, not counted. These land in a directory the consumer also authors
+        # in, and `.claude/` is commonly gitignored — so a count left the reader
+        # with no way to reconstruct what arrived. `--refresh-integrations`
+        # already lists what it wrote; the two halves of one command should not
+        # answer the same question differently.
+        for name in emitted:
+            click.echo(f"    {name}")
     if kept:
         click.echo(f"  agent templates: {len(kept)} already existed — left untouched. "
                    "`rqunit init --refresh-integrations` overwrites them.")

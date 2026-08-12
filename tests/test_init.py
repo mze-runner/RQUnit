@@ -66,6 +66,32 @@ def test_deleting_the_seeded_registry_changes_no_report(tmp_path):
     assert (run_lints(Store.load(tmp_path)), run_checks(Store.load(tmp_path))) == seeded
 
 
+def test_init_names_the_runtime_files_it_wrote(tmp_path):
+    """These land in a directory the consumer also authors in, and `.claude/` is
+    commonly gitignored — so a count alone left no way to reconstruct what
+    arrived. An existing file is never overwritten and the skipped set was
+    already reported; what was missing was the names on the way in."""
+    result = _init(tmp_path)
+
+    assert result.exit_code == 0
+    assert ".claude/skills/ru-authoring/SKILL.md" in result.output
+    assert ".claude/hooks/h1-scope-guard.sh" in result.output
+
+
+def test_init_never_overwrites_a_runtime_file_and_says_which_it_kept(tmp_path):
+    """The guarantee is by design, not by filename luck: a scaffold that silently
+    replaced someone's edited hook is a scaffold nobody runs twice."""
+    hook = tmp_path / ".claude" / "hooks" / "h1-scope-guard.sh"
+    hook.parent.mkdir(parents=True)
+    hook.write_text("# mine\n")
+
+    result = _init(tmp_path)
+
+    assert hook.read_text() == "# mine\n", "an existing file is never touched"
+    assert "already existed — left untouched" in result.output
+    assert "--refresh-integrations" in result.output       # names the way to overwrite
+
+
 def test_a_scaffolded_store_says_it_holds_no_requirements(tmp_path):
     """An empty store used to produce output byte-identical in spirit to a mature
     healthy one, from every command in the product. Visible debt is by design and
