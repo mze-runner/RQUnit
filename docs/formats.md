@@ -8,6 +8,17 @@ the exact bytes of anything generated. It is normative for tooling.
 
 ## 1. Identity & filename conventions
 
+**"Artifact" carries two unrelated meanings in this product, and neither is going
+to be renamed, so tell them apart by where they live.** A **store artifact** is
+one of the addressable units in the table below — an RU, an INT, a manifest — and
+`artifacts` inside a manifest is the credential-shape table (§16), which is a
+store artifact's contents. An **adapter artifact** is a FILE a probe produced,
+named by `artifact = "path"` in `rqunit.toml` and pinned by a schema under
+`interfaces/`: `actual-surface.json`, `scanned-checks.json`, `check-evidence.json`.
+The first kind is authored and reviewed; the second is generated and regenerated.
+Where a sentence could mean either, this reference says "store artifact" or names
+the file.
+
 | Artifact | Filename | Id form |
 |---|---|---|
 | RU (draft) | `spec/ru/RU-draft-<ULID>.yaml` | `RU-draft-<ULID>` (Crockford base32, 26 chars) |
@@ -374,6 +385,14 @@ beside the other format sections — renumbering would break every reference.
 
 `inbound: none` and `fields: none` declare that the direction carries nothing.
 An omitted direction declares nothing and is a C10 error.
+
+**`inbound: none` is the canonical spelling** for "accepts nothing". The schema
+also admits `inbound: { fields: none }`, which asserts the same thing and differs
+only in whether `unknown_fields` can ride along; prefer the slot-level form, so
+two consumers reading this schema write one claim one way. `outbound` has no
+slot-level `none` and that asymmetry is deliberate: outbound requires `status`,
+which a bare `none` would discard — the response of an endpoint that returns a
+body-less 204 is `{ status: 204, fields: none }`.
 
 Field keys: `name` (dotted for nesting), `presence`, `in` (inbound only,
 default `body`), `type`, `items` (mandatory when `type: array`), `nullable`,

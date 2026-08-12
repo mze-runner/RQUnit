@@ -188,6 +188,8 @@ One file per service at `spec/manifests/<service>.manifest.yaml`, validated agai
 - `messages` — async surface: `{id, subject, direction, payload, ru, audits[], external?, planned?}`. `audits` is inbound-only — on an outbound entry you are producing the message, not handling one — and it closes the largest gap in the old model, where an async consumer that mutated state had nowhere to declare what it recorded. `payload` is a **type name only**, owned by the shared wire-types crate/package — the compiler owns the shape; the manifest never duplicates it. `external: true` marks an inbound subject produced outside the spec store (§5.8).
 - `channels` — WebSocket surface: `{id, upgrade_path, access, ru, connection_close_codes[], frames[]}` with frames as `{id, direction, payload}` (type names only).
 
+**A manifest carries no reference to prose, deliberately.** There is no `story:` or `doc:` key on a surface, and none is coming: a manifest states FACTS, and a pointer to narrative would be provenance living in a facts file — drift-prone, and a second copy of a link that already exists. The chain is complete without it: endpoint → `ru` (required, bidirectional) → `source_ref` → the intent lines the requirement came from. A surface reaches its narrative transitively, which is why migrating a contract that carried such a key drops it rather than finding it a home.
+
 Every surface entry carries an `ru:` link (the governing RU or FEAT id) — the manifest-side half of bidirectional traceability (§6.6). Conflicts discovered while building a manifest are NEVER recorded as inline comments; they compile to `GAP-` items with `severity: blocking` (§8.1), holding activation of every RU referencing the disputed fact.
 
 ### 5.3 Reference syntax
@@ -264,6 +266,28 @@ The manifest is normative; code that disagrees is wrong by definition (spec stor
 - References to planned surfaces resolve normally (L15) — draft and active RUs may cite them; their verifications simply cannot pass until the surface ships.
 - Flipping `planned` off is a **mutating** manifest edit (§5.5): Gate 1, impact report. The go-live decision lands exactly where decisions land.
 - Under the clean-room criterion, planned surfaces are part of the rebuild instructions; a rebuild produces them planned.
+
+**`planned: true` or a GAP? The test is whether the FACTS are settled.** The two
+answer different questions and a migrating consumer has to place every unbuilt
+thing in one of them, so:
+
+- **`planned: true`** — the interface is DECIDED and unbuilt. Method, path, tier
+  and both censuses are known well enough to declare, and what is missing is
+  code. Declaring it is how draft RUs get something to reference, and conformance
+  treats its absence as expected rather than drift.
+- **A GAP** — the interface is UNDECIDED. Something a requirement needs is
+  genuinely unknown or disputed, so there is nothing honest to declare yet, and
+  `severity: blocking` holds activation of every RU that depends on the answer.
+
+Worked example. A store knows it must expose a key set for token verification and
+knows the route: that is `{id: jwks, method: GET, path: /.well-known/jwks.json,
+access: public, planned: true}` with a not-done `ru:` link — the facts are
+settled, the handler is not written. A store that knows rotation must happen but
+not whether the endpoint serves one key or a set, nor who triggers rotation, has
+a GAP: declaring an `inbound: none` and a guessed census would compile a
+requirement against a shape nobody agreed to. The failure mode this separates is
+the one that looks tidiest — a `planned` entry standing in for a decision nobody
+made, which reads as designed and blocks nothing.
 
 **External producers.** An inbound subject whose producer lives outside the spec store (e.g., a third-party gateway) carries `external: true`. It is exempt from C9's one-outbound-declarer rule — there is no in-store declarer to find. If an in-store outbound declarer for the subject DOES exist, the `external` marker is itself a C9 error: a wrong marker does not get to disable the check. `external` on an outbound message is a schema error (we always own what we emit). Like the model-vocabulary `internal` escape, `external` markers are reviewed at Gate 1: it is the bucket that will attract exactly the traffic it was built to exclude, and its growth is watched.
 

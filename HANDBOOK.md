@@ -231,6 +231,34 @@ replace the area's bridge-FEAT links → one Gate 1 sitting activates and flips
 the ledger row → tombstone the legacy files. The C7 orphan count is the
 progress bar.
 
+Three things about that sequence are worth knowing before you estimate it.
+
+**A surface may land before its requirement exists.** Every endpoint carries a
+required `ru:` link, which read literally forces a big-bang migration — but the
+link accepts a `FEAT-<slug>` as well as an `RU-XXXX`, and that is the intended
+adoption path: declare the feature, point the surfaces at it, compile the RUs
+afterwards, and replace the bridge links at Gate 1. A memberless FEAT satisfies
+L22 vacuously for exactly this reason (§5.8). Migrating a service is therefore
+incremental, and the estimate is a series of sittings rather than one wall.
+
+**Facts land with the first surface, not before it.** A service manifest must
+declare at least one of `endpoints`, `messages` or `channels` — it is the
+boundary artifact, and a boundary with no surface is not one. So `values` and
+`problem_types` for a service arrive in the same manifest as its first surface.
+A fact that has no surface yet and is genuinely cross-service belongs in
+`shared.manifest.yaml`, which carries facts alone and admits no surfaces at all;
+promotion-by-reuse (spec §5.5) is about when a fact MOVES there, not about
+whether it may start there while a service is being modelled.
+
+**One extracted surface per service, 1:1 with its manifest.** A stack table in
+`rqunit.toml` binds an ADAPTER, not a service and not a language: the table's
+name is the adapter's identity, which is why a manifest declaring a different
+`stack:` is refused. An extractor run reports one service, so a repository with
+four services produces four `actual-surface.json` files — one per service
+manifest — and `rqunit conformance --artifact a.json --artifact b.json …` merges
+them. In `cmd` mode core execs the role once per stack, so multi-service
+extraction is a pipeline step the consumer's build owns.
+
 **Re-adopt onto a fresh corpus** (the store was emptied and adoption restarts):
 the previous corpus's `verifies` annotations are still in your tests, naming ids
 that no longer exist. Clear them BEFORE the first activation — ids are allocated

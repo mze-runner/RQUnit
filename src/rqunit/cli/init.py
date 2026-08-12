@@ -100,6 +100,12 @@ trace_scan = ["**/Cargo.toml"]
 # Crate receiving generated constants and statechart conformance suites.
 conformance_crate = "spec-conformance-tests"
 # Manifest service slug the extractor reports on. It does not guess this.
+#
+# ONE SERVICE PER RUN, 1:1 with its manifest: a stack table binds an ADAPTER, not
+# a service and not a language, so several services means several extractor runs
+# and one actual-surface.json each — `rqunit conformance` takes `--artifact`
+# repeatedly and merges them. Producing those files is your pipeline's job, the
+# same way building the adapter is.
 service = ""
 
 # ---- adapter roles -----------------------------------------------------------
